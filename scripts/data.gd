@@ -22,3 +22,11 @@ const ENEMIES = {
 	"dasher": {"health": 25, "speed": 60.0, "scale": 0.9, "color": Color(0.1, 0.8, 0.8), "is_dasher": true, "damage": 15},
 	"boss": {"health": 5000, "speed": 60.0, "scale": 4.0, "color": Color(0.8, 0.1, 0.8), "damage": 100}
 }
+
+const UPGRADES = [
+	{"id": "max_hp", "text": "+10% Max HP"},
+	{"id": "speed", "text": "+5% Speed"},
+	{"id": "damage", "text": "+10% Damage"},
+	{"id": "pickup_range", "text": "+15% Pickup Range"},
+	{"id": "fire_rate", "text": "+10% Fire Rate"}
+]

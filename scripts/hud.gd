@@ -2,13 +2,6 @@ extends CanvasLayer
 
 signal upgrade_selected(upgrade_name: String)
 
-var upgrade_pool: Array = [
-	{"id": "max_hp", "text": "+50 Max HP"},
-	{"id": "speed", "text": "+25 Speed"},
-	{"id": "damage", "text": "+15 Damage"},
-	{"id": "pickup_range", "text": "+25 Pickup Range"},
-	{"id": "fire_rate", "text": "+10% Fire Rate"}
-]
 var current_options: Array = []
 
 func _ready() -> void:
@@ -41,21 +34,16 @@ func show_game_over() -> void:
 	%GameOverScreen.visible = true
 
 func _on_try_again_pressed() -> void:
-	# Unpause FIRST so the transition animation is allowed to play
 	get_tree().paused = false
-	print("Button was clicked!")
 	TransitionManager.change_scene("res://scenes/world.tscn")
 
 func _on_exit_pressed() -> void:
-	# Unpause FIRST so the transition animation is allowed to play
 	get_tree().paused = false
-	print("Button was clicked!")
-	# Swap this path to match exactly where your Main Menu scene is saved
 	TransitionManager.change_scene("res://scenes/gui.tscn") 
 
 func show_level_up() -> void:
 	current_options.clear()
-	var pool_copy = upgrade_pool.duplicate()
+	var pool_copy = Data.UPGRADES.duplicate()
 	pool_copy.shuffle()
 	
 	for i in range(3):
@@ -66,6 +54,17 @@ func show_level_up() -> void:
 	%Upgrade3.text = current_options[2]["text"]
 	
 	%LevelUpScreen.visible = true
+	
+func update_weapon_slots(textures: Array) -> void:
+	var slots = [%Slot1, %Slot2, %Slot3]
+	
+	for i in range(slots.size()):
+		var icon = slots[i].get_node("Icon")
+		
+		if i < textures.size():
+			icon.texture = textures[i]
+		else:
+			icon.texture = null
 
 func _on_upgrade_pressed(index: int) -> void:
 	%LevelUpScreen.visible = false
@@ -76,4 +75,4 @@ func update_time(minutes: int, seconds: int) -> void:
 	%TimeLabel.text = "%02d:%02d" % [minutes, seconds]
 
 func update_kills(kills: int) -> void:
-	%KillLabel.text = "💀: " + str(kills)
+	%KillLabel.text = "Kills: " + str(kills)

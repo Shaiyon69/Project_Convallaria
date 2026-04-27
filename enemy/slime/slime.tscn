@@ -279,4 +279,7 @@ autostart = true
 
 [node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=547683027]
 
+[node name="VisibleOnScreenEnabler2D" type="VisibleOnScreenEnabler2D" parent="." unique_id=371811517]
+rect = Rect2(-10, -12, 20, 22)
+
 [connection signal="timeout" from="PathTimer" to="." method="_on_path_timer_timeout"]

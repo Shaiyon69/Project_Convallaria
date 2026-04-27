@@ -1,6 +1,26 @@
 [gd_scene format=3 uid="uid://bm7urj6mv8o2s"]
 
 [ext_resource type="Script" uid="uid://d1f6l21e0ex1c" path="res://scripts/hud.gd" id="1_ahhtf"]
+[ext_resource type="Texture2D" uid="uid://da4uwfn16jc71" path="res://weapons/weaponslot.png" id="2_oo0fn"]
+[ext_resource type="FontFile" uid="uid://cr50vmsbetxqf" path="res://fonts/PixelifySans-VariableFont_wght.ttf" id="3_5ysmq"]
+
+[sub_resource type="FontVariation" id="FontVariation_5pdws"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_hd3ao"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_5ysmq"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_uo2fv"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_6fi6k"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_047uy"]
+base_font = ExtResource("3_5ysmq")
 
 [node name="HUD" type="CanvasLayer" unique_id=273270594]
 process_mode = 3
@@ -40,8 +60,9 @@ offset_right = 122.0
 offset_bottom = 11.5
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_fonts/font = SubResource("FontVariation_5pdws")
 theme_override_font_sizes/font_size = 64
-text = "LEVEL UP!!!"
+text = "BLOSSOM UP!"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -64,34 +85,106 @@ alignment = 1
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 50)
 layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_hd3ao")
 
 [node name="Upgrade2" type="Button" parent="LevelUpScreen/HBoxContainer" unique_id=1917876674]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 50)
 layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_hd3ao")
 
 [node name="Upgrade3" type="Button" parent="LevelUpScreen/HBoxContainer" unique_id=1905439209]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 50)
 layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_hd3ao")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1470135163]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -21.0
+offset_right = 21.0
+offset_bottom = 40.0
+grow_horizontal = 2
+
+[node name="TimeLabel" type="Label" parent="HBoxContainer" unique_id=583385076]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_5ysmq")
+text = "00:00"
+
+[node name="WeaponSlots" type="HBoxContainer" parent="." unique_id=792417207]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -1269.0
+offset_top = 9.0
+offset_right = -1069.0
+offset_bottom = 73.0
+grow_horizontal = 0
+
+[node name="Slot1" type="TextureRect" parent="WeaponSlots" unique_id=988337026]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="WeaponSlots/Slot1" unique_id=607021210]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 59.31639
+offset_bottom = 59.316387
+scale = Vector2(0.9753098, 0.9753098)
+expand_mode = 1
+
+[node name="Slot2" type="TextureRect" parent="WeaponSlots" unique_id=62602873]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="WeaponSlots/Slot2" unique_id=491211465]
+layout_mode = 0
+offset_left = 6.0000024
+offset_top = 6.000001
+offset_right = 38.75056
+offset_bottom = 38.750557
+scale = Vector2(1.5877593, 1.5877593)
+expand_mode = 1
+
+[node name="Slot3" type="TextureRect" parent="WeaponSlots" unique_id=1835694436]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="WeaponSlots/Slot3" unique_id=1448096445]
+layout_mode = 0
+offset_left = 6.0000057
+offset_top = 6.0
+offset_right = 38.67679
+offset_bottom = 38.676777
+scale = Vector2(1.5913442, 1.5913442)
+expand_mode = 1
 
 [node name="HealthBar" type="ProgressBar" parent="." unique_id=475658255]
 unique_name_in_owner = true
 modulate = Color(0.99999994, 0.22953579, 0.17418489, 1)
 self_modulate = Color(1, 0.32410008, 0.25894472, 1)
-offset_left = 8.0
-offset_top = 2.0
-offset_right = 261.7771
-offset_bottom = 14.0
+offset_left = 11.0
+offset_top = 77.0
+offset_right = 115.15434
+offset_bottom = 89.0
 scale = Vector2(1.8914237, 1.8914237)
 show_percentage = false
-
-[node name="HealthLabel" type="Label" parent="." unique_id=1734609799]
-unique_name_in_owner = true
-offset_left = 9.0
-offset_right = 488.0
-offset_bottom = 23.0
-horizontal_alignment = 1
 
 [node name="ExpBar" type="ProgressBar" parent="." unique_id=866767853]
 unique_name_in_owner = true
@@ -110,6 +203,16 @@ grow_vertical = 0
 scale = Vector2(3.6097202, 3.6097202)
 show_percentage = false
 
+[node name="HealthLabel" type="Label" parent="." unique_id=1734609799]
+unique_name_in_owner = true
+offset_left = 12.0
+offset_top = 77.0
+offset_right = 208.0
+offset_bottom = 100.0
+theme_override_fonts/font = SubResource("FontVariation_uo2fv")
+text = "0/0"
+horizontal_alignment = 1
+
 [node name="ExpLabel" type="Label" parent="." unique_id=1384305215]
 unique_name_in_owner = true
 anchors_preset = 7
@@ -123,15 +226,21 @@ offset_right = 104.49536
 offset_bottom = -2.0
 grow_horizontal = 2
 grow_vertical = 0
+theme_override_fonts/font = SubResource("FontVariation_6fi6k")
 text = "0/0"
 horizontal_alignment = 1
 
 [node name="KillLabel" type="Label" parent="." unique_id=1244180256]
 unique_name_in_owner = true
-offset_left = 613.0
-offset_top = 60.0
-offset_right = 663.0
-offset_bottom = 83.0
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -25.0
+offset_top = 55.0
+offset_right = 25.0
+offset_bottom = 78.0
+grow_horizontal = 2
+theme_override_fonts/font = SubResource("FontVariation_6fi6k")
 text = "Kills: 0"
 
 [node name="LevelLabel" type="Label" parent="." unique_id=1804422163]
@@ -140,25 +249,12 @@ anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -24.0
-offset_top = 33.0
+offset_top = 31.0
 offset_right = 24.0
-offset_bottom = 56.0
+offset_bottom = 54.0
 grow_horizontal = 2
+theme_override_fonts/font = SubResource("FontVariation_047uy")
 text = "Level"
-
-[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1470135163]
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -21.0
-offset_right = 21.0
-offset_bottom = 40.0
-grow_horizontal = 2
-
-[node name="TimeLabel" type="Label" parent="HBoxContainer" unique_id=583385076]
-unique_name_in_owner = true
-layout_mode = 2
-text = "00:00"
 
 [node name="GameOverScreen" type="ColorRect" parent="." unique_id=1544222425]
 unique_name_in_owner = true

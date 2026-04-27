@@ -11,7 +11,7 @@ var current_exp: int = 0
 var exp_to_next_level: int = 5
 
 var current_health: float
-var bonus_damage: int = 0
+var damage_multiplier: float = 1.0
 var time_survived: float = 0.0
 var kill_count: int = 0
 var fire_rate_multiplier: float = 1.0
@@ -26,6 +26,8 @@ func _ready() -> void:
 	
 	hud.upgrade_selected.connect(_apply_upgrade)
 	%MagnetZone.area_entered.connect(_on_magnet_zone_area_entered)
+	$WeaponManager.weapons_updated.connect(hud.update_weapon_slots)
+	$WeaponManager.add_weapon("res://weapons/poison.tscn")
 
 func _on_magnet_zone_area_entered(area: Area2D) -> void:
 	if area.has_method("pull_to_player"):
@@ -35,8 +37,6 @@ func _physics_process(delta: float) -> void:
 	_timer_calc(delta)
 	_movement_handle()
 	_handle_damage(delta)
-
-# ------------------------------------------------------ #
 
 func _movement_handle():
 	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -49,7 +49,6 @@ func _timer_calc(delta: float):
 	var minutes = int(time_survived) / 60
 	var seconds = int(time_survived) % 60
 	hud.update_time(minutes, seconds)
-
 
 func add_kill() -> void:
 	kill_count += 1
@@ -76,8 +75,7 @@ func _update_animations(dir: Vector2) -> void:
 			%AnimatedSprite2D.play("down" if dir.y > 0 else "up")
 	else:
 		%AnimatedSprite2D.stop()
-var active_weapons: Array[String] = []
-const MAX_WEAPON_SLOTS: int = 6
+
 func _handle_damage(_delta: float) -> void:
 	if is_invincible:
 		return
@@ -110,7 +108,7 @@ func gain_experience(amount: int) -> void:
 func level_up() -> void:
 	current_exp -= exp_to_next_level
 	level += 1
-	exp_to_next_level = int(5 * (level ** 1.5)) # Experimental polynomial level rq scaling
+	exp_to_next_level = int(5 * (level ** 1.5))
 	
 	current_health = max_health
 	
@@ -123,17 +121,18 @@ func level_up() -> void:
 
 func _apply_upgrade(upgrade_name: String) -> void:
 	if upgrade_name == "max_hp":
-		max_health += 50.0
-		current_health += 50.0
+		var hp_increase = max_health * 0.10
+		max_health += hp_increase
+		current_health += hp_increase
 	elif upgrade_name == "speed":
-		speed += 25.0
+		speed += speed * 0.05
 	elif upgrade_name == "damage":
-		bonus_damage += 15
+		damage_multiplier += 0.10
 	elif upgrade_name == "pickup_range":
 		var shape = %MagnetZone.get_node("CollisionShape2D").shape as CircleShape2D
-		shape.radius += 25.0
+		shape.radius += shape.radius * 0.15
 	elif upgrade_name == "fire_rate":
-		fire_rate_multiplier += 0.1
+		fire_rate_multiplier += 0.10
 	else:
 		_acquire_weapon(upgrade_name)
 		
@@ -142,7 +141,4 @@ func _apply_upgrade(upgrade_name: String) -> void:
 func _acquire_weapon(weapon_id: String) -> void:
 	if Data.WEAPONS.has(weapon_id):
 		var weapon_data = Data.WEAPONS[weapon_id]
-		var weapon_scene = load(weapon_data["scene_path"])
-		var new_weapon = weapon_scene.instantiate()
-		
-		add_child(new_weapon)
+		$WeaponManager.add_weapon(weapon_data["scene_path"])
