@@ -1,6 +1,6 @@
 extends Node2D
 
-@export var slime_scene: PackedScene = preload("res://scenes/slime.tscn")
+@export var slime_scene: PackedScene = preload("res://enemy/slime/slime.tscn")
 @export var spawn_radius: float = 800.0
 
 @onready var grass_layer: TileMapLayer = $"../Map/GrassLayer"

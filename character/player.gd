@@ -76,7 +76,8 @@ func _update_animations(dir: Vector2) -> void:
 			%AnimatedSprite2D.play("down" if dir.y > 0 else "up")
 	else:
 		%AnimatedSprite2D.stop()
-
+var active_weapons: Array[String] = []
+const MAX_WEAPON_SLOTS: int = 6
 func _handle_damage(_delta: float) -> void:
 	if is_invincible:
 		return

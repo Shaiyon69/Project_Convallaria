@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://d4e1brvpuemsy"]
 
-[ext_resource type="Script" uid="uid://cnp7pq7nvcdjv" path="res://scripts/player.gd" id="1_g2els"]
+[ext_resource type="Script" uid="uid://cnp7pq7nvcdjv" path="res://character/player.gd" id="1_g2els"]
 [ext_resource type="Texture2D" uid="uid://c3y2s3g2lch8a" path="res://character/shy.png" id="2_g2els"]
-[ext_resource type="PackedScene" uid="uid://dhv2oiplvi8br" path="res://scenes/poison.tscn" id="3_qhqgy"]
+[ext_resource type="PackedScene" uid="uid://dhv2oiplvi8br" path="res://weapons/poison.tscn" id="3_qhqgy"]
 [ext_resource type="PackedScene" uid="uid://bm7urj6mv8o2s" path="res://scenes/hud.tscn" id="4_dqkch"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_qhqgy"]

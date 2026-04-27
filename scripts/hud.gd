@@ -41,11 +41,17 @@ func show_game_over() -> void:
 	%GameOverScreen.visible = true
 
 func _on_try_again_pressed() -> void:
+	# Unpause FIRST so the transition animation is allowed to play
 	get_tree().paused = false
-	get_tree().reload_current_scene()
+	print("Button was clicked!")
+	TransitionManager.change_scene("res://scenes/world.tscn")
 
 func _on_exit_pressed() -> void:
-	get_tree().quit()
+	# Unpause FIRST so the transition animation is allowed to play
+	get_tree().paused = false
+	print("Button was clicked!")
+	# Swap this path to match exactly where your Main Menu scene is saved
+	TransitionManager.change_scene("res://scenes/gui.tscn") 
 
 func show_level_up() -> void:
 	current_options.clear()

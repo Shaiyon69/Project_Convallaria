@@ -1,7 +1,7 @@
 extends CharacterBody2D
 
-@export var seed_scene: PackedScene = preload("res://scenes/exp_seed.tscn")
-@export var damage_scene: PackedScene = preload("res://scenes/damage_number.tscn")
+@export var seed_scene: PackedScene = preload("res://exp/exp_seed.tscn")
+@export var damage_scene: PackedScene = preload("res://enemy/damage_number.tscn")
 
 var speed: float
 var health: int

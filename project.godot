@@ -11,13 +11,14 @@ config_version=5
 [application]
 
 config/name="Convallaria"
-run/main_scene="uid://fxcfocx3fc5l"
+run/main_scene="uid://do6fo0aui4oto"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="uid://by4qawkk7cnq4"
 
 [autoload]
 
 Data="*uid://0jwrdycl1kfp"
+TransitionManager="*uid://bxkpovmhlpora"
 
 [display]
 

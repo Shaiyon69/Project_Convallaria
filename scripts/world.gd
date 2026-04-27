@@ -1,6 +1,6 @@
 extends Node2D
 
-@export var slime_scene: PackedScene = preload("res://scenes/slime.tscn")
+@export var slime_scene: PackedScene = preload("res://enemy/slime/slime.tscn")
 @onready var player = $Player 
 
 func _on_spawn_timer_timeout() -> void:

@@ -1,18 +1,18 @@
 [gd_scene format=3 uid="uid://fxcfocx3fc5l"]
 
 [ext_resource type="Script" uid="uid://cm8wbuiepv1so" path="res://scripts/world.gd" id="1_4wyf3"]
-[ext_resource type="PackedScene" uid="uid://d4e1brvpuemsy" path="res://scenes/player.tscn" id="1_nnsk1"]
-[ext_resource type="PackedScene" uid="uid://b1m3mo8mcnu84" path="res://scenes/enemy_spawner.tscn" id="3_4wyf3"]
+[ext_resource type="PackedScene" uid="uid://d4e1brvpuemsy" path="res://character/player.tscn" id="1_nnsk1"]
+[ext_resource type="PackedScene" uid="uid://b1m3mo8mcnu84" path="res://enemy/enemy_spawner.tscn" id="3_4wyf3"]
 [ext_resource type="PackedScene" uid="uid://bhkbhjldh33ii" path="res://scenes/map.tscn" id="4_k0juu"]
 
 [node name="World" type="Node2D" unique_id=1868345238]
 y_sort_enabled = true
 script = ExtResource("1_4wyf3")
 
-[node name="Player" parent="." unique_id=993828270 instance=ExtResource("1_nnsk1")]
-position = Vector2(560, 456)
-
 [node name="EnemySpawner" parent="." unique_id=646256932 instance=ExtResource("3_4wyf3")]
 
 [node name="Map" parent="." unique_id=971720462 instance=ExtResource("4_k0juu")]
 z_index = -2
+
+[node name="Player" parent="." unique_id=993828270 instance=ExtResource("1_nnsk1")]
+position = Vector2(560, 456)

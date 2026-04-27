@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bjaqyncxsvvyd"]
 
-[ext_resource type="Script" uid="uid://j75fseo0ls8n" path="res://scripts/damage_number.gd" id="1_aie4f"]
+[ext_resource type="Script" uid="uid://j75fseo0ls8n" path="res://enemy/damage_number.gd" id="1_aie4f"]
 
 [node name="DamageNumber" type="Marker2D" unique_id=1297124889]
 script = ExtResource("1_aie4f")

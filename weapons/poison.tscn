@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dhv2oiplvi8br"]
 
-[ext_resource type="Script" uid="uid://cjtkbwegwjl2q" path="res://scripts/poison.gd" id="1_6823q"]
+[ext_resource type="Script" uid="uid://cjtkbwegwjl2q" path="res://weapons/poison.gd" id="1_6823q"]
 [ext_resource type="Texture2D" uid="uid://d371yhbtdywu8" path="res://weapons/poison.png" id="2_1tvu1"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_1tvu1"]
