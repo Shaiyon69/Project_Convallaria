@@ -1,7 +1,7 @@
 extends Area2D
 
-@export var damage: int = 15
-@export var base_wait_time: float = 2.0
+@export var damage: int = 2
+@export var base_wait_time: float = 0.2
 
 @onready var attack_timer = $AttackTimer
 

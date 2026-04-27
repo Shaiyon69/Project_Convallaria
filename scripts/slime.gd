@@ -65,12 +65,12 @@ func _physics_process(_delta: float) -> void:
 				push_vector += area.global_position.direction_to(global_position)
 				
 		if is_hurt:
-			velocity = Vector2.ZERO
+			velocity = velocity * 0.95
 		elif is_dashing:
 			velocity = dash_direction * (speed * 5.0)
 		else:
 			var next_path_pos = nav_agent.get_next_path_position()
-			var direction = global_position.direction_to(next_path_pos)
+			var direction = global_position.direction_to(next_path_pos).normalized()
 			velocity = (direction * speed) + (push_vector * 20.0)
 		
 		move_and_slide()

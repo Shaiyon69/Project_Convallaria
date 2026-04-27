@@ -4,10 +4,12 @@ extends CharacterBody2D
 @export var max_health: float = 100.0
 
 var is_invincible: bool = false
-var i_frame_duration: float = 0.5
+var i_frame_duration: float = 0.2
+
 var level: int = 1
 var current_exp: int = 0
 var exp_to_next_level: int = 5
+
 var current_health: float
 var bonus_damage: int = 0
 var time_survived: float = 0.0
@@ -30,18 +32,24 @@ func _on_magnet_zone_area_entered(area: Area2D) -> void:
 		area.pull_to_player(self)
 
 func _physics_process(delta: float) -> void:
-	# Timer calculation
+	_timer_calc(delta)
+	_movement_handle()
+	_handle_damage(delta)
+
+# ------------------------------------------------------ #
+
+func _movement_handle():
+	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	velocity = direction * speed
+	_update_animations(direction)
+	move_and_slide()
+	
+func _timer_calc(delta: float):
 	time_survived += delta
 	var minutes = int(time_survived) / 60
 	var seconds = int(time_survived) % 60
 	hud.update_time(minutes, seconds)
 
-	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	velocity = direction * speed
-	move_and_slide()
-	
-	_update_animations(direction)
-	_handle_damage(delta)
 
 func add_kill() -> void:
 	kill_count += 1
@@ -101,7 +109,7 @@ func gain_experience(amount: int) -> void:
 func level_up() -> void:
 	current_exp -= exp_to_next_level
 	level += 1
-	exp_to_next_level = int(exp_to_next_level * 1.5)
+	exp_to_next_level = int(5 * (level ** 1.5)) # Experimental polynomial level rq scaling
 	
 	current_health = max_health
 	
