@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://c3y2s3g2lch8a" path="res://character/shy.png" id="2_g2els"]
 [ext_resource type="Script" uid="uid://cb84ocnes3uor" path="res://scripts/weapon_manager.gd" id="3_hhoun"]
 [ext_resource type="PackedScene" uid="uid://bm7urj6mv8o2s" path="res://scenes/hud.tscn" id="4_dqkch"]
+[ext_resource type="AudioStream" uid="uid://cyakye56pwjpd" path="res://audio/step.mp3" id="5_bdyh8"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_qhqgy"]
 atlas = ExtResource("2_g2els")
@@ -158,6 +159,7 @@ radius = 9.0
 
 [node name="Player" type="CharacterBody2D" unique_id=993828270 groups=["player"]]
 light_mask = 5
+collision_mask = 4
 motion_mode = 1
 script = ExtResource("1_g2els")
 
@@ -192,7 +194,8 @@ shape = SubResource("CapsuleShape2D_g2els")
 
 [node name="MagnetZone" type="Area2D" parent="." unique_id=391827114]
 unique_name_in_owner = true
-collision_mask = 4
+collision_layer = 0
+collision_mask = 8
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="MagnetZone" unique_id=1473889355]
 shape = SubResource("CircleShape2D_dqkch")
@@ -201,5 +204,9 @@ shape = SubResource("CircleShape2D_dqkch")
 script = ExtResource("3_hhoun")
 
 [node name="HUD" parent="." unique_id=273270594 instance=ExtResource("4_dqkch")]
+
+[node name="StepSound" type="AudioStreamPlayer2D" parent="." unique_id=468459847]
+stream = ExtResource("5_bdyh8")
+volume_db = -5.0
 
 [connection signal="body_entered" from="MagnetZone" to="." method="_on_magnet_zone_area_entered"]

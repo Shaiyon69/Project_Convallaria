@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c2ge1ejg4cvv0" path="res://enemy/slime/slime.gd" id="1_mweif"]
 [ext_resource type="Texture2D" uid="uid://brm1064igsp8u" path="res://enemy/slime/blob.png" id="2_4luf4"]
+[ext_resource type="AudioStream" uid="uid://cai0dlcyygiq3" path="res://audio/slime.ogg" id="3_lkvfe"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_fur4c"]
 atlas = ExtResource("2_4luf4")
@@ -242,6 +243,7 @@ radius = 4.0
 
 [node name="Slime" type="CharacterBody2D" unique_id=1571563526]
 collision_layer = 2
+collision_mask = 4
 motion_mode = 1
 script = ExtResource("1_mweif")
 
@@ -281,5 +283,17 @@ autostart = true
 
 [node name="VisibleOnScreenEnabler2D" type="VisibleOnScreenEnabler2D" parent="." unique_id=371811517]
 rect = Rect2(-10, -12, 20, 22)
+
+[node name="MoveSound" type="AudioStreamPlayer2D" parent="." unique_id=2013650123]
+stream = ExtResource("3_lkvfe")
+volume_db = -15.0
+
+[node name="HurtSound" type="AudioStreamPlayer2D" parent="." unique_id=801325177]
+stream = ExtResource("3_lkvfe")
+volume_db = -5.0
+
+[node name="DeathSound" type="AudioStreamPlayer2D" parent="." unique_id=1110247158]
+stream = ExtResource("3_lkvfe")
+pitch_scale = 1.5
 
 [connection signal="timeout" from="PathTimer" to="." method="_on_path_timer_timeout"]

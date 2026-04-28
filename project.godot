@@ -19,6 +19,7 @@ config/icon="uid://by4qawkk7cnq4"
 
 Data="*uid://0jwrdycl1kfp"
 TransitionManager="*uid://bxkpovmhlpora"
+AudioManager="*uid://b7i5awnt21xb6"
 
 [display]
 
@@ -47,6 +48,12 @@ move_right={
 "events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":68,"key_label":0,"unicode":100,"location":0,"echo":false,"script":null)
 ]
 }
+
+[layer_names]
+
+2d_render/layer_1="Player"
+2d_render/layer_2="Enemy"
+2d_render/layer_3="Environment"
 
 [physics]
 

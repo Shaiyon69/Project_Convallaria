@@ -2,7 +2,9 @@ extends Control
 
 func _ready() -> void:
 	get_tree().paused = false
-
+	var menu_music = load(Data.MUSIC["menu"])
+	AudioManager.play_music(menu_music)
+	
 func _on_start_button_pressed() -> void:
 	TransitionManager.change_scene("res://scenes/world.tscn")
 

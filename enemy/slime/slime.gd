@@ -23,6 +23,10 @@ var is_dying: bool = false
 @onready var nav_agent = $NavigationAgent2D
 @onready var path_timer = $PathTimer
 
+@onready var move_sound = $MoveSound
+@onready var hurt_sound = $HurtSound
+@onready var death_sound = $DeathSound
+
 func _ready() -> void:
 	add_to_group("enemy")
 	player = get_tree().get_first_node_in_group("player")
@@ -49,6 +53,7 @@ func _on_path_timer_timeout() -> void:
 
 func _physics_process(_delta: float) -> void:
 	if is_dying:
+		move_sound.stop()
 		return
 
 	if player:
@@ -73,6 +78,12 @@ func _physics_process(_delta: float) -> void:
 			var direction = global_position.direction_to(next_path_pos).normalized()
 			velocity = (direction * speed) + (push_vector * 20.0)
 		
+		if velocity.length() > 0 and not is_hurt:
+			if not move_sound.playing:
+				move_sound.play()
+		else:
+			move_sound.stop()
+			
 		move_and_slide()
 		_update_animations()
 
@@ -112,6 +123,7 @@ func _play_hurt() -> void:
 		return
 		
 	is_hurt = true
+	hurt_sound.play()
 	$AnimatedSprite2D.play("hurt_" + facing)
 	await $AnimatedSprite2D.animation_finished
 	is_hurt = false
@@ -119,6 +131,8 @@ func _play_hurt() -> void:
 func _die() -> void:
 	is_dying = true
 	health_bar.hide()
+	move_sound.stop()
+	death_sound.play()
 	$AnimatedSprite2D.play("death")
 	
 	await $AnimatedSprite2D.animation_finished

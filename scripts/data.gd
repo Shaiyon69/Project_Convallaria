@@ -1,15 +1,21 @@
 extends Node
 
+const MUSIC = {
+	"menu": "res://audio/music.mp3",
+	"battle": "res://audio/battle.mp3",
+	"boss": "res://audio/music/boss_theme.ogg"
+}
+
 const WEAPONS = {
 	"poison_aura": {
 		"display_name": "Poison Aura",
 		"base_damage": 15,
-		"scene_path": "res://scenes/poison.tscn"
+		"scene_path": "res://weapons/poison/poison.tscn"
 	},
 	"vine_whip": {
 		"display_name": "Vine Whip",
 		"base_damage": 20,
-		"scene_path": "res://scenes/vine_whip.tscn"
+		"scene_path": "res://weapons/vine/vine_whip.tscn"
 	}
 }
 
@@ -28,5 +34,9 @@ const UPGRADES = [
 	{"id": "speed", "text": "+5% Speed"},
 	{"id": "damage", "text": "+10% Damage"},
 	{"id": "pickup_range", "text": "+15% Pickup Range"},
-	{"id": "fire_rate", "text": "+10% Fire Rate"}
+	{"id": "fire_rate", "text": "+10% Fire Rate"},
+	{"id": "aoe_size", "text": "+15% Weapon Area"},
+	{"id": "multi_attack", "text": "Additional Attack Strike"},
+	{"id": "fire_imbue", "text": "Add Fire Damage (Burn)"},
+	{"id": "frost_imbue", "text": "Add Frost Damage (Slow)"}
 ]
