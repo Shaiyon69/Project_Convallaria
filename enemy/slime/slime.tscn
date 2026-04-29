@@ -274,6 +274,7 @@ rounded = true
 show_percentage = false
 
 [node name="DashTimer" type="Timer" parent="." unique_id=431899327]
+autostart = true
 
 [node name="PathTimer" type="Timer" parent="." unique_id=1020455632]
 wait_time = 0.2

@@ -8,13 +8,24 @@ var i_frame_duration: float = 0.2
 
 var level: int = 1
 var current_exp: int = 0
-var exp_to_next_level: int = 5
+var exp_to_next_level: int = 50 
 
 var current_health: float
 var damage_multiplier: float = 1.0
 var time_survived: float = 0.0
 var kill_count: int = 0
 var fire_rate_multiplier: float = 1.0
+
+var bonus_attacks: int = 0
+var aoe_multiplier: float = 1.0
+var imbue_fire: bool = false
+var imbue_frost: bool = false
+
+var hp_regen_rate: float = 0.0
+var regen_accumulator: float = 0.0
+var thorns_multiplier: float = 0.0
+var evasion_chance: float = 0.0
+var exp_multiplier: float = 1.0
 
 @onready var hud = $HUD
 @onready var step_sound = $StepSound
@@ -39,6 +50,7 @@ func _physics_process(delta: float) -> void:
 	_timer_calc(delta)
 	_movement_handle()
 	_handle_damage(delta)
+	_handle_regeneration(delta)
 
 func _movement_handle():
 	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -58,6 +70,15 @@ func _timer_calc(delta: float):
 	var minutes = int(time_survived) / 60
 	var seconds = int(time_survived) % 60
 	hud.update_time(minutes, seconds)
+
+func _handle_regeneration(delta: float) -> void:
+	if hp_regen_rate > 0.0 and current_health < max_health:
+		regen_accumulator += hp_regen_rate * delta
+		if regen_accumulator >= 1.0:
+			var heal_amount = floor(regen_accumulator)
+			current_health = min(current_health + heal_amount, max_health)
+			regen_accumulator -= heal_amount
+			hud.update_health(current_health, max_health)
 
 func add_kill() -> void:
 	kill_count += 1
@@ -93,6 +114,9 @@ func _handle_damage(_delta: float) -> void:
 	
 	for body in overlapping_mobs:
 		if body.is_in_group("enemy"):
+			if randf() < evasion_chance:
+				return
+				
 			var damage_taken = 10
 			
 			if "attack_damage" in body:
@@ -100,6 +124,9 @@ func _handle_damage(_delta: float) -> void:
 				
 			current_health -= damage_taken
 			hud.update_health(current_health, max_health)
+			
+			if thorns_multiplier > 0.0 and body.has_method("take_damage"):
+				body.take_damage(int(damage_taken * thorns_multiplier))
 			
 			if current_health <= 0.0:
 				get_tree().paused = true
@@ -109,7 +136,7 @@ func _handle_damage(_delta: float) -> void:
 			return
 
 func gain_experience(amount: int) -> void:
-	current_exp += amount
+	current_exp += round(amount * exp_multiplier)
 	if current_exp >= exp_to_next_level:
 		level_up()
 	hud.update_exp(current_exp, exp_to_next_level)
@@ -117,8 +144,10 @@ func gain_experience(amount: int) -> void:
 func level_up() -> void:
 	current_exp -= exp_to_next_level
 	level += 1
-	exp_to_next_level = int(5 * (level ** 1.5))
+	exp_to_next_level = int(50 * (level ** 1.5))
 	
+	max_health += 5.0
+	damage_multiplier += 0.05
 	current_health = max_health
 	
 	hud.update_health(current_health, max_health)
@@ -138,10 +167,27 @@ func _apply_upgrade(upgrade_name: String) -> void:
 	elif upgrade_name == "damage":
 		damage_multiplier += 0.10
 	elif upgrade_name == "pickup_range":
-		var shape = %MagnetZone.get_node("CollisionShape2D").shape as CircleShape2D
-		shape.radius += shape.radius * 0.15
+		%MagnetZone.scale *= Vector2(1.15, 1.15)
 	elif upgrade_name == "fire_rate":
-		fire_rate_multiplier += 0.10
+		fire_rate_multiplier -= 0.10
+		if fire_rate_multiplier < 0.2:
+			fire_rate_multiplier = 0.2
+	elif upgrade_name == "aoe_size":
+		aoe_multiplier += 0.15
+	elif upgrade_name == "multi_attack":
+		bonus_attacks += 1
+	elif upgrade_name == "fire_imbue":
+		imbue_fire = true
+	elif upgrade_name == "frost_imbue":
+		imbue_frost = true
+	elif upgrade_name == "regeneration":
+		hp_regen_rate += 1.0
+	elif upgrade_name == "thorns":
+		thorns_multiplier += 0.50
+	elif upgrade_name == "evasion":
+		evasion_chance += 0.10
+	elif upgrade_name == "exp_boost":
+		exp_multiplier += 0.25
 	else:
 		_acquire_weapon(upgrade_name)
 		

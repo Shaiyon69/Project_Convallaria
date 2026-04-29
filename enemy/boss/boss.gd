@@ -6,9 +6,8 @@ extends CharacterBody2D
 var speed: float
 var health: int
 var attack_damage: int
-var exp_value: int = 10
 var player: Node2D
-var despawn_distance: float = 1500.0
+var despawn_distance: float = 3000.0
 
 var is_dasher: bool = false
 var is_dashing: bool = false
@@ -19,7 +18,7 @@ var is_hurt: bool = false
 var is_dying: bool = false
 
 @onready var soft_collision = $SoftCollision
-@onready var health_bar = %HealthBar
+@onready var health_bar = $BossUI/BossHealthBar
 @onready var dash_timer = $DashTimer
 @onready var nav_agent = $NavigationAgent2D
 @onready var path_timer = $PathTimer
@@ -28,21 +27,32 @@ var is_dying: bool = false
 @onready var hurt_sound = $HurtSound
 @onready var death_sound = $DeathSound
 
+@onready var sprite_container = $Sprites
+var active_sprite: AnimatedSprite2D
+
 func _ready() -> void:
 	add_to_group("enemy")
 	player = get_tree().get_first_node_in_group("player")
 	if player:
 		nav_agent.target_position = player.global_position
+		
+	_randomize_sprite()
+
+func _randomize_sprite() -> void:
+	var all_sprites = sprite_container.get_children()
+	for sprite in all_sprites:
+		sprite.hide()
+		
+	var random_index = randi() % all_sprites.size()
+	active_sprite = all_sprites[random_index]
+	active_sprite.show()
 
 func apply_stats(stats: Dictionary) -> void:
 	health = stats["health"]
 	speed = stats["speed"]
 	attack_damage = stats["damage"]
 	scale = Vector2(stats["scale"], stats["scale"])
-	$AnimatedSprite2D.modulate = stats["color"]
-	
-	if stats.has("exp"):
-		exp_value = stats["exp"]
+	active_sprite.modulate = stats["color"]
 	
 	health_bar.max_value = health
 	health_bar.value = health
@@ -61,12 +71,6 @@ func _physics_process(_delta: float) -> void:
 		return
 
 	if player:
-		var distance = global_position.distance_to(player.global_position)
-		
-		if distance > despawn_distance:
-			queue_free()
-			return
-			
 		var push_vector = Vector2.ZERO
 		if soft_collision.has_overlapping_areas():
 			var areas = soft_collision.get_overlapping_areas()
@@ -81,7 +85,7 @@ func _physics_process(_delta: float) -> void:
 			var next_path_pos = nav_agent.get_next_path_position()
 			var direction = global_position.direction_to(next_path_pos).normalized()
 			velocity = (direction * speed) + (push_vector * 20.0)
-			
+		
 		if velocity.length() > 0 and not is_hurt:
 			if not move_sound.playing:
 				move_sound.play()
@@ -101,9 +105,9 @@ func _update_animations() -> void:
 		else:
 			facing = "down" if velocity.y > 0 else "up"
 			
-		$AnimatedSprite2D.play(facing)
+		active_sprite.play(facing)
 	else:
-		$AnimatedSprite2D.stop()
+		active_sprite.stop()
 
 func take_damage(amount: int) -> void:
 	if is_dying:
@@ -128,8 +132,8 @@ func _play_hurt() -> void:
 		
 	is_hurt = true
 	hurt_sound.play()
-	$AnimatedSprite2D.play("hurt_" + facing)
-	await $AnimatedSprite2D.animation_finished
+	active_sprite.play("hurt_" + facing)
+	await active_sprite.animation_finished
 	is_hurt = false
 
 func _die() -> void:
@@ -137,18 +141,19 @@ func _die() -> void:
 	health_bar.hide()
 	move_sound.stop()
 	death_sound.play()
-	$AnimatedSprite2D.play("death")
+	active_sprite.play("death")
 	
-	await $AnimatedSprite2D.animation_finished
+	await active_sprite.animation_finished
 	
 	if player and player.has_method("add_kill"):
 		player.add_kill()
 		
-	var new_seed = seed_scene.instantiate()
-	new_seed.global_position = global_position
-	new_seed.exp_amount = exp_value 
-	get_parent().call_deferred("add_child", new_seed)
-	
+	var seed_drop_count = 15
+	for i in range(seed_drop_count):
+		var new_seed = seed_scene.instantiate()
+		new_seed.global_position = global_position + Vector2(randf_range(-60, 60), randf_range(-60, 60))
+		get_parent().call_deferred("add_child", new_seed)
+		
 	queue_free()
 
 func _on_dash_timer_timeout() -> void:
