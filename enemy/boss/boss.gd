@@ -3,8 +3,11 @@ extends CharacterBody2D
 @export var seed_scene: PackedScene = preload("res://exp/exp_seed.tscn")
 @export var damage_scene: PackedScene = preload("res://enemy/damage_number.tscn")
 
+var boss_sfx = preload("res://audio/slime.ogg")
+
 var speed: float
 var health: int
+var max_health: int
 var attack_damage: int
 var player: Node2D
 var despawn_distance: float = 3000.0
@@ -12,6 +15,11 @@ var despawn_distance: float = 3000.0
 var is_dasher: bool = false
 var is_dashing: bool = false
 var dash_direction: Vector2 = Vector2.ZERO
+
+var base_color: Color = Color.WHITE
+var original_speed: float
+var is_burning: bool = false
+var is_slowed: bool = false
 
 var facing: String = "down"
 var is_hurt: bool = false
@@ -22,11 +30,6 @@ var is_dying: bool = false
 @onready var dash_timer = $DashTimer
 @onready var nav_agent = $NavigationAgent2D
 @onready var path_timer = $PathTimer
-
-@onready var move_sound = $MoveSound
-@onready var hurt_sound = $HurtSound
-@onready var death_sound = $DeathSound
-
 @onready var sprite_container = $Sprites
 var active_sprite: AnimatedSprite2D
 
@@ -37,6 +40,10 @@ func _ready() -> void:
 		nav_agent.target_position = player.global_position
 		
 	_randomize_sprite()
+	
+	var boss_track = load("res://audio/bob.mp3")
+	AudioManager.play_music(boss_track, -10.0)
+	AudioManager.set_music_speed(1.0)
 
 func _randomize_sprite() -> void:
 	var all_sprites = sprite_container.get_children()
@@ -49,10 +56,14 @@ func _randomize_sprite() -> void:
 
 func apply_stats(stats: Dictionary) -> void:
 	health = stats["health"]
+	max_health = health
 	speed = stats["speed"]
+	original_speed = speed
 	attack_damage = stats["damage"]
 	scale = Vector2(stats["scale"], stats["scale"])
-	active_sprite.modulate = stats["color"]
+	
+	base_color = stats["color"]
+	active_sprite.modulate = base_color
 	
 	health_bar.max_value = health
 	health_bar.value = health
@@ -67,7 +78,6 @@ func _on_path_timer_timeout() -> void:
 
 func _physics_process(_delta: float) -> void:
 	if is_dying:
-		move_sound.stop()
 		return
 
 	if player:
@@ -87,10 +97,8 @@ func _physics_process(_delta: float) -> void:
 			velocity = (direction * speed) + (push_vector * 20.0)
 		
 		if velocity.length() > 0 and not is_hurt:
-			if not move_sound.playing:
-				move_sound.play()
-		else:
-			move_sound.stop()
+			if boss_sfx:
+				AudioManager.play_sfx_2d(boss_sfx, global_position, -20.0, 0.3, "move")
 			
 		move_and_slide()
 		_update_animations()
@@ -109,12 +117,51 @@ func _update_animations() -> void:
 	else:
 		active_sprite.stop()
 
+func apply_burn(burn_damage: float) -> void:
+	if is_burning or is_dying:
+		return
+		
+	is_burning = true
+	active_sprite.modulate = Color(1.0, 0.4, 0.1) 
+	
+	for i in range(4):
+		if is_dying:
+			break
+		await get_tree().create_timer(0.5).timeout
+		take_damage(int(burn_damage))
+		
+	if not is_dying and not is_slowed:
+		active_sprite.modulate = base_color
+		
+	is_burning = false
+
+func apply_slow(slow_multiplier: float) -> void:
+	if is_slowed or is_dying:
+		return
+		
+	is_slowed = true
+	speed = original_speed * slow_multiplier
+	active_sprite.modulate = Color(0.3, 0.8, 1.0) 
+	
+	await get_tree().create_timer(3.0).timeout
+	
+	if not is_dying:
+		speed = original_speed
+		if not is_burning:
+			active_sprite.modulate = base_color
+			
+	is_slowed = false
+
 func take_damage(amount: int) -> void:
 	if is_dying:
 		return
 		
 	health -= amount
 	health_bar.value = health
+	
+	var hp_percent = float(health) / float(max_health)
+	var dynamic_bpm = 1.0 + ((1.0 - hp_percent) * 0.5) 
+	AudioManager.set_music_speed(dynamic_bpm)
 	
 	var floating_text = damage_scene.instantiate()
 	floating_text.global_position = global_position
@@ -131,7 +178,10 @@ func _play_hurt() -> void:
 		return
 		
 	is_hurt = true
-	hurt_sound.play()
+	
+	if boss_sfx:
+		AudioManager.play_sfx_2d(boss_sfx, global_position, -5.0, 0.3, "hit")
+		
 	active_sprite.play("hurt_" + facing)
 	await active_sprite.animation_finished
 	is_hurt = false
@@ -139,10 +189,17 @@ func _play_hurt() -> void:
 func _die() -> void:
 	is_dying = true
 	health_bar.hide()
-	move_sound.stop()
-	death_sound.play()
-	active_sprite.play("death")
+	var spawner = get_tree().current_scene.get_node_or_null("Spawner")
 	
+	AudioManager.stop_music()
+	AudioManager.set_music_speed(1.0)
+	if spawner and "boss_defeated" in spawner:
+		spawner.boss_defeated = true
+	
+	if boss_sfx:
+		AudioManager.play_sfx_2d(boss_sfx, global_position, 0.0, 0.2, "death")
+		
+	active_sprite.play("death")
 	await active_sprite.animation_finished
 	
 	if player and player.has_method("add_kill"):

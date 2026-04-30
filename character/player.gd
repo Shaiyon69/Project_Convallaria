@@ -27,21 +27,150 @@ var thorns_multiplier: float = 0.0
 var evasion_chance: float = 0.0
 var exp_multiplier: float = 1.0
 
+# --- THE NEW PERMANENT MAGNET TRACKER ---
+var magnet_scale: float = 1.0 
+
+var owned_weapons: Dictionary = {}
+
 @onready var hud = $HUD
 @onready var step_sound = $StepSound
 
 func _ready() -> void:
-	current_health = max_health
+	if Data.player_data.is_empty():
+		current_health = max_health
+		_acquire_weapon("poison_aura")
+	else:
+		_load_data()
+		
 	hud.update_health(current_health, max_health)
 	hud.update_exp(current_exp, exp_to_next_level)
 	hud.update_level(level)
 	
 	hud.upgrade_selected.connect(_apply_upgrade)
 	%MagnetZone.area_entered.connect(_on_magnet_zone_area_entered)
-	$WeaponManager.weapons_updated.connect(hud.update_weapon_slots)
+
+func save_data() -> void:
+	Data.player_data = {
+		"level": level,
+		"current_exp": current_exp,
+		"exp_to_next_level": exp_to_next_level,
+		"max_health": max_health,
+		"current_health": current_health,
+		"speed": speed,
+		"damage_multiplier": damage_multiplier,
+		"fire_rate_multiplier": fire_rate_multiplier,
+		"bonus_attacks": bonus_attacks,
+		"aoe_multiplier": aoe_multiplier,
+		"imbue_fire": imbue_fire,
+		"imbue_frost": imbue_frost,
+		"hp_regen_rate": hp_regen_rate,
+		"thorns_multiplier": thorns_multiplier,
+		"evasion_chance": evasion_chance,
+		"exp_multiplier": exp_multiplier,
+		"kill_count": kill_count,
+		"time_survived": time_survived,
+		"owned_weapons": owned_weapons,
+		"magnet_scale": magnet_scale # Save the scale permanently
+	}
+
+func _load_data() -> void:
+	var pd = Data.player_data
 	
-	$WeaponManager.add_weapon(Data.WEAPONS["poison_aura"]["scene_path"])
+	level = pd["level"]
+	current_exp = pd["current_exp"]
+	exp_to_next_level = pd["exp_to_next_level"]
+	max_health = pd["max_health"]
+	current_health = pd["current_health"]
+	speed = pd["speed"]
+	damage_multiplier = pd["damage_multiplier"]
+	fire_rate_multiplier = pd["fire_rate_multiplier"]
+	bonus_attacks = pd["bonus_attacks"]
+	aoe_multiplier = pd["aoe_multiplier"]
+	imbue_fire = pd["imbue_fire"]
+	imbue_frost = pd["imbue_frost"]
+	hp_regen_rate = pd["hp_regen_rate"]
+	thorns_multiplier = pd["thorns_multiplier"]
+	evasion_chance = pd["evasion_chance"]
+	exp_multiplier = pd["exp_multiplier"]
+	kill_count = pd["kill_count"]
+	time_survived = pd["time_survived"]
 	
+	if pd.has("magnet_scale"):
+		magnet_scale = pd["magnet_scale"]
+		%MagnetZone.scale = Vector2(magnet_scale, magnet_scale)
+	
+	owned_weapons.clear()
+	var saved_weapons = pd["owned_weapons"]
+	for weapon_id in saved_weapons:
+		owned_weapons[weapon_id] = saved_weapons[weapon_id]
+		$WeaponManager.add_weapon(Data.WEAPONS[weapon_id]["scene_path"])
+		
+	hud.update_weapon_slots(owned_weapons.keys())
+
+func get_level_up_options() -> Array:
+	var valid_pool = []
+	
+	for upgrade in Data.UPGRADES:
+		valid_pool.append({"type": "stat", "data": upgrade})
+		
+	for weapon_id in Data.WEAPONS:
+		if owned_weapons.has(weapon_id):
+			var current_lvl = owned_weapons[weapon_id]
+			if current_lvl < Data.WEAPONS[weapon_id]["max_level"]:
+				valid_pool.append({"type": "weapon", "id": weapon_id, "is_new": false, "level": current_lvl + 1})
+		else:
+			if owned_weapons.size() < Data.MAX_WEAPONS:
+				valid_pool.append({"type": "weapon", "id": weapon_id, "is_new": true})
+				
+	valid_pool.shuffle()
+	
+	var options = []
+	for i in range(min(3, valid_pool.size())):
+		var item = valid_pool[i]
+		if item["type"] == "stat":
+			var rarity = _roll_rarity()
+			var r_data = Data.RARITY[rarity]
+			var final_val = item["data"]["base_val"] * r_data["mult"]
+			
+			var display_text = item["data"]["base_text"]
+			if item["data"]["base_val"] > 0:
+				display_text = display_text % str(final_val)
+				
+			options.append({
+				"id": item["data"]["id"],
+				"type": "stat",
+				"text": display_text,
+				"color": r_data["color"],
+				"value": final_val,
+				"rarity": rarity
+			})
+		else:
+			var w_id = item["id"]
+			var w_data = Data.WEAPONS[w_id]
+			var text = "New Weapon: " + w_data["display_name"] if item["is_new"] else "Upgrade " + w_data["display_name"] + " (Lv " + str(item["level"]) + ")"
+			
+			options.append({
+				"id": w_id,
+				"type": "weapon",
+				"text": text,
+				"color": Data.RARITY["white"]["color"],
+				"value": 0,
+				"rarity": "white"
+			})
+			
+	return options
+
+func _roll_rarity() -> String:
+	var roll = randi() % 100
+	var cumulative = 0
+	
+	for r_key in Data.RARITY:
+		cumulative += Data.RARITY[r_key]["weight"]
+		if roll < cumulative:
+			return r_key
+			
+	return "white"
+
 func _on_magnet_zone_area_entered(area: Area2D) -> void:
 	if area.has_method("pull_to_player"):
 		area.pull_to_player(self)
@@ -64,7 +193,7 @@ func _movement_handle():
 		
 	_update_animations(direction)
 	move_and_slide()
-	
+
 func _timer_calc(delta: float):
 	time_survived += delta
 	var minutes = int(time_survived) / 60
@@ -155,45 +284,67 @@ func level_up() -> void:
 	hud.update_level(level)
 	
 	get_tree().paused = true
-	hud.show_level_up()
+	var options = get_level_up_options()	# Instantly blow the magnet zone up to 50x size
+	hud.show_level_up(options) 
 
-func _apply_upgrade(upgrade_name: String) -> void:
-	if upgrade_name == "max_hp":
-		var hp_increase = max_health * 0.10
-		max_health += hp_increase
-		current_health += hp_increase
-	elif upgrade_name == "speed":
-		speed += speed * 0.05
-	elif upgrade_name == "damage":
-		damage_multiplier += 0.10
-	elif upgrade_name == "pickup_range":
-		%MagnetZone.scale *= Vector2(1.15, 1.15)
-	elif upgrade_name == "fire_rate":
-		fire_rate_multiplier -= 0.10
-		if fire_rate_multiplier < 0.2:
-			fire_rate_multiplier = 0.2
-	elif upgrade_name == "aoe_size":
-		aoe_multiplier += 0.15
-	elif upgrade_name == "multi_attack":
-		bonus_attacks += 1
-	elif upgrade_name == "fire_imbue":
-		imbue_fire = true
-	elif upgrade_name == "frost_imbue":
-		imbue_frost = true
-	elif upgrade_name == "regeneration":
-		hp_regen_rate += 1.0
-	elif upgrade_name == "thorns":
-		thorns_multiplier += 0.50
-	elif upgrade_name == "evasion":
-		evasion_chance += 0.10
-	elif upgrade_name == "exp_boost":
-		exp_multiplier += 0.25
+func _apply_upgrade(upgrade: Dictionary) -> void:
+	var id = upgrade["id"]
+	var val = upgrade["value"]
+	
+	if upgrade["type"] == "weapon":
+		_acquire_weapon(id)
 	else:
-		_acquire_weapon(upgrade_name)
-		
+		if id == "max_hp":
+			var hp_increase = max_health * (val / 100.0)
+			max_health += hp_increase
+			current_health += hp_increase
+		elif id == "speed":
+			speed += speed * (val / 100.0)
+		elif id == "damage":
+			damage_multiplier += (val / 100.0)
+		elif id == "pickup_range":
+			# --- BULLETPROOF SCALING METHOD ---
+			magnet_scale *= (1.0 + (val / 100.0))
+			%MagnetZone.scale = Vector2(magnet_scale, magnet_scale)
+		elif id == "fire_rate":
+			fire_rate_multiplier -= (val / 100.0)
+			if fire_rate_multiplier < 0.2:
+				fire_rate_multiplier = 0.2
+		elif id == "aoe_size":
+			aoe_multiplier += (val / 100.0)
+		elif id == "multi_attack":
+			bonus_attacks += int(val)
+		elif id == "fire_imbue":
+			imbue_fire = true
+		elif id == "frost_imbue":
+			imbue_frost = true
+		elif id == "regeneration":
+			hp_regen_rate += val
+		elif id == "thorns":
+			thorns_multiplier += (val / 100.0)
+		elif id == "evasion":
+			evasion_chance += (val / 100.0)
+		elif id == "exp_boost":
+			exp_multiplier += (val / 100.0)
+			
 	hud.update_health(current_health, max_health)
 
 func _acquire_weapon(weapon_id: String) -> void:
-	if Data.WEAPONS.has(weapon_id):
-		var weapon_data = Data.WEAPONS[weapon_id]
-		$WeaponManager.add_weapon(weapon_data["scene_path"])
+	if owned_weapons.has(weapon_id):
+		var current_lvl = owned_weapons[weapon_id]
+		if current_lvl < Data.WEAPONS[weapon_id]["max_level"]:
+			owned_weapons[weapon_id] += 1
+	else:
+		if owned_weapons.size() < Data.MAX_WEAPONS:
+			owned_weapons[weapon_id] = 1
+			$WeaponManager.add_weapon(Data.WEAPONS[weapon_id]["scene_path"])
+			
+	hud.update_weapon_slots(owned_weapons.keys())
+
+# --- THE MASSIVE MAGNET POWERUP LOGIC ---
+func activate_magnet_powerup() -> void:
+	%MagnetZone.scale = Vector2(50.0, 50.0) 
+	await get_tree().create_timer(0.5).timeout
+
+	if is_inside_tree():
+		%MagnetZone.scale = Vector2(magnet_scale, magnet_scale)

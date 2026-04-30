@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" uid="uid://60uo7cjajxvk" path="res://enemy/boss/boss.gd" id="1_8tpa5"]
 [ext_resource type="Texture2D" uid="uid://dd6s35fm8q2jf" path="res://enemy/boss/bob.png" id="2_0qke7"]
-[ext_resource type="AudioStream" uid="uid://cai0dlcyygiq3" path="res://audio/slime.ogg" id="3_sk2x8"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_6emkg"]
 radius = 4.1723704
@@ -267,23 +266,6 @@ autostart = true
 autostart = true
 
 [node name="NavigationAgent2D" type="NavigationAgent2D" parent="." unique_id=1178096846]
-
-[node name="VisibleOnScreenEnabler2D" type="VisibleOnScreenEnabler2D" parent="." unique_id=2070572747]
-position = Vector2(1, 0)
-scale = Vector2(2.6197639, 2.6197639)
-rect = Rect2(-10, -12, 20, 22)
-
-[node name="MoveSound" type="AudioStreamPlayer2D" parent="." unique_id=209777018]
-stream = ExtResource("3_sk2x8")
-volume_db = -15.0
-
-[node name="HurtSound" type="AudioStreamPlayer2D" parent="." unique_id=1903352004]
-stream = ExtResource("3_sk2x8")
-volume_db = -5.0
-
-[node name="DeathSound" type="AudioStreamPlayer2D" parent="." unique_id=447398223]
-stream = ExtResource("3_sk2x8")
-pitch_scale = 1.5
 
 [node name="Sprites" type="Node2D" parent="." unique_id=1571102572]
 

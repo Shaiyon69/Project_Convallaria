@@ -1,6 +1,16 @@
 extends Node
 
 var current_floor: int = 1
+var player_data: Dictionary = {}
+
+const MAX_WEAPONS: int = 3
+
+const RARITY = {
+	"white": {"color": Color(1.0, 1.0, 1.0), "mult": 1.0, "weight": 60},
+	"green": {"color": Color(0.2, 0.8, 0.2), "mult": 1.5, "weight": 25},
+	"blue": {"color": Color(0.2, 0.5, 1.0), "mult": 2.0, "weight": 12},
+	"gold": {"color": Color(1.0, 0.8, 0.1), "mult": 3.0, "weight": 3}
+}
 
 const BIOME_COLORS = {
 	1: {"grass": Color(1.0, 1.0, 1.0), "water": Color(1.0, 1.0, 1.0), "soil": Color(1.0, 1.0, 1.0)}, 
@@ -11,46 +21,59 @@ const BIOME_COLORS = {
 }
 
 const MUSIC = {
-	"menu": "res://audio/music/menu_theme.ogg",
-	"battle": "res://audio/music/battle_theme.ogg",
-	"boss": "res://audio/music/boss_theme.ogg"
+	"menu": "res://audio/music.mp3",
+	"battle": "res://audio/music.mp3",
+	"boss": "res://audio/bob.mp3"
 }
 
 const WEAPONS = {
 	"poison_aura": {
 		"display_name": "Poison Aura",
-		"base_damage": 15,
-		"scene_path": "res://weapons/poison/poison.tscn"
+		"scene_path": "res://weapons/poison/poison.tscn",
+		"icon": "res://weapons/poison/poison.png", 
+		"max_level": 3,
+		"levels": {
+			1: {"base_damage": 15, "wait_time": 1.0, "scale": 1.0},
+			2: {"base_damage": 25, "wait_time": 0.8, "scale": 1.25},
+			3: {"base_damage": 40, "wait_time": 0.5, "scale": 1.6}
+		}
 	},
 	"vine_whip": {
 		"display_name": "Vine Whip",
-		"base_damage": 20,
-		"scene_path": "res://weapons/vine/vine_whip.tscn"
+		"scene_path": "res://weapons/vine/vine_whip.tscn",
+		"icon": "res://weapons/vine/icon.png", 
+		"max_level": 3,
+		"levels": {
+			1: {"base_damage": 20, "projectiles": 1, "speed": 400.0},
+			2: {"base_damage": 35, "projectiles": 2, "speed": 450.0},
+			3: {"base_damage": 55, "projectiles": 3, "speed": 550.0}
+		}
 	}
 }
 
 const ENEMIES = {
-	"basic": {"health": 30, "speed": 75.0, "scale": 1.0, "color": Color(1.0, 1.0, 1.0), "damage": 10, "exp": 10},
-	"brute": {"health": 90, "speed": 40.0, "scale": 1.5, "color": Color(1.0, 0.4, 0.4), "damage": 25, "exp": 30},
-	"runner": {"health": 15, "speed": 130.0, "scale": 0.8, "color": Color(0.4, 0.4, 1.0), "damage": 5, "exp": 15},
-	"swarm": {"health": 5, "speed": 160.0, "scale": 0.5, "color": Color(1.0, 1.0, 0.2), "damage": 2, "exp": 5},
-	"tank": {"health": 300, "speed": 25.0, "scale": 2.0, "color": Color(0.2, 0.2, 0.2), "damage": 50, "exp": 100},
-	"dasher": {"health": 25, "speed": 60.0, "scale": 0.9, "color": Color(0.1, 0.8, 0.8), "is_dasher": true, "damage": 15, "exp": 25},
-	"boss": {"health": 5000, "speed": 60.0, "scale": 2.0, "color": Color(0.8, 0.1, 0.8), "damage": 100, "exp": 1500}
+	"basic": {"health": 30, "speed": 75.0, "scale": 1.0, "color": Color(1.0, 1.0, 1.0), "damage": 10, "exp": 10, "base_pitch": 1.0},
+	"brute": {"health": 90, "speed": 40.0, "scale": 1.5, "color": Color(1.0, 0.4, 0.4), "damage": 25, "exp": 30, "base_pitch": 0.6},
+	"runner": {"health": 15, "speed": 130.0, "scale": 0.8, "color": Color(0.4, 0.4, 1.0), "damage": 5, "exp": 15, "base_pitch": 1.5},
+	"swarm": {"health": 5, "speed": 160.0, "scale": 0.5, "color": Color(1.0, 1.0, 0.2), "damage": 2, "exp": 5, "base_pitch": 1.8},
+	"tank": {"health": 300, "speed": 25.0, "scale": 2.0, "color": Color(0.2, 0.2, 0.2), "damage": 50, "exp": 100, "base_pitch": 0.4},
+	"dasher": {"health": 25, "speed": 60.0, "scale": 0.9, "color": Color(0.1, 0.8, 0.8), "is_dasher": true, "damage": 15, "exp": 25, "base_pitch": 1.3},
+	"boss": {"health": 5000, "speed": 60.0, "scale": 2.0, "color": Color(0.8, 0.1, 0.8), "damage": 100, "exp": 1500, "base_pitch": 0.3},
+	"death_slime": {"health": 15000, "speed": 250.0, "scale": 3.0, "color": Color(0.1, 0.0, 0.1), "damage": 500, "exp": 0, "base_pitch": 0.2}
 }
 
 const UPGRADES = [
-	{"id": "max_hp", "text": "+10% Max HP"},
-	{"id": "speed", "text": "+5% Speed"},
-	{"id": "damage", "text": "+10% Damage"},
-	{"id": "pickup_range", "text": "+15% Pickup Range"},
-	{"id": "fire_rate", "text": "+10% Fire Rate"},
-	{"id": "aoe_size", "text": "+15% Weapon Area"},
-	{"id": "multi_attack", "text": "Additional Attack Strike"},
-	{"id": "fire_imbue", "text": "Add Fire Damage (Burn)"},
-	{"id": "frost_imbue", "text": "Add Frost Damage (Slow)"},
-	{"id": "regeneration", "text": "+1 HP Regen Per Second"},
-	{"id": "thorns", "text": "Reflect 50% Damage Taken"},
-	{"id": "evasion", "text": "+10% Dodge Chance"},
-	{"id": "exp_boost", "text": "+25% EXP Gained"}
+	{"id": "max_hp", "base_text": "+%s%% Max HP", "base_val": 10},
+	{"id": "speed", "base_text": "+%s%% Speed", "base_val": 5},
+	{"id": "damage", "base_text": "+%s%% Damage", "base_val": 10},
+	{"id": "pickup_range", "base_text": "+%s%% Pickup Range", "base_val": 15},
+	{"id": "fire_rate", "base_text": "+%s%% Fire Rate", "base_val": 10},
+	{"id": "aoe_size", "base_text": "+%s%% Weapon Area", "base_val": 15},
+	{"id": "regeneration", "base_text": "+%s HP Regen", "base_val": 1},
+	{"id": "thorns", "base_text": "Reflect %s%% Damage", "base_val": 50},
+	{"id": "evasion", "base_text": "+%s%% Dodge", "base_val": 10},
+	{"id": "exp_boost", "base_text": "+%s%% EXP", "base_val": 25},
+	{"id": "multi_attack", "base_text": "+%s Attack Strike", "base_val": 1},
+	{"id": "fire_imbue", "base_text": "Add Fire Damage (Burn)", "base_val": 0},
+	{"id": "frost_imbue", "base_text": "Add Frost Damage (Slow)", "base_val": 0}
 ]

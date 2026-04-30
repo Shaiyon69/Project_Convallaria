@@ -198,6 +198,7 @@ collision_layer = 0
 collision_mask = 8
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="MagnetZone" unique_id=1473889355]
+position = Vector2(0, 3)
 shape = SubResource("CircleShape2D_dqkch")
 
 [node name="WeaponManager" type="Node2D" parent="." unique_id=503559516]

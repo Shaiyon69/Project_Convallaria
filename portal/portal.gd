@@ -89,6 +89,10 @@ func _teleport_player() -> void:
 	interact_label.hide()
 	get_tree().paused = false
 	
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("save_data"):
+		player.save_data()
+	
 	Data.current_floor += 1
 	
 	TransitionManager.change_scene(next_level_path)

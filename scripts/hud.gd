@@ -1,6 +1,6 @@
 extends CanvasLayer
 
-signal upgrade_selected(upgrade_name: String)
+signal upgrade_selected(upgrade: Dictionary)
 
 var current_options: Array = []
 
@@ -41,35 +41,37 @@ func _on_exit_pressed() -> void:
 	get_tree().paused = false
 	TransitionManager.change_scene("res://scenes/gui.tscn") 
 
-func show_level_up() -> void:
-	current_options.clear()
-	var pool_copy = Data.UPGRADES.duplicate()
-	pool_copy.shuffle()
+func show_level_up(options: Array) -> void:
+	current_options = options
+	var buttons = [%Upgrade1, %Upgrade2, %Upgrade3]
 	
-	for i in range(3):
-		current_options.append(pool_copy[i])
-		
-	%Upgrade1.text = current_options[0]["text"]
-	%Upgrade2.text = current_options[1]["text"]
-	%Upgrade3.text = current_options[2]["text"]
-	
+	for i in range(buttons.size()):
+		if i < options.size():
+			buttons[i].text = options[i]["text"]
+			buttons[i].add_theme_color_override("font_color", options[i]["color"])
+			buttons[i].show()
+		else:
+			buttons[i].hide()
+			
 	%LevelUpScreen.visible = true
 	
-func update_weapon_slots(textures: Array) -> void:
+func update_weapon_slots(weapon_ids: Array) -> void:
 	var slots = [%Slot1, %Slot2, %Slot3]
 	
 	for i in range(slots.size()):
 		var icon = slots[i].get_node("Icon")
 		
-		if i < textures.size():
-			icon.texture = textures[i]
+		if i < weapon_ids.size():
+			var w_id = weapon_ids[i]
+			var icon_path = Data.WEAPONS[w_id]["icon"]
+			icon.texture = load(icon_path)
 		else:
 			icon.texture = null
 
 func _on_upgrade_pressed(index: int) -> void:
 	%LevelUpScreen.visible = false
 	get_tree().paused = false
-	upgrade_selected.emit(current_options[index]["id"])
+	upgrade_selected.emit(current_options[index])
 
 func update_time(minutes: int, seconds: int) -> void:
 	%TimeLabel.text = "%02d:%02d" % [minutes, seconds]

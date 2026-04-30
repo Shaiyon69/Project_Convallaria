@@ -2,7 +2,7 @@ extends Node2D
 
 @export var map_seed: int = 0
 @export var use_random_seed: bool = true
-@export var map_radius: int = 50
+@export var map_radius: int = 100 # DOUBLED MAP SIZE
 
 @export var water_source_id: int = 0
 @export var water_atlas_coords: Vector2i = Vector2i(0, 0)
@@ -40,7 +40,7 @@ func _initialize_noise() -> void:
 	noise.fractal_octaves = 4
 	noise.fractal_lacunarity = 2.0
 	noise.fractal_gain = 0.5
-	noise.frequency = 0.04
+	noise.frequency = 0.02 # LOWERED TO CREATE HUGE, CONNECTED LANDMASSES
 
 func _generate_terrain() -> void:
 	var grass_cells: Array[Vector2i] = []

@@ -71,7 +71,6 @@ _data = {
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("1_6823q")
-weapon_icon = ExtResource("2_1tvu1")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=311538921]
 z_index = -1
