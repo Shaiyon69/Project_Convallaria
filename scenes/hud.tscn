@@ -453,5 +453,36 @@ position = Vector2(-7.999995, -160.00002)
 scale = Vector2(2.2543993, 2.2543993)
 texture = ExtResource("5_uo2fv")
 
+[node name="RestartButton" type="TextureButton" parent="PauseOverlay" unique_id=294239520]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.883
+anchor_right = 0.5
+anchor_bottom = 0.883
+offset_left = -63.0
+offset_top = -23.76001
+offset_right = 65.0
+offset_bottom = 24.23999
+texture_normal = ExtResource("4_6fi6k")
+
+[node name="Restart" type="Label" parent="PauseOverlay/RestartButton" unique_id=1001451408]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -41.00003
+offset_top = -12.0
+offset_right = 217.99997
+offset_bottom = 65.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.3167791, 0.3167791)
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_font_sizes/font_size = 64
+text = "RESTART"
+
 [node name="Options" parent="." unique_id=1342148050 instance=ExtResource("6_047uy")]
 visible = false

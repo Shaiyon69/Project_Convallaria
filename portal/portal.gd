@@ -33,14 +33,28 @@ func _on_body_exited(body: Node2D) -> void:
 		_update_label_visibility()
 
 func _update_label_visibility() -> void:
+	var tree = get_tree()
+	if tree == null:
+		return
+
 	if player_in_range and (current_state == "corrupted" or current_state == "purified"):
 		interact_label.show()
+		
+		if OS.has_feature("mobile") or OS.has_feature("editor"):
+			var mobile_ui = tree.get_first_node_in_group("mobile_ui")
+			if mobile_ui and mobile_ui.has_method("show_interact_button"):
+				mobile_ui.show_interact_button()
 	else:
 		interact_label.hide()
+		
+		if OS.has_feature("mobile") or OS.has_feature("editor"):
+			var mobile_ui = tree.get_first_node_in_group("mobile_ui")
+			if mobile_ui and mobile_ui.has_method("hide_interact_button"):
+				mobile_ui.hide_interact_button()
 
 func _summon_boss() -> void:
 	current_state = "combat"
-	interact_label.hide()
+	_update_label_visibility()
 	
 	if boss_scene:
 		var boss = boss_scene.instantiate()
@@ -56,7 +70,11 @@ func _summon_boss() -> void:
 
 func _calculate_spawn_position() -> Vector2:
 	var grass_layer = get_parent().get_node_or_null("GrassLayer")
-	var player = get_tree().get_first_node_in_group("player")
+	var tree = get_tree()
+	if tree == null:
+		return global_position
+		
+	var player = tree.get_first_node_in_group("player")
 	
 	if not grass_layer or not player:
 		return global_position
@@ -79,19 +97,23 @@ func _calculate_spawn_position() -> Vector2:
 	return global_position
 
 func _on_boss_defeated() -> void:
+	if not is_inside_tree():
+		return
+
 	current_state = "purified"
 	animated_sprite.play("purified")
-	if player_in_range:
-		interact_label.show()
+	_update_label_visibility() 
 
 func _teleport_player() -> void:
 	current_state = "teleporting" 
-	interact_label.hide()
+	_update_label_visibility() 
 	get_tree().paused = false
 	
-	var player = get_tree().get_first_node_in_group("player")
-	if player and player.has_method("save_data"):
-		player.save_data()
+	var tree = get_tree()
+	if tree != null:
+		var player = tree.get_first_node_in_group("player")
+		if player and player.has_method("save_data"):
+			player.save_data()
 	
 	Data.current_floor += 1
 	

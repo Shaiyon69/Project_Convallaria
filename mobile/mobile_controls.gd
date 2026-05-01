@@ -1,54 +1,20 @@
-extends Control
+extends CanvasLayer
 
-@onready var knob = $Knob
-var max_distance: float = 50.0
-
-var center: Vector2
-var touched: bool = false
-var touch_index: int = -1
+@onready var interact_container = $Interact 
 
 func _ready() -> void:
-	center = size / 2.0
-	knob.position = center
+	if interact_container:
+		interact_container.hide()
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventScreenTouch:
-		if event.pressed and get_global_rect().has_point(event.position):
-			touched = true
-			touch_index = event.index
-		elif not event.pressed and event.index == touch_index:
-			touched = false
-			touch_index = -1
-			knob.position = center
-			_update_virtual_keys(Vector2.ZERO)
+func show_interact_button() -> void:
+	if interact_container and not interact_container.visible:
+		interact_container.show()
+		interact_container.scale = Vector2(0, 0)
+		var tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(interact_container, "scale", Vector2(1, 1), 0.2)
 
-	if event is InputEventScreenDrag and touched and event.index == touch_index:
-		var local_pos = event.position - global_position
-		var direction = (local_pos - center).limit_length(max_distance)
-		knob.position = center + direction
-		
-		_update_virtual_keys(direction / max_distance)
-
-func _update_virtual_keys(vector: Vector2) -> void:
-	
-	# Horizontal Movement
-	if vector.x > 0:
-		Input.action_press("move_right", vector.x)
-		Input.action_release("move_left")
-	elif vector.x < 0:
-		Input.action_press("move_left", abs(vector.x))
-		Input.action_release("move_right")
-	else:
-		Input.action_release("move_left")
-		Input.action_release("move_right")
-
-	# Vertical Movement
-	if vector.y > 0:
-		Input.action_press("move_down", vector.y)
-		Input.action_release("move_up")
-	elif vector.y < 0:
-		Input.action_press("move_up", abs(vector.y))
-		Input.action_release("move_down")
-	else:
-		Input.action_release("move_up")
-		Input.action_release("move_down")
+func hide_interact_button() -> void:
+	if interact_container and interact_container.visible:
+		var tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		tween.tween_property(interact_container, "scale", Vector2(0, 0), 0.15)
+		tween.tween_callback(interact_container.hide)

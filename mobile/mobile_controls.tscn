@@ -2,10 +2,14 @@
 
 [ext_resource type="Texture2D" uid="uid://il2c1wfke87u" path="res://mobile/JoystickSplitted.png" id="1_xfqx5"]
 [ext_resource type="Script" uid="uid://gi1hksrbwgs4" path="res://mobile/mobile_controls.gd" id="1_ythhp"]
+[ext_resource type="Script" uid="uid://ch74xaboq72uu" path="res://mobile/joystick.gd" id="2_g1d33"]
 [ext_resource type="Texture2D" uid="uid://dlhksmn5ftjmn" path="res://mobile/SmallHandleFilled.png" id="2_ythhp"]
+[ext_resource type="Script" uid="uid://bt24u88bpqqqe" path="res://mobile/interact.gd" id="4_8asj2"]
+[ext_resource type="Texture2D" uid="uid://c0byx34hgmu55" path="res://menu_buttons.png" id="4_jnhep"]
+[ext_resource type="FontFile" uid="uid://cr50vmsbetxqf" path="res://fonts/PixelifySans-VariableFont_wght.ttf" id="5_8asj2"]
 
-[node name="MobileControls" type="CanvasLayer" unique_id=1098429242]
-layer = 10
+[node name="MobileControls" type="CanvasLayer" unique_id=1098429242 groups=["mobile_ui"]]
+layer = 0
 script = ExtResource("1_ythhp")
 
 [node name="Joystick" type="Control" parent="." unique_id=206189814]
@@ -19,6 +23,7 @@ offset_right = 394.99994
 offset_bottom = -67.0
 grow_vertical = 0
 scale = Vector2(0.6005057, 0.6005057)
+script = ExtResource("2_g1d33")
 
 [node name="Base" type="Sprite2D" parent="Joystick" unique_id=2062883531]
 position = Vector2(101, 100)
@@ -27,3 +32,58 @@ texture = ExtResource("1_xfqx5")
 [node name="Knob" type="Sprite2D" parent="Joystick" unique_id=1385550044]
 position = Vector2(101, 100)
 texture = ExtResource("2_ythhp")
+
+[node name="Interact" type="Control" parent="." unique_id=1669760785]
+layout_mode = 3
+anchor_left = 0.69375
+anchor_top = 0.54444444
+anchor_right = 0.78125
+anchor_bottom = 0.6111111
+offset_left = 56.0
+offset_top = 88.0
+offset_right = 56.0
+offset_bottom = 88.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_8asj2")
+metadata/_edit_use_anchors_ = true
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Interact" unique_id=2018559954]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -64.0
+offset_top = -24.000015
+offset_right = 64.0
+offset_bottom = 24.000015
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1.2702333, 1.2702333)
+size_flags_vertical = 8
+
+[node name="InteractButton" type="TextureButton" parent="Interact/HBoxContainer" unique_id=629184154]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+texture_normal = ExtResource("4_jnhep")
+
+[node name="Interact" type="Label" parent="Interact/HBoxContainer/InteractButton" unique_id=1607731663]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -46.629272
+offset_top = -13.710327
+offset_right = 235.37073
+offset_bottom = 63.289673
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.32888982, 0.32888982)
+theme_override_fonts/font = ExtResource("5_8asj2")
+theme_override_font_sizes/font_size = 64
+text = "INTERACT"

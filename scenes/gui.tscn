@@ -21,7 +21,7 @@ script = ExtResource("1_ynd5l")
 
 [node name="Parallax2D" type="Parallax2D" parent="." unique_id=61169583]
 repeat_size = Vector2(288, 288)
-repeat_times = 15
+repeat_times = 20
 
 [node name="Sprite2D" type="Sprite2D" parent="Parallax2D" unique_id=1244304826]
 texture = ExtResource("3_ynd5l")

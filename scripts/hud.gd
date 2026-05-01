@@ -7,6 +7,7 @@ var current_options: Array = []
 @onready var pause_resume_btn = %PauseOverlay.get_node("VBoxContainer/ResumeButton")
 @onready var pause_options_btn = %PauseOverlay.get_node("VBoxContainer/OptionsButton")
 @onready var pause_quit_btn = %PauseOverlay.get_node("VBoxContainer/QuitButton")
+@onready var pause_restart_btn = %PauseOverlay.get_node("RestartButton")
 @onready var mobile_pause_btn = $PauseBox/PauseButton
 @onready var options_menu = $Options
 @onready var title_sprite = $PauseOverlay/HBoxContainer/Convallaria
@@ -18,7 +19,10 @@ var _base_button_scales: Dictionary = {}
 var _target_button_scales: Dictionary = {}
 
 func _ready() -> void:
+	get_tree().paused = false
 	%PauseOverlay.hide()
+	%GameOverScreen.hide()
+	%LevelUpScreen.hide()
 	
 	%TryAgain.pressed.connect(_on_try_again_pressed)
 	%Exit.pressed.connect(_on_exit_pressed)
@@ -30,6 +34,7 @@ func _ready() -> void:
 	pause_resume_btn.pressed.connect(_on_pause_start_pressed)
 	pause_options_btn.pressed.connect(_on_pause_options_pressed)
 	pause_quit_btn.pressed.connect(_on_pause_quit_pressed)
+	pause_restart_btn.pressed.connect(_on_pause_restart_pressed)
 	mobile_pause_btn.pressed.connect(_toggle_pause)
 	
 	_setup_button_animations()
@@ -54,9 +59,12 @@ func _setup_title_animation() -> void:
 	tween.tween_property(title_sprite, "position:y", start_y, 1.5)
 
 func _setup_button_animations() -> void:
-	var pause_buttons = [pause_resume_btn, pause_options_btn, pause_quit_btn, mobile_pause_btn]
+	var animated_buttons = [
+		pause_resume_btn, pause_options_btn, pause_quit_btn, pause_restart_btn, mobile_pause_btn,
+		%TryAgain, %Exit, %Upgrade1, %Upgrade2, %Upgrade3
+	]
 	
-	for button in pause_buttons:
+	for button in animated_buttons:
 		_base_button_scales[button.name] = button.scale
 		_target_button_scales[button.name] = button.scale
 		
@@ -115,6 +123,10 @@ func _on_pause_start_pressed() -> void:
 
 func _on_pause_options_pressed() -> void:
 	options_menu.show()
+
+func _on_pause_restart_pressed() -> void:
+	get_tree().paused = false
+	TransitionManager.change_scene("res://scenes/world.tscn")
 
 func _on_pause_quit_pressed() -> void:
 	get_tree().paused = false

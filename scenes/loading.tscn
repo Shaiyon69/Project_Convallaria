@@ -58,6 +58,7 @@ _data = {
 
 [node name="Loading" type="CanvasLayer" unique_id=576920952]
 process_mode = 3
+layer = 100
 script = ExtResource("1_ir5ef")
 
 [node name="ColorRect" type="ColorRect" parent="." unique_id=465591567]
