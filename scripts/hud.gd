@@ -7,8 +7,9 @@ var current_options: Array = []
 @onready var pause_resume_btn = %PauseOverlay.get_node("VBoxContainer/ResumeButton")
 @onready var pause_options_btn = %PauseOverlay.get_node("VBoxContainer/OptionsButton")
 @onready var pause_quit_btn = %PauseOverlay.get_node("VBoxContainer/QuitButton")
+@onready var mobile_pause_btn = $PauseBox/PauseButton
 @onready var options_menu = $Options
-@onready var title_sprite = $PauseOverlay/Convallaria
+@onready var title_sprite = $PauseOverlay/HBoxContainer/Convallaria
 
 @onready var sfx_hover = preload("res://audio/menu_hover.mp3")
 @onready var sfx_click = preload("res://audio/menu_click.mp3")
@@ -29,6 +30,7 @@ func _ready() -> void:
 	pause_resume_btn.pressed.connect(_on_pause_start_pressed)
 	pause_options_btn.pressed.connect(_on_pause_options_pressed)
 	pause_quit_btn.pressed.connect(_on_pause_quit_pressed)
+	mobile_pause_btn.pressed.connect(_toggle_pause)
 	
 	_setup_button_animations()
 	
@@ -52,7 +54,7 @@ func _setup_title_animation() -> void:
 	tween.tween_property(title_sprite, "position:y", start_y, 1.5)
 
 func _setup_button_animations() -> void:
-	var pause_buttons = [pause_resume_btn, pause_options_btn, pause_quit_btn]
+	var pause_buttons = [pause_resume_btn, pause_options_btn, pause_quit_btn, mobile_pause_btn]
 	
 	for button in pause_buttons:
 		_base_button_scales[button.name] = button.scale

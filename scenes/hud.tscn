@@ -29,6 +29,38 @@ base_font = ExtResource("3_5ysmq")
 process_mode = 3
 script = ExtResource("1_ahhtf")
 
+[node name="PauseBox" type="HBoxContainer" parent="." unique_id=1151391846]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -152.0
+offset_top = 8.0
+offset_right = -24.0
+offset_bottom = 56.0
+grow_horizontal = 0
+
+[node name="PauseButton" type="TextureButton" parent="PauseBox" unique_id=1271179517]
+layout_mode = 2
+texture_normal = ExtResource("4_6fi6k")
+
+[node name="Pause" type="Label" parent="PauseBox/PauseButton" unique_id=453883481]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -26.0
+offset_top = -11.0
+offset_right = 160.0
+offset_bottom = 66.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.26932493, 0.26932493)
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_font_sizes/font_size = 64
+text = "PAUSE"
+
 [node name="LowHPWarning" type="ColorRect" parent="." unique_id=770817335]
 unique_name_in_owner = true
 visible = false
@@ -118,14 +150,10 @@ theme_override_fonts/font = SubResource("FontVariation_5ysmq")
 text = "00:00"
 
 [node name="WeaponSlots" type="HBoxContainer" parent="." unique_id=792417207]
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -1269.0
-offset_top = 9.0
-offset_right = -1069.0
-offset_bottom = 73.0
-grow_horizontal = 0
+offset_left = 10.0
+offset_top = 4.0
+offset_right = 210.0
+offset_bottom = 68.0
 
 [node name="Slot1" type="TextureRect" parent="WeaponSlots" unique_id=988337026]
 unique_name_in_owner = true
@@ -410,8 +438,18 @@ theme_override_fonts/font = ExtResource("3_5ysmq")
 theme_override_font_sizes/font_size = 64
 text = "QUIT"
 
-[node name="Convallaria" type="Sprite2D" parent="PauseOverlay" unique_id=58073189]
-position = Vector2(635, 180.00002)
+[node name="HBoxContainer" type="HBoxContainer" parent="PauseOverlay" unique_id=2132683395]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Convallaria" type="Sprite2D" parent="PauseOverlay/HBoxContainer" unique_id=58073189]
+position = Vector2(-7.999995, -160.00002)
 scale = Vector2(2.2543993, 2.2543993)
 texture = ExtResource("5_uo2fv")
 

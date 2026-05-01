@@ -80,11 +80,18 @@ step = 0.5
 value = 1.0
 
 [node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=986612637]
-layout_mode = 0
-offset_left = 536.0
-offset_top = 576.00006
-offset_right = 664.0
-offset_bottom = 624.00006
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -103.82001
+offset_top = -181.87
+offset_right = 24.179993
+offset_bottom = -133.87
+grow_horizontal = 2
+grow_vertical = 0
 scale = Vector2(1.6408315, 1.6408315)
 size_flags_vertical = 8
 

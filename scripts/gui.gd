@@ -10,7 +10,7 @@ var target_dir: Vector2 = Vector2.ZERO
 @onready var options_button = $VBoxContainer/OptionsButton
 @onready var quit_button = $VBoxContainer/QuitButton
 @onready var options_menu = $Options
-@onready var title_sprite = $Convallaria # Reference to your title sprite
+@onready var title_sprite = $VBoxContainer/Convallaria
 
 @onready var sfx_hover = preload("res://audio/menu_hover.mp3")
 @onready var sfx_click = preload("res://audio/menu_click.mp3")

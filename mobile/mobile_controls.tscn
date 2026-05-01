@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://cunwoj2qfpdwp"]
+
+[ext_resource type="Texture2D" uid="uid://il2c1wfke87u" path="res://mobile/JoystickSplitted.png" id="1_xfqx5"]
+[ext_resource type="Script" uid="uid://gi1hksrbwgs4" path="res://mobile/mobile_controls.gd" id="1_ythhp"]
+[ext_resource type="Texture2D" uid="uid://dlhksmn5ftjmn" path="res://mobile/SmallHandleFilled.png" id="2_ythhp"]
+
+[node name="MobileControls" type="CanvasLayer" unique_id=1098429242]
+layer = 10
+script = ExtResource("1_ythhp")
+
+[node name="Joystick" type="Control" parent="." unique_id=206189814]
+layout_mode = 3
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 194.99997
+offset_top = -267.00003
+offset_right = 394.99994
+offset_bottom = -67.0
+grow_vertical = 0
+scale = Vector2(0.6005057, 0.6005057)
+
+[node name="Base" type="Sprite2D" parent="Joystick" unique_id=2062883531]
+position = Vector2(101, 100)
+texture = ExtResource("1_xfqx5")
+
+[node name="Knob" type="Sprite2D" parent="Joystick" unique_id=1385550044]
+position = Vector2(101, 100)
+texture = ExtResource("2_ythhp")
