@@ -3,60 +3,60 @@ extends CharacterBody2D
 @export var seed_scene: PackedScene = preload("res://exp/exp_seed.tscn")
 @export var damage_scene: PackedScene = preload("res://enemy/damage_number.tscn")
 
-var slime_sfx = preload("res://audio/slime.ogg") 
+var slime_sfx = preload("res://audio/slime.ogg")
 
 var speed: float
 var health: int
+var max_health: int
+var exp_value: int
 var attack_damage: int
-var exp_value: int = 10
 var base_pitch: float = 1.0
-var player: Node2D
-var despawn_distance: float = 1500.0
-var magnet_scale
+var is_boss: bool = false
 
-var base_color: Color = Color.WHITE
+var player: Node2D
+var despawn_distance: float = 3000.0
+
 var original_speed: float
 var is_burning: bool = false
 var is_slowed: bool = false
+var base_color: Color = Color.WHITE
 
-var is_dasher: bool = false
-var is_dashing: bool = false
-var dash_direction: Vector2 = Vector2.ZERO
-
-var facing: String = "down"
-var is_hurt: bool = false
 var is_dying: bool = false
+var is_hurt: bool = false
+var facing: String = "down"
 
 @onready var soft_collision = $SoftCollision
-@onready var health_bar = %HealthBar
-@onready var dash_timer = $DashTimer
+@onready var health_bar = $HealthBar
 
 func _ready() -> void:
 	add_to_group("enemy")
 	player = get_tree().get_first_node_in_group("player")
-
+	
 func apply_stats(stats: Dictionary) -> void:
 	health = stats["health"]
+	max_health = health
 	speed = stats["speed"]
-	original_speed = speed 
+	original_speed = speed
+	
+	# Safe fallback to prevent crashes on startup
+	exp_value = stats.get("exp_value", 1)
+	
 	attack_damage = stats["damage"]
 	scale = Vector2(stats["scale"], stats["scale"])
 	
-	base_color = stats["color"] 
+	base_color = stats["color"]
 	$AnimatedSprite2D.modulate = base_color
-	
-	if stats.has("exp"):
-		exp_value = stats["exp"]
-		
-	if stats.has("base_pitch"):
-		base_pitch = stats["base_pitch"]
 	
 	health_bar.max_value = health
 	health_bar.value = health
 	
-	if stats.has("is_dasher") and stats["is_dasher"]:
-		is_dasher = true
-		dash_timer.start(randf_range(2.0, 4.0))
+	if stats.has("base_pitch"):
+		base_pitch = stats["base_pitch"]
+		if base_pitch <= 0.2: 
+			is_boss = true
+			var boss_track = load(Data.MUSIC["boss"])
+			AudioManager.play_music(boss_track, -10.0)
+			AudioManager.set_music_speed(1.0)
 
 func _physics_process(delta: float) -> void:
 	if is_dying:
@@ -67,23 +67,24 @@ func _physics_process(delta: float) -> void:
 		if distance > despawn_distance:
 			queue_free()
 			return
-			
+
 		var push_vector = Vector2.ZERO
 		if soft_collision.has_overlapping_areas():
 			var areas = soft_collision.get_overlapping_areas()
 			for area in areas:
 				push_vector += area.global_position.direction_to(global_position)
 				
+			push_vector = push_vector.normalized()
+				
 		if is_hurt:
 			velocity = velocity * 0.95
-		elif is_dashing:
-			velocity = dash_direction * (speed * 5.0)
 		else:
-			var direction = global_position.direction_to(player.global_position).normalized()
+			var direction = global_position.direction_to(player.global_position)
 			velocity = (direction * speed) + (push_vector * 20.0)
+		
 		if velocity.length() > 0 and not is_hurt:
 			if slime_sfx:
-				AudioManager.play_sfx_2d(slime_sfx, global_position, -24.0, base_pitch * 0.8, "move")
+				AudioManager.play_sfx_2d(slime_sfx, global_position, -20.0, base_pitch, "move")
 			
 		move_and_slide()
 		_update_animations()
@@ -144,6 +145,11 @@ func take_damage(amount: int) -> void:
 	health -= amount
 	health_bar.value = health
 	
+	if is_boss:
+		var hp_percent = float(health) / float(max_health)
+		var dynamic_bpm = 1.0 + ((1.0 - hp_percent) * 0.5) 
+		AudioManager.set_music_speed(dynamic_bpm)
+	
 	var floating_text = damage_scene.instantiate()
 	floating_text.global_position = global_position
 	get_tree().current_scene.add_child(floating_text)
@@ -159,9 +165,8 @@ func _play_hurt() -> void:
 		return
 		
 	is_hurt = true
-	
 	if slime_sfx:
-		AudioManager.play_sfx_2d(slime_sfx, global_position, -15.0, base_pitch, "hit")
+		AudioManager.play_sfx_2d(slime_sfx, global_position, -5.0, base_pitch, "hit")
 		
 	$AnimatedSprite2D.play("hurt_" + facing)
 	await $AnimatedSprite2D.animation_finished
@@ -170,6 +175,10 @@ func _play_hurt() -> void:
 func _die() -> void:
 	is_dying = true
 	health_bar.hide()
+	
+	if is_boss:
+		AudioManager.stop_music()
+		AudioManager.set_music_speed(1.0) 
 	
 	if slime_sfx:
 		AudioManager.play_sfx_2d(slime_sfx, global_position, -10.0, base_pitch, "death") 
@@ -182,46 +191,17 @@ func _die() -> void:
 		
 	var new_seed = seed_scene.instantiate()
 	new_seed.global_position = global_position
-	
 	var roll = randf()
-	if roll <= 0.03:
-		new_seed.seed_type = 1 
-	elif roll <= 0.06:
-		new_seed.seed_type = 2
+	
+	if roll <= 0.01:
+		new_seed.seed_type = 1 # 1% Chance: Magnet
+	elif roll <= 0.02:
+		new_seed.seed_type = 2 # 1% Chance: Speed
+	elif roll <= 0.03:
+		new_seed.seed_type = 3 # 1% Chance: Bomb
 	else:
-		new_seed.seed_type = 0
+		new_seed.seed_type = 0 # 97% Chance: Normal EXP
 		new_seed.exp_amount = exp_value 
 		
 	get_parent().call_deferred("add_child", new_seed)
 	queue_free()
-
-func _on_dash_timer_timeout() -> void:
-	if not is_dasher or not player or is_dying:
-		return
-		
-	is_dashing = true
-	dash_direction = global_position.direction_to(player.global_position)
-	
-	await get_tree().create_timer(0.4).timeout
-	
-	is_dashing = false
-	dash_timer.start(3.0)
-	
-func activate_magnet_powerup() -> void:
-
-	%MagnetZone.scale = Vector2(100.0, 100.0) 
-	await get_tree().create_timer(0.6).timeout
-	if is_inside_tree():
-		%MagnetZone.scale = Vector2(magnet_scale, magnet_scale)
-
-func activate_speed_powerup() -> void:
-	var boost_amount = speed
-	speed += boost_amount
-
-	%AnimatedSprite2D.modulate = Color(0, 2, 5)
-	
-	await get_tree().create_timer(4.0).timeout
-	
-	if is_inside_tree():
-		speed -= boost_amount
-		%AnimatedSprite2D.modulate = Color(1, 1, 1)

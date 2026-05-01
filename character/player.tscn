@@ -162,6 +162,8 @@ light_mask = 5
 collision_mask = 4
 motion_mode = 1
 script = ExtResource("1_g2els")
+speed = null
+max_health = null
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=603219450]
 unique_name_in_owner = true

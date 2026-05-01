@@ -3,6 +3,9 @@
 [ext_resource type="Script" uid="uid://d1f6l21e0ex1c" path="res://scripts/hud.gd" id="1_ahhtf"]
 [ext_resource type="Texture2D" uid="uid://da4uwfn16jc71" path="res://weapons/weaponslot.png" id="2_oo0fn"]
 [ext_resource type="FontFile" uid="uid://cr50vmsbetxqf" path="res://fonts/PixelifySans-VariableFont_wght.ttf" id="3_5ysmq"]
+[ext_resource type="Texture2D" uid="uid://c0byx34hgmu55" path="res://menu_buttons.png" id="4_6fi6k"]
+[ext_resource type="Texture2D" uid="uid://bg4j68b2c6d8" path="res://title.png" id="5_uo2fv"]
+[ext_resource type="PackedScene" uid="uid://b2s06ii5t8m1l" path="res://scenes/options.tscn" id="6_047uy"]
 
 [sub_resource type="FontVariation" id="FontVariation_5pdws"]
 base_font = ExtResource("3_5ysmq")
@@ -316,3 +319,101 @@ offset_bottom = 116.0
 grow_horizontal = 2
 grow_vertical = 2
 text = "Exit"
+
+[node name="PauseOverlay" type="ColorRect" parent="." unique_id=1873636406]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.7058824)
+
+[node name="VBoxContainer" type="HBoxContainer" parent="PauseOverlay" unique_id=1851297045]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -306.0
+offset_top = -229.12479
+offset_right = 86.0
+offset_bottom = -181.0
+grow_horizontal = 2
+grow_vertical = 0
+scale = Vector2(1.5737541, 1.5737541)
+
+[node name="ResumeButton" type="TextureButton" parent="PauseOverlay/VBoxContainer" unique_id=2082664776]
+layout_mode = 2
+texture_normal = ExtResource("4_6fi6k")
+
+[node name="Resume" type="Label" parent="PauseOverlay/VBoxContainer/ResumeButton" unique_id=1964264815]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -36.656403
+offset_top = -12.994324
+offset_right = 198.3436
+offset_bottom = 64.00568
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.3167791, 0.3167791)
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_font_sizes/font_size = 64
+text = "RESUME"
+
+[node name="OptionsButton" type="TextureButton" parent="PauseOverlay/VBoxContainer" unique_id=410579918]
+layout_mode = 2
+texture_normal = ExtResource("4_6fi6k")
+
+[node name="Options" type="Label" parent="PauseOverlay/VBoxContainer/OptionsButton" unique_id=590037830]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -35.21971
+offset_top = -11.353699
+offset_right = 214.7803
+offset_bottom = 65.6463
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.28708458, 0.28951013)
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_font_sizes/font_size = 64
+text = "OPTIONS"
+
+[node name="QuitButton" type="TextureButton" parent="PauseOverlay/VBoxContainer" unique_id=2069687444]
+layout_mode = 2
+texture_normal = ExtResource("4_6fi6k")
+
+[node name="Quit" type="Label" parent="PauseOverlay/VBoxContainer/QuitButton" unique_id=1580603849]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -18.125366
+offset_top = -10.289673
+offset_right = 119.87463
+offset_bottom = 66.71033
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.26932493, 0.26932493)
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_font_sizes/font_size = 64
+text = "QUIT"
+
+[node name="Convallaria" type="Sprite2D" parent="PauseOverlay" unique_id=58073189]
+position = Vector2(635, 180.00002)
+scale = Vector2(2.2543993, 2.2543993)
+texture = ExtResource("5_uo2fv")
+
+[node name="Options" parent="." unique_id=1342148050 instance=ExtResource("6_047uy")]
+visible = false

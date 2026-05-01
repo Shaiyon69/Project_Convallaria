@@ -27,8 +27,11 @@ var thorns_multiplier: float = 0.0
 var evasion_chance: float = 0.0
 var exp_multiplier: float = 1.0
 
-# --- THE NEW PERMANENT MAGNET TRACKER ---
 var magnet_scale: float = 1.0 
+var magnet_time_left: float = 0.0
+var speed_time_left: float = 0.0
+var is_speed_boosted: bool = false
+var base_speed_before_boost: float = 0.0
 
 var owned_weapons: Dictionary = {}
 
@@ -70,7 +73,7 @@ func save_data() -> void:
 		"kill_count": kill_count,
 		"time_survived": time_survived,
 		"owned_weapons": owned_weapons,
-		"magnet_scale": magnet_scale # Save the scale permanently
+		"magnet_scale": magnet_scale
 	}
 
 func _load_data() -> void:
@@ -180,6 +183,7 @@ func _physics_process(delta: float) -> void:
 	_movement_handle()
 	_handle_damage(delta)
 	_handle_regeneration(delta)
+	_handle_powerups(delta)
 
 func _movement_handle():
 	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -284,7 +288,7 @@ func level_up() -> void:
 	hud.update_level(level)
 	
 	get_tree().paused = true
-	var options = get_level_up_options()	# Instantly blow the magnet zone up to 50x size
+	var options = get_level_up_options()
 	hud.show_level_up(options) 
 
 func _apply_upgrade(upgrade: Dictionary) -> void:
@@ -303,7 +307,6 @@ func _apply_upgrade(upgrade: Dictionary) -> void:
 		elif id == "damage":
 			damage_multiplier += (val / 100.0)
 		elif id == "pickup_range":
-			# --- BULLETPROOF SCALING METHOD ---
 			magnet_scale *= (1.0 + (val / 100.0))
 			%MagnetZone.scale = Vector2(magnet_scale, magnet_scale)
 		elif id == "fire_rate":
@@ -341,10 +344,40 @@ func _acquire_weapon(weapon_id: String) -> void:
 			
 	hud.update_weapon_slots(owned_weapons.keys())
 
-# --- THE MASSIVE MAGNET POWERUP LOGIC ---
-func activate_magnet_powerup() -> void:
-	%MagnetZone.scale = Vector2(50.0, 50.0) 
-	await get_tree().create_timer(0.5).timeout
+func _handle_powerups(delta: float) -> void:
+	if magnet_time_left > 0.0:
+		magnet_time_left -= delta
+		var all_seeds = get_tree().get_nodes_in_group("exp_seed")
+		for exp_seed in all_seeds:
+			if exp_seed.has_method("pull_to_player"):
+				exp_seed.pull_to_player(self)
+				
+	if speed_time_left > 0.0:
+		speed_time_left -= delta
+		if speed_time_left <= 0.0:
+			speed = base_speed_before_boost
+			is_speed_boosted = false
+			%AnimatedSprite2D.modulate = Color(1.0, 1.0, 1.0)
 
-	if is_inside_tree():
-		%MagnetZone.scale = Vector2(magnet_scale, magnet_scale)
+func activate_magnet_powerup() -> void:
+	magnet_time_left = 5.0
+
+func activate_speed_powerup() -> void:
+	if not is_speed_boosted:
+		base_speed_before_boost = speed
+		speed += speed * 0.5
+		is_speed_boosted = true
+		%AnimatedSprite2D.modulate = Color(0.5, 0.8, 1.0)
+	
+	speed_time_left = 5.0
+
+func activate_bomb_powerup(bomb_pos: Vector2) -> void:
+	var explosion_radius: float = 600.0
+	var bomb_damage: int = 150
+	
+	var all_enemies = get_tree().get_nodes_in_group("enemy")
+	
+	for enemy in all_enemies:
+		if enemy.global_position.distance_to(bomb_pos) <= explosion_radius:
+			if enemy.has_method("take_damage"):
+				enemy.take_damage(bomb_damage)

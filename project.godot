@@ -15,11 +15,16 @@ run/main_scene="uid://do6fo0aui4oto"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="uid://by4qawkk7cnq4"
 
+[audio]
+
+buses/default_bus_layout="uid://dgrif26n1xrbu"
+
 [autoload]
 
 Data="*uid://0jwrdycl1kfp"
 TransitionManager="*uid://bxkpovmhlpora"
 AudioManager="*uid://b7i5awnt21xb6"
+SettingsManager="*uid://bpvj1guw68uv7"
 
 [display]
 
@@ -68,3 +73,4 @@ interact={
 
 textures/canvas_textures/default_texture_filter=0
 rendering_device/driver.windows="d3d12"
+textures/vram_compression/import_etc2_astc=true
