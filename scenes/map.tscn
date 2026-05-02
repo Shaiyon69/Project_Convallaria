@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://s1q71vcyhs2a" path="res://assets/water.png" id="1_gldc4"]
 [ext_resource type="Texture2D" uid="uid://dhqpgi7xau6yi" path="res://assets/grass.png" id="2_0cso3"]
 [ext_resource type="PackedScene" uid="uid://1dettxb686dv" path="res://portal/portal.tscn" id="2_2klcf"]
+[ext_resource type="PackedScene" uid="uid://ywkqdni4pqhj" path="res://scenes/tree.tscn" id="2_2lpho"]
 [ext_resource type="Texture2D" uid="uid://dxpky3bl0jhcc" path="res://assets/soil.png" id="3_2klcf"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_gldc4"]
@@ -926,7 +927,9 @@ terrain_set_0/terrain_0/color = Color(0.5, 0.34375, 0.25, 1)
 sources/0 = SubResource("TileSetAtlasSource_2klcf")
 
 [node name="Map" type="Node2D" unique_id=971720462]
+y_sort_enabled = true
 script = ExtResource("1_0cso3")
+tree_scene = ExtResource("2_2lpho")
 boss_portal_scene = ExtResource("2_2klcf")
 
 [node name="WaterLayer" type="TileMapLayer" parent="." unique_id=428502450]

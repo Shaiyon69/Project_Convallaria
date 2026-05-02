@@ -241,12 +241,13 @@ height = 12.0
 radius = 4.0
 
 [node name="Slime" type="CharacterBody2D" unique_id=1571563526]
-collision_layer = 2
-collision_mask = 4
+collision_layer = 4
+collision_mask = 2
 motion_mode = 1
 script = ExtResource("1_mweif")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1488600536]
+y_sort_enabled = true
 position = Vector2(-1, 0)
 sprite_frames = SubResource("SpriteFrames_8tegq")
 animation = &"hurt_up"
@@ -255,8 +256,8 @@ animation = &"hurt_up"
 shape = SubResource("CapsuleShape2D_8tegq")
 
 [node name="SoftCollision" type="Area2D" parent="." unique_id=1711617799]
-collision_layer = 8
-collision_mask = 8
+collision_layer = 32
+collision_mask = 32
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="SoftCollision" unique_id=408669168]
 shape = SubResource("CircleShape2D_p2gj0")
@@ -271,6 +272,7 @@ offset_bottom = -4.0
 scale = Vector2(0.29466522, 0.29466522)
 rounded = true
 show_percentage = false
+metadata/_edit_use_anchors_ = true
 
 [node name="DashTimer" type="Timer" parent="." unique_id=431899327]
 autostart = true

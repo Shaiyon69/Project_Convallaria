@@ -196,5 +196,10 @@ func _on_upgrade_pressed(index: int) -> void:
 func update_time(minutes: int, seconds: int) -> void:
 	%TimeLabel.text = "%02d:%02d" % [minutes, seconds]
 
+	if minutes >= 10:
+		%TimeLabel.add_theme_color_override("font_color", Color(1, 0.2, 0.2))
+	else:
+		%TimeLabel.add_theme_color_override("font_color", Color(1, 1, 1))
+
 func update_kills(kills: int) -> void:
 	%KillLabel.text = "Kills: " + str(kills)

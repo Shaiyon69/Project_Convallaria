@@ -30,6 +30,8 @@ SettingsManager="*uid://bpvj1guw68uv7"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 window/emulate_touch_from_mouse=true
 window/default_bus_layout="uid://dgrif26n1xrbu"
 
@@ -67,9 +69,12 @@ pointing/emulate_touch_from_mouse=true
 
 [layer_names]
 
-2d_render/layer_1="Player"
-2d_render/layer_2="Enemy"
-2d_render/layer_3="Environment"
+2d_physics/layer_1="Player"
+2d_physics/layer_2="Environment"
+2d_physics/layer_3="Enemies"
+2d_physics/layer_4="PlayerAttacks"
+2d_physics/layer_5="Items"
+2d_physics/layer_6="SoftCollision"
 
 [physics]
 

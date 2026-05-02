@@ -13,6 +13,7 @@ var boss_spawned: bool = false
 var boss_defeated: bool = false
 var max_enemies: int = 300
 var last_processed_second: int = -1
+var is_end_times: bool = false
 
 var horde_events: Dictionary = {
 	60: {"type": "swarm", "amount": 30},
@@ -24,7 +25,7 @@ func _ready() -> void:
 	player = get_tree().get_first_node_in_group("player")
 
 func _process(_delta: float) -> void:
-	if not player:
+	if not player or is_end_times:
 		return
 		
 	var current_second = int(player.time_survived)
@@ -35,12 +36,41 @@ func _process(_delta: float) -> void:
 func _check_time_events(current_second: int) -> void:
 	if horde_events.has(current_second):
 		_spawn_horde(horde_events[current_second]["type"], horde_events[current_second]["amount"])
+
+# --- NEW: The End Times Event ---
+func start_end_times() -> void:
+	is_end_times = true
+	
+	if has_node("SpawnTimer"):
+		$SpawnTimer.stop()
+	if has_node("DifficultyTimer"):
+		$DifficultyTimer.stop()
 		
-	if current_second >= 600 and not boss_spawned:
+	if not boss_spawned:
 		_spawn_portal()
+		
+	_spawn_death_slimes(8)
+	
+	var death_timer = Timer.new()
+	death_timer.wait_time = 1.5
+	death_timer.autostart = true
+	death_timer.timeout.connect(func(): _spawn_death_slimes(4))
+	add_child(death_timer)
+
+func _spawn_death_slimes(amount: int) -> void:
+	if not player or not grass_layer:
+		return
+	
+	# Allow death slimes to slightly exceed max enemies so they can swarm
+	if get_tree().get_node_count_in_group("enemy") >= max_enemies + 50:
+		return
+		
+	for i in range(amount):
+		_spawn_single_enemy("death_slime")
+# --------------------------------
 
 func _on_spawn_timer_timeout() -> void:
-	if not player or not grass_layer:
+	if not player or not grass_layer or is_end_times:
 		return
 		
 	if get_tree().get_node_count_in_group("enemy") >= max_enemies:
@@ -81,9 +111,9 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 		
 		var final_stats: Dictionary
 		var minutes_survived = int(player.time_survived) / 60
-		var spawn_death_slime = (minutes_survived >= 10) or boss_defeated
+		var spawn_death_slime = (minutes_survived >= 10) or boss_defeated or specific_type == "death_slime"
 		
-		if spawn_death_slime and specific_type == "":
+		if spawn_death_slime:
 			final_stats = Data.ENEMIES["death_slime"].duplicate()
 			
 			var over_time = max(0, minutes_survived - 10)
@@ -104,7 +134,8 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 				var enemy_types = _get_allowed_enemies(player.time_survived)
 				enemy_type = enemy_types[randi() % enemy_types.size()]
 				
-			final_stats = Data.ENEMIES[enemy_type]
+			# NEW: Apply the dynamic time & floor scaling!
+			final_stats = Data.get_scaled_enemy_stats(enemy_type, minutes_survived)
 			
 		new_slime.apply_stats(final_stats)
 
@@ -113,7 +144,7 @@ func _spawn_horde(enemy_type: String, amount: int) -> void:
 		_spawn_single_enemy(enemy_type)
 
 func _on_difficulty_timer_timeout() -> void:
-	if not player:
+	if not player or is_end_times:
 		return
 
 	if $SpawnTimer.wait_time > min_wait_time:

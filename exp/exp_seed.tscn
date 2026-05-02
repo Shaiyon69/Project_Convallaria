@@ -6,7 +6,8 @@
 [sub_resource type="CircleShape2D" id="CircleShape2D_xm1g4"]
 
 [node name="ExpSeed" type="Area2D" unique_id=1705946301]
-collision_layer = 0
+y_sort_enabled = true
+collision_layer = 16
 script = ExtResource("1_fw3lm")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1498084499]

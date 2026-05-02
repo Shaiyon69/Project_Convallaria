@@ -2,11 +2,12 @@ extends Node2D
 
 @export var map_seed: int = 0
 @export var use_random_seed: bool = true
-@export var map_radius: int = 100 # DOUBLED MAP SIZE
+@export var map_radius: int = 100
 
 @export var water_source_id: int = 0
 @export var water_atlas_coords: Vector2i = Vector2i(0, 0)
 
+@export var tree_scene: PackedScene 
 @export var chest_scene: PackedScene
 @export var statue_scene: PackedScene
 @export var boss_portal_scene: PackedScene
@@ -22,6 +23,7 @@ func _ready() -> void:
 	_initialize_noise()
 	_generate_terrain()
 	_apply_biome()
+	_spawn_trees() 
 	_spawn_objects()
 	_spawn_boss_portal()
 	_place_player()
@@ -40,7 +42,7 @@ func _initialize_noise() -> void:
 	noise.fractal_octaves = 4
 	noise.fractal_lacunarity = 2.0
 	noise.fractal_gain = 0.5
-	noise.frequency = 0.02 # LOWERED TO CREATE HUGE, CONNECTED LANDMASSES
+	noise.frequency = 0.02 
 
 func _generate_terrain() -> void:
 	var grass_cells: Array[Vector2i] = []
@@ -88,6 +90,35 @@ func _apply_biome() -> void:
 	grass_layer.modulate = palette["grass"]
 	soil_layer.modulate = palette["soil"]
 	water_layer.modulate = palette["water"]
+
+func _spawn_trees() -> void:
+	if not tree_scene or valid_spawn_tiles.is_empty():
+		return
+
+	var rng = RandomNumberGenerator.new()
+	rng.seed = map_seed + 2 
+	
+	var target_tree_count = int(valid_spawn_tiles.size() * 0.015) 
+	var placed_trees = 0
+	var attempts = 0
+	
+	while placed_trees < target_tree_count and attempts < target_tree_count * 4:
+		var random_index = rng.randi_range(0, valid_spawn_tiles.size() - 1)
+		var cell_coords = valid_spawn_tiles[random_index]
+		
+		if _has_enough_space(cell_coords, 1):
+			var tree = tree_scene.instantiate()
+			
+			var offset_x = rng.randf_range(-6.0, 6.0)
+			var offset_y = rng.randf_range(-6.0, 6.0)
+			
+			tree.global_position = grass_layer.map_to_local(cell_coords) + Vector2(offset_x, offset_y)
+			add_child(tree)
+			
+			placed_trees += 1
+			valid_spawn_tiles.remove_at(random_index)
+			
+		attempts += 1
 
 func _spawn_objects() -> void:
 	var rng = RandomNumberGenerator.new()

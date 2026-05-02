@@ -159,14 +159,14 @@ radius = 9.0
 
 [node name="Player" type="CharacterBody2D" unique_id=993828270 groups=["player"]]
 light_mask = 5
-collision_mask = 4
+y_sort_enabled = true
+collision_mask = 2
 motion_mode = 1
 script = ExtResource("1_g2els")
-speed = null
-max_health = null
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=603219450]
 unique_name_in_owner = true
+y_sort_enabled = true
 sprite_frames = SubResource("SpriteFrames_4r5pv")
 animation = &"down"
 frame_progress = 0.24657044
@@ -188,7 +188,7 @@ position = Vector2(-288, -160)
 [node name="HurtBox" type="Area2D" parent="." unique_id=1690802153]
 unique_name_in_owner = true
 collision_layer = 0
-collision_mask = 2
+collision_mask = 4
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HurtBox" unique_id=1162260499]
 position = Vector2(0, 3)
@@ -197,7 +197,7 @@ shape = SubResource("CapsuleShape2D_g2els")
 [node name="MagnetZone" type="Area2D" parent="." unique_id=391827114]
 unique_name_in_owner = true
 collision_layer = 0
-collision_mask = 8
+collision_mask = 16
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="MagnetZone" unique_id=1473889355]
 position = Vector2(0, 3)

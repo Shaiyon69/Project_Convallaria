@@ -68,8 +68,9 @@ _data = {
 }
 
 [node name="Poison" type="Area2D" unique_id=1163173372]
-collision_layer = 0
-collision_mask = 2
+y_sort_enabled = true
+collision_layer = 8
+collision_mask = 4
 script = ExtResource("1_6823q")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=311538921]

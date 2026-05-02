@@ -8,7 +8,7 @@ var i_frame_duration: float = 0.2
 
 var level: int = 1
 var current_exp: int = 0
-var exp_to_next_level: int = 50 
+var exp_to_next_level: int = 15 
 
 var current_health: float
 var damage_multiplier: float = 1.0
@@ -35,6 +35,14 @@ var base_speed_before_boost: float = 0.0
 
 var owned_weapons: Dictionary = {}
 
+var end_times_triggered: bool = false 
+
+var sfx_pickup = preload("res://audio/orb.mp3")
+var sfx_levelup = preload("res://audio/levelup.wav")
+
+# NEW: Tracks the exact millisecond the last sound played to prevent overlap spam
+var last_sfx_time: int = 0
+
 @onready var hud = $HUD
 @onready var step_sound = $StepSound
 
@@ -48,6 +56,8 @@ func _ready() -> void:
 	hud.update_health(current_health, max_health)
 	hud.update_exp(current_exp, exp_to_next_level)
 	hud.update_level(level)
+	if hud.has_method("update_coins"):
+		hud.update_coins(Data.coins)
 	
 	hud.upgrade_selected.connect(_apply_upgrade)
 	%MagnetZone.area_entered.connect(_on_magnet_zone_area_entered)
@@ -203,6 +213,15 @@ func _timer_calc(delta: float):
 	var minutes = int(time_survived) / 60
 	var seconds = int(time_survived) % 60
 	hud.update_time(minutes, seconds)
+	
+	if time_survived >= 600.0 and not end_times_triggered:
+		end_times_triggered = true
+		_trigger_end_times()
+
+func _trigger_end_times() -> void:
+	var spawner = get_tree().current_scene.get_node_or_null("Spawner")
+	if spawner and spawner.has_method("start_end_times"):
+		spawner.start_end_times()
 
 func _handle_regeneration(delta: float) -> void:
 	if hp_regen_rate > 0.0 and current_health < max_health:
@@ -219,14 +238,11 @@ func add_kill() -> void:
 	
 func trigger_iframes() -> void:
 	is_invincible = true
-	
 	var tween = create_tween()
 	tween.tween_property($AnimatedSprite2D, "modulate:a", 0.3, 0.1)
 	tween.tween_property($AnimatedSprite2D, "modulate:a", 1.0, 0.1)
 	tween.set_loops(int(i_frame_duration / 0.2))
-	
 	await get_tree().create_timer(i_frame_duration).timeout
-	
 	is_invincible = false
 	$AnimatedSprite2D.modulate.a = 1.0
 
@@ -268,28 +284,68 @@ func _handle_damage(_delta: float) -> void:
 				trigger_iframes()
 			return
 
+# NEW: Added a 'throttle' parameter to prevent audio overlap spam
+func _play_pickup_sfx(pitch: float, volume: float = -10.0, throttle: bool = false) -> void:
+	if throttle:
+		var current_time = Time.get_ticks_msec()
+		# If it's been less than 40ms since the last sound, skip playing it!
+		if current_time - last_sfx_time < 40: 
+			return
+		last_sfx_time = current_time
+
+	var player_audio = AudioStreamPlayer.new()
+	player_audio.stream = sfx_pickup
+	player_audio.pitch_scale = pitch
+	player_audio.volume_db = volume
+	add_child(player_audio)
+	player_audio.play()
+	player_audio.finished.connect(player_audio.queue_free)
+
 func gain_experience(amount: int) -> void:
 	current_exp += round(amount * exp_multiplier)
-	if current_exp >= exp_to_next_level:
-		level_up()
-	hud.update_exp(current_exp, exp_to_next_level)
+	
+	# Pass "true" to throttle so the magnet doesn't blow out your speakers
+	_play_pickup_sfx(randf_range(1.4, 1.7), -12.0, true) 
+	
+	var leveled_up = false
+	
+	while current_exp >= exp_to_next_level:
+		current_exp -= exp_to_next_level
+		level += 1
+		exp_to_next_level = int(15 + (level * 10) * (level * 0.4))
+		
+		max_health += 5.0
+		damage_multiplier += 0.02
+		current_health = max_health
+		leveled_up = true
+		
+	if leveled_up:
+		_trigger_level_up_ui()
+	else:
+		hud.update_exp(current_exp, exp_to_next_level)
 
-func level_up() -> void:
-	current_exp -= exp_to_next_level
-	level += 1
-	exp_to_next_level = int(50 * (level ** 1.5))
-	
-	max_health += 5.0
-	damage_multiplier += 0.05
-	current_health = max_health
-	
+func _trigger_level_up_ui() -> void:
 	hud.update_health(current_health, max_health)
 	hud.update_exp(current_exp, exp_to_next_level)
 	hud.update_level(level)
 	
+	var lvl_audio = AudioStreamPlayer.new()
+	lvl_audio.stream = sfx_levelup
+	lvl_audio.volume_db = -12.0 # FIX: Reduced the volume of the level up sound
+	lvl_audio.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(lvl_audio)
+	lvl_audio.play()
+	lvl_audio.finished.connect(lvl_audio.queue_free)
+	
 	get_tree().paused = true
 	var options = get_level_up_options()
-	hud.show_level_up(options) 
+	hud.show_level_up(options)
+
+func collect_coin(amount: int) -> void:
+	Data.coins += amount
+	_play_pickup_sfx(2.0, -5.0, true) # High pitched, throttled
+	if hud and hud.has_method("update_coins"):
+		hud.update_coins(Data.coins)
 
 func _apply_upgrade(upgrade: Dictionary) -> void:
 	var id = upgrade["id"]
@@ -306,9 +362,6 @@ func _apply_upgrade(upgrade: Dictionary) -> void:
 			speed += speed * (val / 100.0)
 		elif id == "damage":
 			damage_multiplier += (val / 100.0)
-		elif id == "pickup_range":
-			magnet_scale *= (1.0 + (val / 100.0))
-			%MagnetZone.scale = Vector2(magnet_scale, magnet_scale)
 		elif id == "fire_rate":
 			fire_rate_multiplier -= (val / 100.0)
 			if fire_rate_multiplier < 0.2:
@@ -360,23 +413,23 @@ func _handle_powerups(delta: float) -> void:
 			%AnimatedSprite2D.modulate = Color(1.0, 1.0, 1.0)
 
 func activate_magnet_powerup() -> void:
+	_play_pickup_sfx(1.3, -5.0) 
 	magnet_time_left = 5.0
 
 func activate_speed_powerup() -> void:
+	_play_pickup_sfx(1.3, -5.0) 
 	if not is_speed_boosted:
 		base_speed_before_boost = speed
 		speed += speed * 0.5
 		is_speed_boosted = true
 		%AnimatedSprite2D.modulate = Color(0.5, 0.8, 1.0)
-	
 	speed_time_left = 5.0
 
 func activate_bomb_powerup(bomb_pos: Vector2) -> void:
+	_play_pickup_sfx(1.3, -5.0) 
 	var explosion_radius: float = 600.0
 	var bomb_damage: int = 150
-	
 	var all_enemies = get_tree().get_nodes_in_group("enemy")
-	
 	for enemy in all_enemies:
 		if enemy.global_position.distance_to(bomb_pos) <= explosion_radius:
 			if enemy.has_method("take_damage"):

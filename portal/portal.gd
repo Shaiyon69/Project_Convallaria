@@ -114,7 +114,12 @@ func _teleport_player() -> void:
 		var player = tree.get_first_node_in_group("player")
 		if player and player.has_method("save_data"):
 			player.save_data()
-	
+			
 	Data.current_floor += 1
 	
-	TransitionManager.change_scene(next_level_path)
+	if Data.current_floor < Data.MAX_FLOORS:
+		TransitionManager.change_scene(next_level_path)
+	elif Data.current_floor == Data.MAX_FLOORS:
+		TransitionManager.change_scene("res://scenes/final_boss_arena.tscn") 
+	else:
+		TransitionManager.change_scene("res://scenes/victory_screen.tscn")
