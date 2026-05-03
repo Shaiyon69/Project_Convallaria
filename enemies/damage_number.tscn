@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://bjaqyncxsvvyd"]
+
+[ext_resource type="Script" uid="uid://j75fseo0ls8n" path="res://enemies/damage_number.gd" id="1_aie4f"]
+
+[node name="DamageNumber" type="Marker2D" unique_id=1297124889]
+script = ExtResource("1_aie4f")
+
+[node name="Label" type="Label" parent="." unique_id=1290222228]
+offset_right = 19.0
+offset_bottom = 23.0
+scale = Vector2(0.5141105, 0.5141105)
+theme_override_colors/font_color = Color(1, 0.16862746, 0, 1)
+text = "15"

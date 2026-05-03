@@ -1,0 +1,265 @@
+extends CanvasLayer
+
+signal upgrade_selected(upgrade: Dictionary)
+
+var current_options: Array = []
+
+@onready var pause_resume_btn = %PauseOverlay.get_node("VBoxContainer/ResumeButton")
+@onready var pause_options_btn = %PauseOverlay.get_node("VBoxContainer/OptionsButton")
+@onready var pause_quit_btn = %PauseOverlay.get_node("VBoxContainer/QuitButton")
+@onready var pause_restart_btn = %PauseOverlay.get_node("RestartButton")
+@onready var mobile_pause_btn = $PauseBox/PauseButton
+@onready var options_menu = $Options
+@onready var title_sprite = $PauseOverlay/HBoxContainer/Convallaria
+
+@onready var sfx_hover = preload("res://ui/menu_hover.mp3")
+@onready var sfx_click = preload("res://ui/menu_click.mp3")
+
+@onready var item_get_popup = $ItemGetPopup
+@onready var item_name_label = $ItemGetPopup/ItemNameLabel
+@onready var item_icon_display = $ItemGetPopup/ItemIconDisplay
+@onready var item_desc_label = $ItemGetPopup/ItemDescLabel
+@onready var continue_btn = $ItemGetPopup/ContinueButton
+
+@onready var item_grid = $ItemGrid
+
+var _base_button_scales: Dictionary = {}
+var _target_button_scales: Dictionary = {}
+
+func _ready() -> void:
+	get_tree().paused = false
+	%PauseOverlay.hide()
+	%GameOverScreen.hide()
+	%LevelUpScreen.hide()
+	
+	if item_get_popup:
+		item_get_popup.hide()
+		continue_btn.pressed.connect(_on_continue_pressed)
+	
+	%TryAgain.pressed.connect(_on_try_again_pressed)
+	%Exit.pressed.connect(_on_exit_pressed)
+	
+	%Upgrade1.pressed.connect(_on_upgrade_pressed.bind(0))
+	%Upgrade2.pressed.connect(_on_upgrade_pressed.bind(1))
+	%Upgrade3.pressed.connect(_on_upgrade_pressed.bind(2))
+	
+	pause_resume_btn.pressed.connect(_on_pause_start_pressed)
+	pause_options_btn.pressed.connect(_on_pause_options_pressed)
+	pause_quit_btn.pressed.connect(_on_pause_quit_pressed)
+	pause_restart_btn.pressed.connect(_on_pause_restart_pressed)
+	mobile_pause_btn.pressed.connect(_toggle_pause)
+	
+	_setup_button_animations()
+	
+	if title_sprite:
+		_setup_title_animation()
+
+func show_item_get(item_id: String) -> void:
+	var item_data = Data.ITEMS[item_id]
+	
+	item_name_label.text = item_data["name"]
+	item_icon_display.texture = load(item_data["icon"])
+	item_desc_label.text = item_data["desc"] 
+	
+	if Data.RARITY.has(item_data["rarity"]):
+		item_name_label.add_theme_color_override("font_color", Data.RARITY[item_data["rarity"]]["color"])
+	
+	get_tree().paused = true
+	item_get_popup.show()
+
+func _on_continue_pressed() -> void:
+	item_get_popup.hide()
+	get_tree().paused = false
+
+func update_inventory_display(owned_items: Array) -> void:
+	var item_counts = {}
+	for item in owned_items:
+		if item_counts.has(item):
+			item_counts[item] += 1
+		else:
+			item_counts[item] = 1
+			
+	for child in item_grid.get_children():
+		child.queue_free()
+		
+	for item_id in item_counts.keys():
+		var count = item_counts[item_id]
+		var icon_path = Data.ITEMS[item_id]["icon"]
+		
+		var slot = TextureRect.new()
+		slot.texture = load(icon_path)
+		slot.custom_minimum_size = Vector2(32, 32)
+		slot.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		
+		if count > 1:
+			var label = Label.new()
+			label.text = "x" + str(count)
+			label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+			label.position = Vector2(16, 16)
+			label.add_theme_constant_override("outline_size", 4)
+			label.add_theme_color_override("font_outline_color", Color.BLACK)
+			slot.add_child(label)
+			
+		item_grid.add_child(slot)
+
+func _setup_title_animation() -> void:
+	var shadow = Sprite2D.new()
+	shadow.texture = title_sprite.texture
+	shadow.modulate = Color(0, 0, 0, 0.5)
+	shadow.position = Vector2(1, 2)
+	shadow.show_behind_parent = true
+	title_sprite.add_child(shadow)
+
+	var start_y = title_sprite.position.y
+	var tween = create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.bind_node(title_sprite)
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS) 
+	
+	tween.tween_property(title_sprite, "position:y", start_y - 10.0, 1.5)
+	tween.tween_property(title_sprite, "position:y", start_y, 1.5)
+
+func _setup_button_animations() -> void:
+	var animated_buttons = [
+		pause_resume_btn, pause_options_btn, pause_quit_btn, pause_restart_btn, mobile_pause_btn,
+		%TryAgain, %Exit, %Upgrade1, %Upgrade2, %Upgrade3
+	]
+	
+	for button in animated_buttons:
+		_base_button_scales[button.name] = button.scale
+		_target_button_scales[button.name] = button.scale
+		
+		if not button.mouse_entered.is_connected(_on_button_hover):
+			button.mouse_entered.connect(_on_button_hover.bind(button))
+			
+		if not button.mouse_exited.is_connected(_on_button_exit):
+			button.mouse_exited.connect(_on_button_exit.bind(button))
+			
+		if not button.pressed.is_connected(_on_button_pressed_animate):
+			button.pressed.connect(_on_button_pressed_animate.bind(button))
+
+func _on_button_hover(button: BaseButton) -> void:
+	button.pivot_offset = button.size / 2.0
+	var tween = create_tween().set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	_target_button_scales[button.name] = _base_button_scales[button.name] * 1.1
+	tween.tween_property(button, "scale", _target_button_scales[button.name], 0.15)
+	
+	_play_sfx(sfx_hover)
+
+func _on_button_exit(button: BaseButton) -> void:
+	button.pivot_offset = button.size / 2.0
+	var tween = create_tween().set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	_target_button_scales[button.name] = _base_button_scales[button.name]
+	tween.tween_property(button, "scale", _target_button_scales[button.name], 0.15)
+
+func _on_button_pressed_animate(button: BaseButton) -> void:
+	button.pivot_offset = button.size / 2.0
+	var tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(button, "scale", _base_button_scales[button.name] * 0.9, 0.05)
+	tween.tween_property(button, "scale", _target_button_scales[button.name], 0.15)
+	
+	_play_sfx(sfx_click)
+
+func _play_sfx(stream: AudioStream, start_offset: float = 0.62) -> void:
+	var player = AudioStreamPlayer.new()
+	player.stream = stream
+	player.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(player)
+	player.play(start_offset)
+	player.finished.connect(player.queue_free)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		if %GameOverScreen.visible or %LevelUpScreen.visible:
+			return
+		_toggle_pause()
+
+func _toggle_pause() -> void:
+	var is_paused = get_tree().paused
+	get_tree().paused = !is_paused
+	%PauseOverlay.visible = !is_paused
+
+func _on_pause_start_pressed() -> void:
+	_toggle_pause()
+
+func _on_pause_options_pressed() -> void:
+	options_menu.show()
+
+func _on_pause_restart_pressed() -> void:
+	get_tree().paused = false
+	TransitionManager.change_scene("res://world/world.tscn")
+
+func _on_pause_quit_pressed() -> void:
+	get_tree().paused = false
+	TransitionManager.change_scene("res://ui/gui.tscn")
+
+func update_health(current: float, maximum: float) -> void:
+	%HealthBar.max_value = maximum
+	%HealthBar.value = current
+	%HealthLabel.text = str(int(current), "/", int(maximum))
+	
+	if current / maximum <= 0.3:
+		%LowHPWarning.visible = true
+	else:
+		%LowHPWarning.visible = false
+
+func update_exp(current: int, maximum: int) -> void:
+	%ExpBar.max_value = maximum
+	%ExpBar.value = current
+	%ExpLabel.text = str(current, "/", maximum)
+
+func update_level(level: int) -> void:
+	%LevelLabel.text = "Level: " + str(level)
+
+func show_game_over() -> void:
+	%GameOverScreen.visible = true
+
+func _on_try_again_pressed() -> void:
+	get_tree().paused = false
+	TransitionManager.change_scene("res://world/world.tscn")
+
+func _on_exit_pressed() -> void:
+	get_tree().paused = false
+	TransitionManager.change_scene("res://ui/gui.tscn") 
+
+func show_level_up(options: Array) -> void:
+	current_options = options
+	var buttons = [%Upgrade1, %Upgrade2, %Upgrade3]
+	
+	for i in range(buttons.size()):
+		if i < options.size():
+			buttons[i].text = options[i]["text"]
+			buttons[i].add_theme_color_override("font_color", options[i]["color"])
+			buttons[i].show()
+		else:
+			buttons[i].hide()
+			
+	%LevelUpScreen.visible = true
+	
+func update_weapon_slots(weapon_ids: Array) -> void:
+	var slots = [%Slot1, %Slot2, %Slot3]
+	
+	for i in range(slots.size()):
+		var icon = slots[i].get_node("Icon")
+		
+		if i < weapon_ids.size():
+			var w_id = weapon_ids[i]
+			var icon_path = Data.WEAPONS[w_id]["icon"]
+			icon.texture = load(icon_path)
+		else:
+			icon.texture = null
+
+func _on_upgrade_pressed(index: int) -> void:
+	%LevelUpScreen.visible = false
+	get_tree().paused = false
+	upgrade_selected.emit(current_options[index])
+
+func update_time(minutes: int, seconds: int) -> void:
+	%TimeLabel.text = "%02d:%02d" % [minutes, seconds]
+
+	if minutes >= 10:
+		%TimeLabel.add_theme_color_override("font_color", Color(1, 0.2, 0.2))
+	else:
+		%TimeLabel.add_theme_color_override("font_color", Color(1, 1, 1))
+
+func update_kills(kills: int) -> void:
+	%KillLabel.text = "Kills: " + str(kills)

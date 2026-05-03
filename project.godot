@@ -13,7 +13,7 @@ config_version=5
 config/name="Convallaria"
 run/main_scene="uid://do6fo0aui4oto"
 config/features=PackedStringArray("4.6", "Forward Plus")
-config/icon="uid://by4qawkk7cnq4"
+config/icon="uid://b8jiyp1ykms7c"
 
 [audio]
 

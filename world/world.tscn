@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://fxcfocx3fc5l"]
+
+[ext_resource type="Script" path="res://world/world.gd" id="1_mmdvd"]
+[ext_resource type="PackedScene" uid="uid://d4e1brvpuemsy" path="res://player/player.tscn" id="1_nnsk1"]
+[ext_resource type="PackedScene" uid="uid://b1m3mo8mcnu84" path="res://enemies/enemy_spawner.tscn" id="3_4wyf3"]
+[ext_resource type="PackedScene" uid="uid://bhkbhjldh33ii" path="res://world/map.tscn" id="4_k0juu"]
+[ext_resource type="PackedScene" uid="uid://cunwoj2qfpdwp" path="res://player/mobile_controls.tscn" id="5_71j4m"]
+
+[node name="World" type="Node2D" unique_id=1868345238]
+y_sort_enabled = true
+script = ExtResource("1_mmdvd")
+
+[node name="EnemySpawner" parent="." unique_id=646256932 instance=ExtResource("3_4wyf3")]
+
+[node name="Map" parent="." unique_id=971720462 instance=ExtResource("4_k0juu")]
+z_index = -2
+
+[node name="Player" parent="." unique_id=993828270 instance=ExtResource("1_nnsk1")]
+position = Vector2(560, 456)
+
+[node name="MobileControls" parent="." unique_id=1098429242 instance=ExtResource("5_71j4m")]

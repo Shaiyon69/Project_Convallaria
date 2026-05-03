@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://bfh5257mjgf0w"]
+
+[ext_resource type="Script" uid="uid://2gfbm2gkk22o" path="res://weapons/wand/wand.gd" id="1_ns1j4"]
+
+[node name="Wand" type="Node2D" unique_id=2095223550]
+script = ExtResource("1_ns1j4")
+
+[node name="AttackTimer" type="Timer" parent="." unique_id=100608474]
+autostart = true
