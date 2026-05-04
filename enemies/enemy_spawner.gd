@@ -14,8 +14,6 @@ var boss_defeated: bool = false
 var max_enemies: int = 300
 var last_processed_second: int = -1
 var is_end_times: bool = false
-
-# Level duration limit (10 minutes = 600 seconds)
 var level_duration: int = 600 
 
 var horde_events: Dictionary = {
@@ -47,8 +45,7 @@ func _process(_delta: float) -> void:
 	if current_second != last_processed_second:
 		last_processed_second = current_second
 		_check_time_events(current_second)
-		
-	# NEW: Force the End Times exactly at the 10-minute mark!
+
 	if current_second >= level_duration and not is_end_times:
 		start_end_times()
 
@@ -75,10 +72,8 @@ func start_end_times() -> void:
 	death_timer.timeout.connect(func(): _spawn_death_slimes(4))
 	add_child(death_timer)
 
-# NEW: Call this from your Boss script when its health reaches 0!
 func notify_boss_defeated() -> void:
 	boss_defeated = true
-	# Spawns the portal if it isn't there, and unleashes the Death Slimes!
 	if not is_end_times:
 		start_end_times()
 
@@ -135,9 +130,6 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 		var final_stats: Dictionary
 		var minutes_survived = int(player.time_survived) / 60
 		var spawn_death_slime = (minutes_survived >= 10) or boss_defeated or specific_type == "death_slime"
-		
-		# --- FLOOR SCALING MULTIPLIER ---
-		# Increases stats by 30% for every floor above Floor 1
 		var floor_mult = 1.0 + ((Data.current_floor - 1) * 0.3) 
 		
 		if spawn_death_slime:
@@ -162,11 +154,9 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 				enemy_type = enemy_types[randi() % enemy_types.size()]
 				
 			final_stats = Data.get_scaled_enemy_stats(enemy_type, minutes_survived)
-			
-			# Apply Floor Scaling to normal enemies!
+
 			final_stats["health"] = int(final_stats["health"] * floor_mult)
 			final_stats["damage"] = int(final_stats["damage"] * floor_mult)
-			# You also get more EXP in harder areas!
 			if final_stats.has("exp"):
 				final_stats["exp"] = int(final_stats["exp"] * floor_mult) 
 			

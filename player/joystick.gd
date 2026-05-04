@@ -35,7 +35,6 @@ func _input(event: InputEvent) -> void:
 		_update_virtual_keys(direction / max_distance)
 
 func _update_virtual_keys(vector: Vector2) -> void:
-	# Horizontal Movement
 	if vector.x > 0:
 		Input.action_press("move_right", vector.x)
 		Input.action_release("move_left")
@@ -46,7 +45,6 @@ func _update_virtual_keys(vector: Vector2) -> void:
 		Input.action_release("move_left")
 		Input.action_release("move_right")
 
-	# Vertical Movement
 	if vector.y > 0:
 		Input.action_press("move_down", vector.y)
 		Input.action_release("move_up")

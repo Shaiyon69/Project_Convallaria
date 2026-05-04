@@ -83,10 +83,10 @@ const UPGRADES = [
 ]
 
 const ITEMS = {
-	"apple": {"name": "Apple", "icon": "res://player/items/apple.png", "type": "vampirism", "value": 0.02, "rarity": "white", "desc": "Heal 2% Max HP on every enemy kill."},
-	"sprinkler": {"name": "Sprinkler", "icon": "res://player/items/sprinkler.png", "type": "nova", "value": 5.0, "rarity": "blue", "desc": "Releases a damaging water blast every 5 seconds."},
-	"beanie": {"name": "Beanie", "icon": "res://player/items/beanie.png", "type": "shield", "value": 15.0, "rarity": "green", "desc": "Blocks 1 hit. Recharges every 15 seconds."},
-	"goldfish": {"name": "Goldfish", "icon": "res://player/items/goldfish.png", "type": "greed", "value": 0.001, "rarity": "gold", "desc": "+1% Damage per 10 coins held."}
+	"apple": {"name": "Apple", "icon": "res://player/items/apple.png", "type": "vampirism", "value": 0.03, "rarity": "white", "desc": "3% chance on kill to heal 5% Max HP."},
+	"sprinkler": {"name": "Sprinkler", "icon": "res://player/items/sprinkler.png", "type": "nova", "value": 20.0, "rarity": "blue", "desc": "Releases a devastating water blast every 20 seconds."},
+	"beanie": {"name": "Beanie", "icon": "res://player/items/beanie.png", "type": "shield", "value": 15.0, "rarity": "green", "desc": "Blocks 1 hit and releases a shockwave. Recharges every 15s."},
+	"goldfish": {"name": "Goldfish", "icon": "res://player/items/goldfish.png", "type": "greed", "value": 0.05, "rarity": "gold", "desc": "Consumes 5 Silver every 60s for a permanent +5% Damage stack. Runs out if broke!"}
 }
 
 var permanent_upgrades = {

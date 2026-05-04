@@ -36,9 +36,14 @@ var base_speed_before_boost: float = 0.0
 var owned_weapons: Dictionary = {}
 var owned_items: Array = [] 
 
+
 var vampirism_rate: float = 0.0
 var greed_multiplier: float = 0.0
-var _prev_greed_bonus: float = 0.0 
+var _prev_greed_bonus: float = 0.0
+var has_goldfish: bool = false
+var goldfish_timer: float = 60.0
+
+var base_crit_chance: float = 0.0 
 
 var has_shield: bool = false
 var shield_active: bool = false
@@ -47,7 +52,8 @@ var shield_cooldown: float = 15.0
 
 var has_nova: bool = false
 var nova_timer: float = 0.0
-var nova_cooldown: float = 5.0
+var nova_cooldown: float = 20.0
+
 
 var end_times_triggered: bool = false 
 
@@ -263,30 +269,12 @@ func _handle_regeneration(delta: float) -> void:
 func add_kill() -> void:
 	kill_count += 1
 	hud.update_kills(kill_count)
-	
-	if vampirism_rate > 0.0 and current_health < max_health:
-		var heal_amt = max_health * vampirism_rate
-		current_health = min(current_health + heal_amt, max_health)
-		hud.update_health(current_health, max_health)
-	
-func trigger_iframes() -> void:
-	is_invincible = true
-	var tween = create_tween()
-	tween.tween_property($AnimatedSprite2D, "modulate:a", 0.3, 0.1)
-	tween.tween_property($AnimatedSprite2D, "modulate:a", 1.0, 0.1)
-	tween.set_loops(int(i_frame_duration / 0.2))
-	await get_tree().create_timer(i_frame_duration).timeout
-	is_invincible = false
-	$AnimatedSprite2D.modulate.a = 1.0
 
-func _update_animations(dir: Vector2) -> void:
-	if dir.length() > 0:
-		if abs(dir.x) > abs(dir.y):
-			%AnimatedSprite2D.play("right" if dir.x > 0 else "left")
-		else:
-			%AnimatedSprite2D.play("down" if dir.y > 0 else "up")
-	else:
-		%AnimatedSprite2D.stop()
+	if vampirism_rate > 0.0 and current_health < max_health:
+		if randf() <= vampirism_rate:
+			var heal_amt = max_health * 0.05
+			current_health = min(current_health + heal_amt, max_health)
+			hud.update_health(current_health, max_health)
 
 func _handle_damage(_delta: float) -> void:
 	if is_invincible:
@@ -298,10 +286,11 @@ func _handle_damage(_delta: float) -> void:
 		if body.is_in_group("enemy"):
 			if randf() < evasion_chance:
 				return
-				
+
 			if shield_active:
 				shield_active = false
 				shield_timer = shield_cooldown
+				_trigger_beanie_shockwave()
 				trigger_iframes()
 				return
 				
@@ -322,6 +311,48 @@ func _handle_damage(_delta: float) -> void:
 			else:
 				trigger_iframes()
 			return
+
+func take_damage(damage_amount: int) -> void:
+	if is_invincible:
+		return
+		
+	if randf() < evasion_chance:
+		return
+
+	if shield_active:
+		shield_active = false
+		shield_timer = shield_cooldown
+		_trigger_beanie_shockwave()
+		trigger_iframes()
+		return
+		
+	current_health -= damage_amount
+	hud.update_health(current_health, max_health)
+	
+	if current_health <= 0.0:
+		get_tree().paused = true
+		hud.show_game_over()
+	else:
+		trigger_iframes()
+
+func trigger_iframes() -> void:
+	is_invincible = true
+	var tween = create_tween()
+	tween.tween_property($AnimatedSprite2D, "modulate:a", 0.3, 0.1)
+	tween.tween_property($AnimatedSprite2D, "modulate:a", 1.0, 0.1)
+	tween.set_loops(int(i_frame_duration / 0.2))
+	await get_tree().create_timer(i_frame_duration).timeout
+	is_invincible = false
+	$AnimatedSprite2D.modulate.a = 1.0
+
+func _update_animations(dir: Vector2) -> void:
+	if dir.length() > 0:
+		if abs(dir.x) > abs(dir.y):
+			%AnimatedSprite2D.play("right" if dir.x > 0 else "left")
+		else:
+			%AnimatedSprite2D.play("down" if dir.y > 0 else "up")
+	else:
+		%AnimatedSprite2D.stop()
 
 func _play_pickup_sfx(pitch: float, volume: float = -10.0, throttle: bool = false) -> void:
 	if throttle:
@@ -386,9 +417,6 @@ func collect_coin(amount: int, is_gold: bool = false) -> void:
 	_play_pickup_sfx(2.0, -5.0, true)
 	if hud and hud.has_method("update_coins"):
 		hud.update_coins(Data.coins, Data.silver)
-		
-	if is_gold:
-		_update_greed_bonus()
 
 func _apply_upgrade(upgrade: Dictionary) -> void:
 	var id = upgrade["id"]
@@ -451,13 +479,41 @@ func _handle_relics(delta: float) -> void:
 		if nova_timer <= 0.0:
 			_trigger_sprinkler_nova()
 			nova_timer = nova_cooldown
+			
+	if has_goldfish:
+		goldfish_timer -= delta
+		if goldfish_timer <= 0.0:
+			goldfish_timer = 60.0
+			if Data.silver >= 5:
+				Data.silver -= 5
+				_prev_greed_bonus += greed_multiplier
+				damage_multiplier += greed_multiplier
+				if hud and hud.has_method("update_coins"):
+					hud.update_coins(Data.coins, Data.silver)
+			else:
+				damage_multiplier -= _prev_greed_bonus
+				_prev_greed_bonus = 0.0
+
+func _trigger_beanie_shockwave() -> void:
+	var radius = 200.0 * aoe_multiplier
+	var blast_dmg = 50 + (thorns_multiplier * 500)
+	
+	_play_pickup_sfx(0.4, 2.0) 
+	
+	var enemies = get_tree().get_nodes_in_group("enemy")
+	for e in enemies:
+		if global_position.distance_to(e.global_position) <= radius:
+			if e.has_method("take_damage"):
+				e.take_damage(int(blast_dmg))
+			if e.has_method("apply_slow"):
+				e.apply_slow(0.2)
 
 func _trigger_sprinkler_nova() -> void:
-	var radius = 250.0 * aoe_multiplier
-	var base_dmg = 50 + (level * 5)
+	var radius = 350.0 * aoe_multiplier
+	var base_dmg = 200 + (level * 20)
 	var final_dmg = int(base_dmg * damage_multiplier)
 	
-	_play_pickup_sfx(0.6, -2.0) 
+	_play_pickup_sfx(0.6, 5.0) 
 	
 	var enemies = get_tree().get_nodes_in_group("enemy")
 	for e in enemies:
@@ -465,13 +521,7 @@ func _trigger_sprinkler_nova() -> void:
 			if e.has_method("take_damage"):
 				e.take_damage(final_dmg)
 			if e.has_method("apply_slow"):
-				e.apply_slow(0.5) 
-
-func _update_greed_bonus() -> void:
-	var new_greed_bonus = Data.coins * greed_multiplier
-	damage_multiplier -= _prev_greed_bonus 
-	damage_multiplier += new_greed_bonus 
-	_prev_greed_bonus = new_greed_bonus
+				e.apply_slow(0.8)
 
 func add_relic_item(item_id: String) -> void:
 	owned_items.append(item_id)
@@ -495,8 +545,8 @@ func _apply_relic_stats(item_id: String, is_new: bool) -> void:
 			shield_active = true
 			shield_cooldown = item_data["value"]
 		"greed":
+			has_goldfish = true
 			greed_multiplier += item_data["value"]
-			_update_greed_bonus()
 
 func _handle_powerups(delta: float) -> void:
 	if magnet_time_left > 0.0:
@@ -535,25 +585,3 @@ func activate_bomb_powerup(bomb_pos: Vector2) -> void:
 		if enemy.global_position.distance_to(bomb_pos) <= explosion_radius:
 			if enemy.has_method("take_damage"):
 				enemy.take_damage(bomb_damage)
-				
-func take_damage(damage_amount: int) -> void:
-	if is_invincible:
-		return
-		
-	if randf() < evasion_chance:
-		return
-		
-	if shield_active:
-		shield_active = false
-		shield_timer = shield_cooldown
-		trigger_iframes()
-		return
-		
-	current_health -= damage_amount
-	hud.update_health(current_health, max_health)
-	
-	if current_health <= 0.0:
-		get_tree().paused = true
-		hud.show_game_over()
-	else:
-		trigger_iframes()

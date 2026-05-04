@@ -8,7 +8,7 @@ radius = 6.0
 
 [node name="Wand_Projectile" type="Area2D" unique_id=1294160118]
 collision_layer = 8
-collision_mask = 4
+collision_mask = 6
 script = ExtResource("1_dr55p")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1013566283]

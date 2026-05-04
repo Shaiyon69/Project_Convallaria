@@ -4,9 +4,9 @@ var music_player: AudioStreamPlayer
 var sfx_players: Dictionary = {}
 var sfx_cooldowns: Dictionary = {}
 
-const MOVE_COOLDOWN = 300  # Max ~3 footstep sounds per second from the ENTIRE horde
-const HIT_COOLDOWN = 100   # Max 10 hit sounds per second
-const DEATH_COOLDOWN = 150 # Max ~6 death pops per second
+const MOVE_COOLDOWN = 300
+const HIT_COOLDOWN = 100
+const DEATH_COOLDOWN = 150
 
 func _ready() -> void:
 	music_player = AudioStreamPlayer.new()

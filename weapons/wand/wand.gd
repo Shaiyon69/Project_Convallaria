@@ -61,7 +61,18 @@ func _shoot(target: Node2D, count: int, stats: Dictionary) -> void:
 		proj.direction = base_dir.rotated(angle_offset)
 		
 		proj.speed = stats["speed"]
-		proj.damage = final_damage
+		proj.player_ref = player
+
+		var crit_chance = 0.05
+		if "base_crit_chance" in player:
+			crit_chance += player.base_crit_chance
+			
+		if randf() <= crit_chance:
+			proj.damage = final_damage * 2
+			proj.modulate = Color(1.0, 0.8, 0.1)
+			proj.scale = Vector2(1.5, 1.5)
+		else:
+			proj.damage = final_damage
 		
 		if "imbue_fire" in player: proj.imbue_fire = player.imbue_fire
 		if "imbue_frost" in player: proj.imbue_frost = player.imbue_frost

@@ -6,6 +6,7 @@
 [sub_resource type="CircleShape2D" id="CircleShape2D_4kcfj"]
 
 [node name="Chest" type="Area2D" unique_id=1169081120]
+collision_layer = 16
 script = ExtResource("1_4kcfj")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1207269196]

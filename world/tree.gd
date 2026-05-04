@@ -33,4 +33,4 @@ func destroy() -> void:
 	var tween = create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(sprite, "modulate", Color(0.3, 0.3, 0.3, 0.2), 0.5)
-	tween.tween_property(sprite, "scale", Vector2(1.1, 0.2), 0.5) # Squash it flat
+	tween.tween_property(sprite, "scale", Vector2(1.1, 0.2), 0.5)
