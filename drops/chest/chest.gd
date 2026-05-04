@@ -1,23 +1,30 @@
 extends Area2D
 
 var is_opened: bool = false
+var cost: int = 10 
 
-func _ready() -> void:
-	body_entered.connect(_on_body_entered)
+@onready var sprite = $Sprite2D
 
-func _on_body_entered(body: Node2D) -> void:
-	if is_opened:
-		return
+func _process(_delta: float) -> void:
+	if not is_opened and has_overlapping_bodies() and Input.is_action_just_pressed("ui_accept"):
+		for body in get_overlapping_bodies():
+			if body.is_in_group("player"):
+				_try_open(body)
+
+func _try_open(player: Node2D) -> void:
+	if Data.silver >= cost:
+		Data.silver -= cost
 		
-	if body.name == "Player" and body.has_method("add_relic_item"):
+		if player.get("hud") and player.hud.has_method("update_coins"):
+			player.hud.update_coins(Data.coins, Data.silver)
+			
 		is_opened = true
-		_open_chest(body)
-
-func _open_chest(player_node: Node2D) -> void:
-	var rolled_item = _roll_item_drop()
-	player_node.add_relic_item(rolled_item)
-	
-	queue_free()
+		if sprite:
+			sprite.modulate = Color(0.4, 0.4, 0.4) 
+		
+		var rolled_item = _roll_item_drop()
+		if player.has_method("add_relic_item"):
+			player.add_relic_item(rolled_item)
 
 func _roll_item_drop() -> String:
 	var roll = randi() % 100

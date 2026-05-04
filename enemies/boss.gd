@@ -25,8 +25,14 @@ var facing: String = "down"
 var is_hurt: bool = false
 var is_dying: bool = false
 
+var is_boss: bool = false
+var is_enraged: bool = false
+var is_casting: bool = false
+var special_timer: Timer
+
 @onready var soft_collision = $SoftCollision
-@onready var health_bar = $BossUI/BossHealthBar
+@onready var boss_ui = $BossUI if has_node("BossUI") else null
+@onready var health_bar = $BossUI/BossHealthBar if has_node("BossUI/BossHealthBar") else null
 @onready var dash_timer = $DashTimer
 @onready var nav_agent = $NavigationAgent2D
 @onready var path_timer = $PathTimer
@@ -41,18 +47,11 @@ func _ready() -> void:
 		
 	active_sprite.show()
 	z_index = 100 
+	
+	if boss_ui:
+		boss_ui.hide()
 		
-	var boss_track = load("res://enemies/bob.mp3")
-	AudioManager.play_music(boss_track, -10.0)
-	AudioManager.set_music_speed(1.0)
-	
 	set_collision_mask_value(2, false)
-
-func _on_bulldozer_zone_body_entered(body: Node2D) -> void:
-	if is_dying: return
-	
-	if body.has_method("destroy"):
-		body.destroy()
 
 func apply_stats(stats: Dictionary) -> void:
 	health = stats["health"]
@@ -65,19 +64,44 @@ func apply_stats(stats: Dictionary) -> void:
 	base_color = stats["color"]
 	active_sprite.modulate = base_color
 	
-	health_bar.max_value = health
-	health_bar.value = health
+	if health >= 1000 or (stats.has("is_boss") and stats["is_boss"]):
+		_setup_as_boss()
+	
+	if health_bar and is_boss:
+		health_bar.max_value = health
+		health_bar.value = health
 	
 	if stats.has("is_dasher") and stats["is_dasher"]:
 		is_dasher = true
 		dash_timer.start(randf_range(2.0, 4.0))
+
+func _setup_as_boss() -> void:
+	is_boss = true
+	if boss_ui:
+		boss_ui.show()
+		
+	var boss_track = load("res://enemies/bob.mp3")
+	AudioManager.play_music(boss_track, -10.0)
+	AudioManager.set_music_speed(1.0)
+	
+	special_timer = Timer.new()
+	special_timer.wait_time = 6.0
+	special_timer.autostart = true
+	special_timer.timeout.connect(_on_special_attack)
+	add_child(special_timer)
+
+func _on_bulldozer_zone_body_entered(body: Node2D) -> void:
+	if is_dying: return
+	
+	if body.has_method("destroy"):
+		body.destroy()
 
 func _on_path_timer_timeout() -> void:
 	if player and not is_dying:
 		nav_agent.target_position = player.global_position
 
 func _physics_process(_delta: float) -> void:
-	if is_dying:
+	if is_dying or is_casting:
 		return
 
 	if player:
@@ -103,7 +127,7 @@ func _physics_process(_delta: float) -> void:
 		_update_animations()
 
 func _update_animations() -> void:
-	if is_hurt or is_dying:
+	if is_hurt or is_dying or is_casting:
 		return
 
 	if velocity.length() > 0:
@@ -115,6 +139,30 @@ func _update_animations() -> void:
 		active_sprite.play(facing)
 	else:
 		active_sprite.stop()
+
+func _on_special_attack() -> void:
+	if is_dying or not player or is_hurt:
+		return
+		
+	is_casting = true
+	velocity = Vector2.ZERO
+	active_sprite.stop()
+	
+	var tween = create_tween().set_parallel(true)
+	tween.tween_property(active_sprite, "scale", Vector2(1.5, 0.5), 0.6).set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(active_sprite, "modulate", Color(10, 10, 10), 0.6)
+	
+	await get_tree().create_timer(0.6).timeout
+	if is_dying: return
+	
+	active_sprite.scale = Vector2(1.0, 1.0)
+	active_sprite.modulate = Color.RED if is_enraged else base_color
+	is_casting = false
+	is_dashing = true
+	dash_direction = global_position.direction_to(player.global_position)
+	
+	await get_tree().create_timer(0.7).timeout
+	is_dashing = false
 
 func apply_burn(burn_damage: float) -> void:
 	if is_burning or is_dying:
@@ -129,8 +177,8 @@ func apply_burn(burn_damage: float) -> void:
 		await get_tree().create_timer(0.5).timeout
 		take_damage(int(burn_damage))
 		
-	if not is_dying and not is_slowed:
-		active_sprite.modulate = base_color
+	if not is_dying and not is_slowed and not is_casting:
+		active_sprite.modulate = Color.RED if is_enraged else base_color
 		
 	is_burning = false
 
@@ -146,8 +194,8 @@ func apply_slow(slow_multiplier: float) -> void:
 	
 	if not is_dying:
 		speed = original_speed
-		if not is_burning:
-			active_sprite.modulate = base_color
+		if not is_burning and not is_casting:
+			active_sprite.modulate = Color.RED if is_enraged else base_color
 			
 	is_slowed = false
 
@@ -156,11 +204,16 @@ func take_damage(amount: int) -> void:
 		return
 		
 	health -= amount
-	health_bar.value = health
+	if health_bar and is_boss:
+		health_bar.value = health
+		
+	_check_enrage()
 	
 	var hp_percent = float(health) / float(max_health)
-	var dynamic_bpm = 1.0 + ((1.0 - hp_percent) * 0.5)
-	AudioManager.set_music_speed(dynamic_bpm)
+	
+	if is_boss:
+		var dynamic_bpm = 1.0 + ((1.0 - hp_percent) * 0.5)
+		AudioManager.set_music_speed(dynamic_bpm)
 	
 	var floating_text = damage_scene.instantiate()
 	floating_text.global_position = global_position
@@ -172,8 +225,28 @@ func take_damage(amount: int) -> void:
 	else:
 		_play_hurt()
 
+func _check_enrage() -> void:
+	if is_boss and not is_enraged and health <= max_health / 2:
+		is_enraged = true
+		is_casting = true
+		velocity = Vector2.ZERO
+		
+		active_sprite.modulate = Color.RED
+		base_color = Color.RED
+		
+		var tween = create_tween()
+		tween.tween_property(self, "scale", scale * 1.3, 1.0).set_trans(Tween.TRANS_BOUNCE)
+		
+		speed = original_speed * 1.5
+		original_speed = speed
+		attack_damage = int(attack_damage * 1.5)
+		special_timer.wait_time = 3.5
+		
+		await get_tree().create_timer(1.0).timeout
+		is_casting = false
+
 func _play_hurt() -> void:
-	if is_hurt:
+	if is_hurt or is_casting:
 		return
 		
 	is_hurt = true
@@ -187,13 +260,16 @@ func _play_hurt() -> void:
 
 func _die() -> void:
 	is_dying = true
-	health_bar.hide()
+	if health_bar:
+		health_bar.hide()
+		
 	var spawner = get_tree().current_scene.get_node_or_null("Spawner")
 	
-	AudioManager.stop_music()
-	AudioManager.set_music_speed(1.0)
-	if spawner and "boss_defeated" in spawner:
-		spawner.boss_defeated = true
+	if is_boss:
+		AudioManager.stop_music()
+		AudioManager.set_music_speed(1.0)
+		if spawner and spawner.has_method("notify_boss_defeated"):
+			spawner.notify_boss_defeated()
 	
 	if boss_sfx:
 		AudioManager.play_sfx_2d(boss_sfx, global_position, 0.0, 0.2, "death")
@@ -204,16 +280,16 @@ func _die() -> void:
 	if player and player.has_method("add_kill"):
 		player.add_kill()
 		
-	var seed_drop_count = 15
+	var seed_drop_count = 50 if is_boss else 1
 	for i in range(seed_drop_count):
 		var new_seed = seed_scene.instantiate()
-		new_seed.global_position = global_position + Vector2(randf_range(-60, 60), randf_range(-60, 60))
+		new_seed.global_position = global_position + Vector2(randf_range(-80, 80), randf_range(-80, 80))
 		get_parent().call_deferred("add_child", new_seed)
 		
 	queue_free()
 
 func _on_dash_timer_timeout() -> void:
-	if not is_dasher or not player or is_dying:
+	if not is_dasher or not player or is_dying or is_casting:
 		return
 		
 	is_dashing = true

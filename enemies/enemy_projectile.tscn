@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://doadam00gdmqm"]
+
+[ext_resource type="Script" uid="uid://b35ygsfkabg85" path="res://enemies/enemy_projectile.gd" id="1_ebt60"]
+[ext_resource type="Texture2D" uid="uid://bt1pcsug7ey17" path="res://weapons/wand/projectile.png" id="1_o8uwf"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_ebt60"]
+radius = 6.0
+
+[node name="Enemy_Projectile" type="Area2D" unique_id=1584221008]
+script = ExtResource("1_ebt60")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1419936675]
+texture = ExtResource("1_o8uwf")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1987896692]
+shape = SubResource("CircleShape2D_ebt60")
+
+[node name="VisibleOnScreenNotifier2D" type="VisibleOnScreenNotifier2D" parent="." unique_id=1962395127]

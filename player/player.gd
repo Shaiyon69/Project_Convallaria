@@ -36,10 +36,9 @@ var base_speed_before_boost: float = 0.0
 var owned_weapons: Dictionary = {}
 var owned_items: Array = [] 
 
-# --- NEW RELIC VARIABLES ---
 var vampirism_rate: float = 0.0
 var greed_multiplier: float = 0.0
-var _prev_greed_bonus: float = 0.0 # Hidden variable to track coin damage
+var _prev_greed_bonus: float = 0.0 
 
 var has_shield: bool = false
 var shield_active: bool = false
@@ -49,7 +48,6 @@ var shield_cooldown: float = 15.0
 var has_nova: bool = false
 var nova_timer: float = 0.0
 var nova_cooldown: float = 5.0
-# ---------------------------
 
 var end_times_triggered: bool = false 
 
@@ -64,15 +62,21 @@ var last_sfx_time: int = 0
 func _ready() -> void:
 	if Data.player_data.is_empty():
 		current_health = max_health
-		_acquire_weapon("poison_aura")
+		Data.silver = 0
+		
+		if Data.starting_weapon != "":
+			_acquire_weapon(Data.starting_weapon)
+		else:
+			_acquire_weapon("wand")
 	else:
 		_load_data()
 		
 	hud.update_health(current_health, max_health)
 	hud.update_exp(current_exp, exp_to_next_level)
 	hud.update_level(level)
+	
 	if hud.has_method("update_coins"):
-		hud.update_coins(Data.coins)
+		hud.update_coins(Data.coins, Data.silver)
 	
 	hud.upgrade_selected.connect(_apply_upgrade)
 	%MagnetZone.area_entered.connect(_on_magnet_zone_area_entered)
@@ -126,7 +130,6 @@ func _load_data() -> void:
 	
 	if pd.has("owned_items"):
 		owned_items = pd["owned_items"]
-		# Safely reload relic stats on boot
 		for item in owned_items:
 			_apply_relic_stats(item, false) 
 	
@@ -218,7 +221,7 @@ func _physics_process(delta: float) -> void:
 	_handle_damage(delta)
 	_handle_regeneration(delta)
 	_handle_powerups(delta)
-	_handle_relics(delta) # NEW: Update relic timers
+	_handle_relics(delta) 
 
 func _movement_handle():
 	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -261,7 +264,6 @@ func add_kill() -> void:
 	kill_count += 1
 	hud.update_kills(kill_count)
 	
-	# NEW: VAMPIRISM LOGIC!
 	if vampirism_rate > 0.0 and current_health < max_health:
 		var heal_amt = max_health * vampirism_rate
 		current_health = min(current_health + heal_amt, max_health)
@@ -297,11 +299,9 @@ func _handle_damage(_delta: float) -> void:
 			if randf() < evasion_chance:
 				return
 				
-			# NEW: BEANIE SHIELD LOGIC
 			if shield_active:
 				shield_active = false
 				shield_timer = shield_cooldown
-				print("Shield blocked the attack!") # Optional: Play a sound effect here!
 				trigger_iframes()
 				return
 				
@@ -377,12 +377,18 @@ func _trigger_level_up_ui() -> void:
 	var options = get_level_up_options()
 	hud.show_level_up(options)
 
-func collect_coin(amount: int) -> void:
-	Data.coins += amount
+func collect_coin(amount: int, is_gold: bool = false) -> void:
+	if is_gold:
+		Data.coins += amount
+	else:
+		Data.silver += amount
+		
 	_play_pickup_sfx(2.0, -5.0, true)
 	if hud and hud.has_method("update_coins"):
-		hud.update_coins(Data.coins)
-	_update_greed_bonus() # NEW: Updates damage when you pick up money!
+		hud.update_coins(Data.coins, Data.silver)
+		
+	if is_gold:
+		_update_greed_bonus()
 
 func _apply_upgrade(upgrade: Dictionary) -> void:
 	var id = upgrade["id"]
@@ -434,16 +440,12 @@ func _acquire_weapon(weapon_id: String) -> void:
 			
 	hud.update_weapon_slots(owned_weapons.keys())
 
-# --- NEW: ACTIVE RELIC SYSTEM ---
 func _handle_relics(delta: float) -> void:
-	# 1. Beanie Shield Recharge
 	if has_shield and not shield_active:
 		shield_timer -= delta
 		if shield_timer <= 0.0:
 			shield_active = true
-			print("Shield Recharged!")
 
-	# 2. Sprinkler Periodic Nova
 	if has_nova:
 		nova_timer -= delta
 		if nova_timer <= 0.0:
@@ -455,7 +457,7 @@ func _trigger_sprinkler_nova() -> void:
 	var base_dmg = 50 + (level * 5)
 	var final_dmg = int(base_dmg * damage_multiplier)
 	
-	_play_pickup_sfx(0.6, -2.0) # Play a deep sound for the blast
+	_play_pickup_sfx(0.6, -2.0) 
 	
 	var enemies = get_tree().get_nodes_in_group("enemy")
 	for e in enemies:
@@ -463,13 +465,12 @@ func _trigger_sprinkler_nova() -> void:
 			if e.has_method("take_damage"):
 				e.take_damage(final_dmg)
 			if e.has_method("apply_slow"):
-				e.apply_slow(0.5) # Water slows enemies!
+				e.apply_slow(0.5) 
 
 func _update_greed_bonus() -> void:
-	# Dynamic damage boost based on coins
 	var new_greed_bonus = Data.coins * greed_multiplier
-	damage_multiplier -= _prev_greed_bonus # Remove old bonus
-	damage_multiplier += new_greed_bonus # Apply new bonus
+	damage_multiplier -= _prev_greed_bonus 
+	damage_multiplier += new_greed_bonus 
 	_prev_greed_bonus = new_greed_bonus
 
 func add_relic_item(item_id: String) -> void:
@@ -496,6 +497,7 @@ func _apply_relic_stats(item_id: String, is_new: bool) -> void:
 		"greed":
 			greed_multiplier += item_data["value"]
 			_update_greed_bonus()
+
 func _handle_powerups(delta: float) -> void:
 	if magnet_time_left > 0.0:
 		magnet_time_left -= delta
@@ -533,3 +535,25 @@ func activate_bomb_powerup(bomb_pos: Vector2) -> void:
 		if enemy.global_position.distance_to(bomb_pos) <= explosion_radius:
 			if enemy.has_method("take_damage"):
 				enemy.take_damage(bomb_damage)
+				
+func take_damage(damage_amount: int) -> void:
+	if is_invincible:
+		return
+		
+	if randf() < evasion_chance:
+		return
+		
+	if shield_active:
+		shield_active = false
+		shield_timer = shield_cooldown
+		trigger_iframes()
+		return
+		
+	current_health -= damage_amount
+	hud.update_health(current_health, max_health)
+	
+	if current_health <= 0.0:
+		get_tree().paused = true
+		hud.show_game_over()
+	else:
+		trigger_iframes()

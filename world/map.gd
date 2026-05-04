@@ -18,15 +18,16 @@ extends Node2D
 
 var noise: FastNoiseLite = FastNoiseLite.new()
 var valid_spawn_tiles: Array[Vector2i] = []
+var occupied_cells: Dictionary = {}
 
 func _ready() -> void:
 	_initialize_noise()
 	_generate_terrain()
 	_apply_biome()
-	_spawn_trees() 
-	_spawn_objects()
-	_spawn_boss_portal()
 	_place_player()
+	_spawn_boss_portal()
+	_spawn_objects()
+	_spawn_trees() 
 	
 	var battle_music = load(Data.MUSIC["battle"])
 	AudioManager.play_music(battle_music, 1.1)
@@ -91,99 +92,20 @@ func _apply_biome() -> void:
 	soil_layer.modulate = palette["soil"]
 	water_layer.modulate = palette["water"]
 
-func _spawn_trees() -> void:
-	if not tree_scene or valid_spawn_tiles.is_empty():
-		return
-
-	var rng = RandomNumberGenerator.new()
-	rng.seed = map_seed + 2 
-	
-	var target_tree_count = int(valid_spawn_tiles.size() * 0.015) 
-	var placed_trees = 0
-	var attempts = 0
-	
-	while placed_trees < target_tree_count and attempts < target_tree_count * 4:
-		var random_index = rng.randi_range(0, valid_spawn_tiles.size() - 1)
-		var cell_coords = valid_spawn_tiles[random_index]
-		
-		if _has_enough_space(cell_coords, 1):
-			var tree = tree_scene.instantiate()
-			
-			var offset_x = rng.randf_range(-6.0, 6.0)
-			var offset_y = rng.randf_range(-6.0, 6.0)
-			
-			tree.global_position = grass_layer.map_to_local(cell_coords) + Vector2(offset_x, offset_y)
-			add_child(tree)
-			
-			placed_trees += 1
-			valid_spawn_tiles.remove_at(random_index)
-			
-		attempts += 1
-
-func _spawn_objects() -> void:
-	var rng = RandomNumberGenerator.new()
-	rng.seed = map_seed
-	
-	var chest_count = rng.randi_range(3, 8)
-	var statue_count = rng.randi_range(2, 5)
-	
-	_place_entities(chest_scene, chest_count, rng)
-	_place_entities(statue_scene, statue_count, rng)
-
-func _place_entities(scene: PackedScene, count: int, rng: RandomNumberGenerator) -> void:
-	if not scene:
-		return
-		
-	for i in range(count):
-		if valid_spawn_tiles.is_empty():
-			return
-			
-		var random_index = rng.randi_range(0, valid_spawn_tiles.size() - 1)
-		var cell_coords = valid_spawn_tiles[random_index]
-		
-		valid_spawn_tiles.remove_at(random_index)
-		
-		var entity = scene.instantiate()
-		entity.global_position = grass_layer.map_to_local(cell_coords)
-		add_child(entity)
-
-func _spawn_boss_portal() -> void:
-	if not boss_portal_scene:
-		return
-	if valid_spawn_tiles.is_empty():
-		return
-		
-	var rng = RandomNumberGenerator.new()
-	rng.seed = map_seed + 1 
-	
-	var portal_placed = false
-	var attempts = 0
-	
-	while not portal_placed and attempts < 100:
-		var random_index = rng.randi_range(0, valid_spawn_tiles.size() - 1)
-		var cell_coords = valid_spawn_tiles[random_index]
-		
-		if _has_enough_space(cell_coords, 3):
-			var portal = boss_portal_scene.instantiate()
-			portal.global_position = grass_layer.map_to_local(cell_coords)
-			add_child(portal)
-			portal_placed = true
-			
-		attempts += 1
-		
-	if not portal_placed:
-		var fallback_coords = valid_spawn_tiles[rng.randi_range(0, valid_spawn_tiles.size() - 1)]
-		var portal = boss_portal_scene.instantiate()
-		portal.global_position = grass_layer.map_to_local(fallback_coords)
-		add_child(portal)
-
-func _has_enough_space(center_cell: Vector2i, tile_radius: int) -> bool:
+func _is_space_free(center_cell: Vector2i, tile_radius: int) -> bool:
 	for x in range(-tile_radius, tile_radius + 1):
 		for y in range(-tile_radius, tile_radius + 1):
 			var check_pos = center_cell + Vector2i(x, y)
 			if grass_layer.get_cell_source_id(check_pos) == -1:
 				return false
+			if occupied_cells.has(check_pos):
+				return false
 	return true
+
+func _reserve_space(center_cell: Vector2i, tile_radius: int) -> void:
+	for x in range(-tile_radius, tile_radius + 1):
+		for y in range(-tile_radius, tile_radius + 1):
+			occupied_cells[center_cell + Vector2i(x, y)] = true
 
 func _place_player() -> void:
 	var player = get_tree().get_first_node_in_group("player")
@@ -200,4 +122,89 @@ func _place_player() -> void:
 			min_dist = dist
 			closest_tile = tile
 			
+	_reserve_space(closest_tile, 5)
 	player.global_position = grass_layer.map_to_local(closest_tile)
+
+func _spawn_boss_portal() -> void:
+	if not boss_portal_scene or valid_spawn_tiles.is_empty():
+		return
+		
+	var rng = RandomNumberGenerator.new()
+	rng.seed = map_seed + 1 
+	
+	var portal_placed = false
+	var attempts = 0
+	
+	while not portal_placed and attempts < 200:
+		var random_index = rng.randi_range(0, valid_spawn_tiles.size() - 1)
+		var cell_coords = valid_spawn_tiles[random_index]
+		
+		if _is_space_free(cell_coords, 3):
+			_reserve_space(cell_coords, 3)
+			var portal = boss_portal_scene.instantiate()
+			portal.global_position = grass_layer.map_to_local(cell_coords)
+			add_child(portal)
+			portal_placed = true
+			
+		attempts += 1
+
+func _spawn_objects() -> void:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = map_seed
+	
+	_place_entities(chest_scene, 15, rng, 1, false)
+	_place_entities(statue_scene, 10, rng, 2, true)
+
+func _place_entities(scene: PackedScene, count: int, rng: RandomNumberGenerator, radius: int, apply_tint: bool) -> void:
+	if not scene or valid_spawn_tiles.is_empty():
+		return
+		
+	var placed = 0
+	var attempts = 0
+	
+	while placed < count and attempts < count * 20:
+		var random_index = rng.randi_range(0, valid_spawn_tiles.size() - 1)
+		var cell_coords = valid_spawn_tiles[random_index]
+		
+		if _is_space_free(cell_coords, radius):
+			_reserve_space(cell_coords, radius)
+			var entity = scene.instantiate()
+			entity.global_position = grass_layer.map_to_local(cell_coords)
+			
+			if apply_tint:
+				entity.modulate = soil_layer.modulate
+				
+			add_child(entity)
+			placed += 1
+			
+		attempts += 1
+
+func _spawn_trees() -> void:
+	if not tree_scene or valid_spawn_tiles.is_empty():
+		return
+
+	var rng = RandomNumberGenerator.new()
+	rng.seed = map_seed + 2 
+	
+	var target_tree_count = int(valid_spawn_tiles.size() * 0.015) 
+	var placed_trees = 0
+	var attempts = 0
+	
+	while placed_trees < target_tree_count and attempts < target_tree_count * 4:
+		var random_index = rng.randi_range(0, valid_spawn_tiles.size() - 1)
+		var cell_coords = valid_spawn_tiles[random_index]
+		
+		if _is_space_free(cell_coords, 1):
+			_reserve_space(cell_coords, 1)
+			var tree = tree_scene.instantiate()
+			
+			var offset_x = rng.randf_range(-6.0, 6.0)
+			var offset_y = rng.randf_range(-6.0, 6.0)
+			
+			tree.global_position = grass_layer.map_to_local(cell_coords) + Vector2(offset_x, offset_y)
+			tree.modulate = grass_layer.modulate
+			add_child(tree)
+			
+			placed_trees += 1
+			
+		attempts += 1

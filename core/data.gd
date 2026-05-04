@@ -1,8 +1,10 @@
 extends Node
 
 var coins: int = 0
+var silver: int = 0
 var current_floor: int = 1
 var player_data: Dictionary = {}
+var starting_weapon: String = "wand" 
 
 const MAX_FLOORS: int = 4
 const MAX_WEAPONS: int = 3
@@ -60,6 +62,7 @@ const ENEMIES = {
 	"swarm": {"health": 5, "speed": 100.0, "scale": 0.5, "color": Color(1.0, 1.0, 0.2), "damage": 2, "exp": 5, "base_pitch": 1.8},
 	"tank": {"health": 300, "speed": 15.0, "scale": 2.0, "color": Color(0.2, 0.2, 0.2), "damage": 50, "exp": 100, "base_pitch": 0.4},
 	"dasher": {"health": 25, "speed": 40.0, "scale": 0.9, "color": Color(0.1, 0.8, 0.8), "is_dasher": true, "damage": 15, "exp": 25, "base_pitch": 1.3},
+	"shooter": {"health": 20, "speed": 50.0, "scale": 0.9, "color": Color(0.8, 0.8, 0.2), "is_shooter": true, "damage": 15, "exp": 20, "base_pitch": 1.4},
 	"boss": {"health": 5000, "speed": 35.0, "scale": 2.0, "color": Color(0.8, 0.1, 0.8), "damage": 100, "exp": 1500, "base_pitch": 0.3},
 	"death_slime": {"health": 15000, "speed": 250.0, "scale": 3.0, "color": Color(0.1, 0.0, 0.1), "damage": 500, "exp": 0, "base_pitch": 0.2, "is_death_slime": true} 
 }
@@ -79,12 +82,18 @@ const UPGRADES = [
 	{"id": "frost_imbue", "base_text": "Add Frost Damage (Slow)", "base_val": 0}
 ]
 
-# NEW: Unique Mechanics!
 const ITEMS = {
 	"apple": {"name": "Apple", "icon": "res://player/items/apple.png", "type": "vampirism", "value": 0.02, "rarity": "white", "desc": "Heal 2% Max HP on every enemy kill."},
 	"sprinkler": {"name": "Sprinkler", "icon": "res://player/items/sprinkler.png", "type": "nova", "value": 5.0, "rarity": "blue", "desc": "Releases a damaging water blast every 5 seconds."},
 	"beanie": {"name": "Beanie", "icon": "res://player/items/beanie.png", "type": "shield", "value": 15.0, "rarity": "green", "desc": "Blocks 1 hit. Recharges every 15 seconds."},
 	"goldfish": {"name": "Goldfish", "icon": "res://player/items/goldfish.png", "type": "greed", "value": 0.001, "rarity": "gold", "desc": "+1% Damage per 10 coins held."}
+}
+
+var permanent_upgrades = {
+	"max_hp": {"level": 0, "max_level": 5, "base_cost": 100, "cost_mult": 1.5, "boost_per_level": 10.0, "name": "Base Health"},
+	"damage": {"level": 0, "max_level": 5, "base_cost": 250, "cost_mult": 2.0, "boost_per_level": 0.05, "name": "Base Damage"},
+	"speed": {"level": 0, "max_level": 5, "base_cost": 150, "cost_mult": 1.5, "boost_per_level": 15.0, "name": "Movement Speed"},
+	"greed": {"level": 0, "max_level": 3, "base_cost": 500, "cost_mult": 3.0, "boost_per_level": 0.2, "name": "Coin Multiplier"}
 }
 
 func get_scaled_enemy_stats(enemy_id: String, time_minutes: int) -> Dictionary:
@@ -98,3 +107,17 @@ func get_scaled_enemy_stats(enemy_id: String, time_minutes: int) -> Dictionary:
 	scaled_stats["speed"] = scaled_stats["speed"] + (time_minutes * 0.5)
 	
 	return scaled_stats
+
+func get_upgrade_cost(upgrade_id: String) -> int:
+	var upg = permanent_upgrades[upgrade_id]
+	if upg["level"] >= upg["max_level"]:
+		return -1 
+	return int(upg["base_cost"] * pow(upg["cost_mult"], upg["level"]))
+
+func buy_upgrade(upgrade_id: String) -> bool:
+	var cost = get_upgrade_cost(upgrade_id)
+	if cost > 0 and coins >= cost:
+		coins -= cost
+		permanent_upgrades[upgrade_id]["level"] += 1
+		return true
+	return false

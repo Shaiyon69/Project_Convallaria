@@ -2,6 +2,7 @@ extends CharacterBody2D
 
 @export var seed_scene: PackedScene = preload("res://drops/exp/exp_seed.tscn")
 @export var damage_scene: PackedScene = preload("res://enemies/damage_number.tscn")
+@export var projectile_scene: PackedScene 
 
 var slime_sfx = preload("res://enemies/slime.ogg")
 
@@ -32,6 +33,11 @@ var push_vector: Vector2 = Vector2.ZERO
 var logic_timer: float = 0.0
 var sfx_timer: float = 0.0
 
+var is_shooter: bool = false
+var stop_distance: float = 350.0
+var shoot_cooldown: float = 2.0
+var shoot_timer: float = 0.0
+
 @onready var soft_collision = $SoftCollision
 @onready var health_bar = $HealthBar
 
@@ -40,6 +46,7 @@ func _ready() -> void:
 	player = get_tree().get_first_node_in_group("player")
 	logic_timer = randf_range(0.0, 0.2)
 	sfx_timer = randf_range(0.0, 2.0)
+	shoot_timer = randf_range(0.5, 2.0) 
 
 func apply_stats(stats: Dictionary) -> void:
 	health = stats["health"]
@@ -64,6 +71,9 @@ func apply_stats(stats: Dictionary) -> void:
 			var boss_track = load(Data.MUSIC["boss"])
 			AudioManager.play_music(boss_track, -10.0)
 			AudioManager.set_music_speed(1.0)
+
+	if stats.has("is_shooter") and stats["is_shooter"]:
+		is_shooter = true
 
 	if stats.has("is_death_slime") and stats["is_death_slime"]:
 		if player and player.time_survived > 600.0:
@@ -98,21 +108,26 @@ func _physics_process(delta: float) -> void:
 			
 			if distance > active_radius:
 				set_collision_mask_value(2, false)
-
 				velocity = direction * speed
 			else:
 				set_collision_mask_value(2, true)
 				
-				var steer_direction = _get_whisker_steering()
 				var desired_velocity = Vector2.ZERO
 				
-				if steer_direction != Vector2.ZERO:
-					desired_velocity = (steer_direction * speed) + (push_vector * 15.0)
+				if is_shooter and distance <= stop_distance:
+					shoot_timer -= delta
+					if shoot_timer <= 0.0:
+						_shoot()
+						shoot_timer = shoot_cooldown
 				else:
-					desired_velocity = (direction * speed) + (push_vector * 20.0)
+					var steer_direction = _get_whisker_steering()
+					if steer_direction != Vector2.ZERO:
+						desired_velocity = (steer_direction * speed) + (push_vector * 15.0)
+					else:
+						desired_velocity = (direction * speed) + (push_vector * 20.0)
 
-				if desired_velocity.length() > speed:
-					desired_velocity = desired_velocity.normalized() * speed
+					if desired_velocity.length() > speed:
+						desired_velocity = desired_velocity.normalized() * speed
 
 				velocity = desired_velocity
 
@@ -125,6 +140,20 @@ func _physics_process(delta: float) -> void:
 
 		move_and_slide()
 		_update_animations()
+
+func _shoot() -> void:
+	if not projectile_scene or is_dying: return
+	
+	var proj = projectile_scene.instantiate()
+	proj.global_position = global_position
+	proj.direction = direction
+	proj.damage = attack_damage
+	
+	get_tree().current_scene.add_child(proj)
+	
+	var tween = create_tween()
+	tween.tween_property($AnimatedSprite2D, "scale", Vector2(scale.x * 1.2, scale.y * 0.8), 0.1)
+	tween.tween_property($AnimatedSprite2D, "scale", scale, 0.1)
 
 func _update_expensive_logic() -> void:
 	var distance = global_position.distance_to(player.global_position)
@@ -288,6 +317,9 @@ func _die() -> void:
 		new_seed.seed_type = 3
 	elif roll <= (p_chance * 3) + c_chance:
 		new_seed.seed_type = 4
+		new_seed.exp_amount = 1 * drop_tier
+	elif roll <= (p_chance * 3) + (c_chance * 2):
+		new_seed.seed_type = 5
 		new_seed.exp_amount = 1 * drop_tier
 	else:
 		new_seed.seed_type = 0

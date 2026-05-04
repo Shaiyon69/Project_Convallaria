@@ -10,6 +10,12 @@
 [sub_resource type="FontVariation" id="FontVariation_ynd5l"]
 base_font = ExtResource("1_mfius")
 
+[sub_resource type="FontVariation" id="FontVariation_juqqw"]
+base_font = ExtResource("1_mfius")
+
+[sub_resource type="FontVariation" id="FontVariation_02e3h"]
+base_font = ExtResource("1_mfius")
+
 [node name="GUI" type="Control" unique_id=682939827]
 layout_mode = 3
 anchors_preset = 15
@@ -137,6 +143,143 @@ text = "QUIT"
 [node name="Options" parent="." unique_id=1342148050 instance=ExtResource("6_08a8y")]
 visible = false
 layout_mode = 1
+
+[node name="ShopPanel" type="PanelContainer" parent="." unique_id=837390434]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ShopPanel" unique_id=1391276813]
+layout_mode = 2
+
+[node name="Preparation" type="Label" parent="ShopPanel/VBoxContainer" unique_id=240656554]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_juqqw")
+text = "PREPARATION"
+horizontal_alignment = 1
+
+[node name="RespecButton" type="TextureButton" parent="ShopPanel/VBoxContainer" unique_id=1243833921]
+unique_name_in_owner = true
+layout_mode = 2
+texture_normal = ExtResource("4_b8iy7")
+stretch_mode = 5
+
+[node name="Respec" type="Label" parent="ShopPanel/VBoxContainer/RespecButton" unique_id=242990734]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -37.0
+offset_top = -12.0
+offset_right = 188.0
+offset_bottom = 65.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.32888982, 0.32888982)
+theme_override_fonts/font = ExtResource("1_mfius")
+theme_override_font_sizes/font_size = 64
+text = "RESPEC"
+horizontal_alignment = 1
+
+[node name="CoinDisplay" type="Label" parent="ShopPanel/VBoxContainer" unique_id=1423270433]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_02e3h")
+horizontal_alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ShopPanel/VBoxContainer" unique_id=785801206]
+layout_mode = 2
+alignment = 1
+
+[node name="LeftSide" type="VBoxContainer" parent="ShopPanel/VBoxContainer/HBoxContainer" unique_id=906537395]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Upgrade" type="Label" parent="ShopPanel/VBoxContainer/HBoxContainer/LeftSide" unique_id=60407361]
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_juqqw")
+
+[node name="UpgradeContainer" type="GridContainer" parent="ShopPanel/VBoxContainer/HBoxContainer/LeftSide" unique_id=597303193]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="RightSide" type="VBoxContainer" parent="ShopPanel/VBoxContainer/HBoxContainer" unique_id=398208119]
+layout_mode = 2
+
+[node name="Weapon" type="Label" parent="ShopPanel/VBoxContainer/HBoxContainer/RightSide" unique_id=1514594253]
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_juqqw")
+
+[node name="WeaponGrid" type="GridContainer" parent="ShopPanel/VBoxContainer/HBoxContainer/RightSide" unique_id=653124586]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="DetailsPanel" type="PanelContainer" parent="ShopPanel/VBoxContainer" unique_id=190790699]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="Details" type="Label" parent="ShopPanel/VBoxContainer/DetailsPanel" unique_id=1395541811]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_juqqw")
+
+[node name="HBoxContainer2" type="HBoxContainer" parent="ShopPanel/VBoxContainer" unique_id=659066812]
+layout_mode = 2
+alignment = 1
+
+[node name="StartButton" type="TextureButton" parent="ShopPanel/VBoxContainer/HBoxContainer2" unique_id=1108025243]
+unique_name_in_owner = true
+layout_mode = 2
+texture_normal = ExtResource("4_b8iy7")
+
+[node name="Start" type="Label" parent="ShopPanel/VBoxContainer/HBoxContainer2/StartButton" unique_id=1927950482]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -29.701126
+offset_top = -13.710335
+offset_right = 158.01512
+offset_bottom = 63.289665
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.32888982, 0.32888982)
+theme_override_fonts/font = ExtResource("1_mfius")
+theme_override_font_sizes/font_size = 64
+text = "START"
+
+[node name="BackButton" type="TextureButton" parent="ShopPanel/VBoxContainer/HBoxContainer2" unique_id=1753912697]
+unique_name_in_owner = true
+layout_mode = 2
+texture_normal = ExtResource("4_b8iy7")
+
+[node name="Back" type="Label" parent="ShopPanel/VBoxContainer/HBoxContainer2/BackButton" unique_id=2001326419]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -18.125366
+offset_top = -10.289673
+offset_right = 119.87463
+offset_bottom = 66.71033
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.2590183, 0.2590183)
+theme_override_fonts/font = ExtResource("1_mfius")
+theme_override_font_sizes/font_size = 64
+text = "QUIT"
 
 [connection signal="mouse_entered" from="VBoxContainer/StartButton" to="." method="_on_start_button_mouse_entered"]
 [connection signal="mouse_exited" from="VBoxContainer/StartButton" to="." method="_on_start_button_mouse_exited"]

@@ -7,27 +7,234 @@
 [ext_resource type="Texture2D" uid="uid://bg4j68b2c6d8" path="res://ui/title.png" id="5_uo2fv"]
 [ext_resource type="PackedScene" uid="uid://b2s06ii5t8m1l" path="res://ui/options.tscn" id="6_047uy"]
 
+[sub_resource type="FontVariation" id="FontVariation_6fi6k"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_uo2fv"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_5ysmq"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_1v5rv"]
+
+[sub_resource type="FontVariation" id="FontVariation_1v5rv"]
+base_font = ExtResource("3_5ysmq")
+
 [sub_resource type="FontVariation" id="FontVariation_5pdws"]
 base_font = ExtResource("3_5ysmq")
 
 [sub_resource type="FontVariation" id="FontVariation_hd3ao"]
 base_font = ExtResource("3_5ysmq")
 
-[sub_resource type="FontVariation" id="FontVariation_5ysmq"]
-base_font = ExtResource("3_5ysmq")
-
-[sub_resource type="FontVariation" id="FontVariation_uo2fv"]
-base_font = ExtResource("3_5ysmq")
-
-[sub_resource type="FontVariation" id="FontVariation_6fi6k"]
-base_font = ExtResource("3_5ysmq")
-
-[sub_resource type="FontVariation" id="FontVariation_047uy"]
-base_font = ExtResource("3_5ysmq")
-
 [node name="HUD" type="CanvasLayer" unique_id=273270594]
 process_mode = 3
 script = ExtResource("1_ahhtf")
+
+[node name="KillLabel" type="Label" parent="." unique_id=1244180256]
+unique_name_in_owner = true
+anchors_preset = -1
+anchor_left = 0.24300002
+anchor_top = 0.014
+anchor_right = 0.24300002
+anchor_bottom = 0.014
+offset_left = -24.62503
+offset_top = -10.334997
+offset_right = 24.959991
+offset_bottom = 9.665003
+theme_override_fonts/font = SubResource("FontVariation_6fi6k")
+text = "Kills: 0"
+
+[node name="HealthBar" type="ProgressBar" parent="." unique_id=475658255]
+unique_name_in_owner = true
+modulate = Color(0.99999994, 0.22953579, 0.17418489, 1)
+self_modulate = Color(1, 0.32410008, 0.25894472, 1)
+offset_left = 6.0
+offset_top = 1.0
+offset_right = 205.0
+offset_bottom = 21.0
+show_percentage = false
+
+[node name="HealthLabel" type="Label" parent="HealthBar" unique_id=1734609799]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = SubResource("FontVariation_uo2fv")
+text = "0/0"
+horizontal_alignment = 1
+
+[node name="ExpBar" type="ProgressBar" parent="." unique_id=866767853]
+unique_name_in_owner = true
+modulate = Color(0, 0.2627451, 1, 1)
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -640.0
+offset_top = -19.0
+offset_right = 640.0
+grow_horizontal = 2
+grow_vertical = 0
+fill_mode = 1
+show_percentage = false
+
+[node name="ExpLabel" type="Label" parent="ExpBar" unique_id=1384305215]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = SubResource("FontVariation_6fi6k")
+text = "0/0"
+horizontal_alignment = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=465582200]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 5.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1115494520]
+layout_mode = 2
+
+[node name="TopBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=344503951]
+layout_mode = 2
+alignment = 1
+
+[node name="TimeLabel" type="Label" parent="MarginContainer/VBoxContainer/TopBar" unique_id=583385076]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_5ysmq")
+text = "00:00"
+horizontal_alignment = 1
+
+[node name="MainScreen" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=771597232]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LeftPanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=2123972293]
+layout_mode = 2
+
+[node name="WeaponSlots" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel" unique_id=792417207]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Slot1" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=988337026]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot1" unique_id=607021210]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 59.31639
+offset_bottom = 59.316387
+scale = Vector2(0.9753098, 0.9753098)
+expand_mode = 1
+
+[node name="Slot2" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=62602873]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot2" unique_id=491211465]
+layout_mode = 0
+offset_left = 6.0000024
+offset_top = 6.000001
+offset_right = 38.75056
+offset_bottom = 38.750557
+scale = Vector2(1.5877593, 1.5877593)
+expand_mode = 1
+
+[node name="Slot3" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=1835694436]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot3" unique_id=1448096445]
+layout_mode = 0
+offset_left = 6.0000057
+offset_top = 6.0
+offset_right = 38.67679
+offset_bottom = 38.676777
+scale = Vector2(1.5913442, 1.5913442)
+expand_mode = 1
+
+[node name="ItemGrid" type="GridContainer" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel" unique_id=1404504256]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="CenterSpacer" type="Control" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=1485654620]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RightPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=1297550362]
+layout_mode = 2
+
+[node name="StatList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen/RightPanel" unique_id=809911478]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ItemGetPopup" type="PanelContainer" parent="." unique_id=486649317]
+unique_name_in_owner = true
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -141.0
+offset_top = -118.0
+offset_right = 145.0
+offset_bottom = 111.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxEmpty_1v5rv")
+
+[node name="ItemIconDisplay" type="TextureRect" parent="ItemGetPopup" unique_id=579484712]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 128)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ItemNameLabel" type="Label" parent="ItemGetPopup" unique_id=822859601]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_fonts/font = SubResource("FontVariation_1v5rv")
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+
+[node name="ItemDescLabel" type="Label" parent="ItemGetPopup" unique_id=2129467799]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_fonts/font = SubResource("FontVariation_1v5rv")
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+
+[node name="ContinueButton" type="Button" parent="ItemGetPopup" unique_id=78342957]
+unique_name_in_owner = true
+layout_mode = 2
 
 [node name="PauseBox" type="HBoxContainer" parent="." unique_id=1151391846]
 anchors_preset = 1
@@ -134,159 +341,6 @@ custom_minimum_size = Vector2(150, 50)
 layout_mode = 2
 theme_override_fonts/font = SubResource("FontVariation_hd3ao")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1470135163]
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -21.0
-offset_right = 21.0
-offset_bottom = 40.0
-grow_horizontal = 2
-
-[node name="TimeLabel" type="Label" parent="HBoxContainer" unique_id=583385076]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_fonts/font = SubResource("FontVariation_5ysmq")
-text = "00:00"
-
-[node name="WeaponSlots" type="HBoxContainer" parent="." unique_id=792417207]
-offset_left = 10.0
-offset_top = 4.0
-offset_right = 210.0
-offset_bottom = 68.0
-
-[node name="Slot1" type="TextureRect" parent="WeaponSlots" unique_id=988337026]
-unique_name_in_owner = true
-self_modulate = Color(1, 1, 1, 0.7647059)
-custom_minimum_size = Vector2(64, 64)
-layout_mode = 2
-texture = ExtResource("2_oo0fn")
-expand_mode = 1
-
-[node name="Icon" type="TextureRect" parent="WeaponSlots/Slot1" unique_id=607021210]
-layout_mode = 0
-offset_left = 6.0
-offset_top = 6.0
-offset_right = 59.31639
-offset_bottom = 59.316387
-scale = Vector2(0.9753098, 0.9753098)
-expand_mode = 1
-
-[node name="Slot2" type="TextureRect" parent="WeaponSlots" unique_id=62602873]
-unique_name_in_owner = true
-self_modulate = Color(1, 1, 1, 0.7647059)
-custom_minimum_size = Vector2(64, 64)
-layout_mode = 2
-texture = ExtResource("2_oo0fn")
-expand_mode = 1
-
-[node name="Icon" type="TextureRect" parent="WeaponSlots/Slot2" unique_id=491211465]
-layout_mode = 0
-offset_left = 6.0000024
-offset_top = 6.000001
-offset_right = 38.75056
-offset_bottom = 38.750557
-scale = Vector2(1.5877593, 1.5877593)
-expand_mode = 1
-
-[node name="Slot3" type="TextureRect" parent="WeaponSlots" unique_id=1835694436]
-unique_name_in_owner = true
-self_modulate = Color(1, 1, 1, 0.7647059)
-custom_minimum_size = Vector2(64, 64)
-layout_mode = 2
-texture = ExtResource("2_oo0fn")
-expand_mode = 1
-
-[node name="Icon" type="TextureRect" parent="WeaponSlots/Slot3" unique_id=1448096445]
-layout_mode = 0
-offset_left = 6.0000057
-offset_top = 6.0
-offset_right = 38.67679
-offset_bottom = 38.676777
-scale = Vector2(1.5913442, 1.5913442)
-expand_mode = 1
-
-[node name="HealthBar" type="ProgressBar" parent="." unique_id=475658255]
-unique_name_in_owner = true
-modulate = Color(0.99999994, 0.22953579, 0.17418489, 1)
-self_modulate = Color(1, 0.32410008, 0.25894472, 1)
-offset_left = 11.0
-offset_top = 77.0
-offset_right = 115.15434
-offset_bottom = 89.0
-scale = Vector2(1.8914237, 1.8914237)
-show_percentage = false
-
-[node name="ExpBar" type="ProgressBar" parent="." unique_id=866767853]
-unique_name_in_owner = true
-modulate = Color(0, 0.2627451, 1, 1)
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -640.0
-offset_top = -27.0
-offset_right = -285.40182
-offset_bottom = -19.520203
-grow_horizontal = 2
-grow_vertical = 0
-scale = Vector2(3.6097202, 3.6097202)
-show_percentage = false
-
-[node name="HealthLabel" type="Label" parent="." unique_id=1734609799]
-unique_name_in_owner = true
-offset_left = 12.0
-offset_top = 77.0
-offset_right = 208.0
-offset_bottom = 100.0
-theme_override_fonts/font = SubResource("FontVariation_uo2fv")
-text = "0/0"
-horizontal_alignment = 1
-
-[node name="ExpLabel" type="Label" parent="." unique_id=1384305215]
-unique_name_in_owner = true
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -103.0
-offset_top = -25.0
-offset_right = 104.49536
-offset_bottom = -2.0
-grow_horizontal = 2
-grow_vertical = 0
-theme_override_fonts/font = SubResource("FontVariation_6fi6k")
-text = "0/0"
-horizontal_alignment = 1
-
-[node name="KillLabel" type="Label" parent="." unique_id=1244180256]
-unique_name_in_owner = true
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -25.0
-offset_top = 55.0
-offset_right = 25.0
-offset_bottom = 78.0
-grow_horizontal = 2
-theme_override_fonts/font = SubResource("FontVariation_6fi6k")
-text = "Kills: 0"
-
-[node name="LevelLabel" type="Label" parent="." unique_id=1804422163]
-unique_name_in_owner = true
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -24.0
-offset_top = 31.0
-offset_right = 24.0
-offset_bottom = 54.0
-grow_horizontal = 2
-theme_override_fonts/font = SubResource("FontVariation_047uy")
-text = "Level"
-
 [node name="GameOverScreen" type="ColorRect" parent="." unique_id=1544222425]
 unique_name_in_owner = true
 visible = false
@@ -350,6 +404,7 @@ text = "Exit"
 
 [node name="PauseOverlay" type="ColorRect" parent="." unique_id=1873636406]
 unique_name_in_owner = true
+visible = false
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -483,32 +538,6 @@ scale = Vector2(0.3167791, 0.3167791)
 theme_override_fonts/font = ExtResource("3_5ysmq")
 theme_override_font_sizes/font_size = 64
 text = "RESTART"
-
-[node name="ItemGrid" type="GridContainer" parent="." unique_id=1404504256]
-anchors_preset = -1
-anchor_left = 0.016
-anchor_top = 0.18100001
-anchor_right = 0.016
-anchor_bottom = 0.18100001
-offset_left = -20.480001
-offset_top = -20.320007
-offset_right = 189.52
-offset_bottom = 238.68
-
-[node name="ItemGetPopup" type="PanelContainer" parent="ItemGrid" unique_id=486649317]
-layout_mode = 2
-
-[node name="ItemNameLabel" type="Label" parent="ItemGrid/ItemGetPopup" unique_id=822859601]
-layout_mode = 2
-
-[node name="ItemIconDisplay" type="TextureRect" parent="ItemGrid/ItemGetPopup" unique_id=579484712]
-layout_mode = 2
-
-[node name="ItemDescLabel" type="Label" parent="ItemGrid/ItemGetPopup" unique_id=2129467799]
-layout_mode = 2
-
-[node name="ContinueButton" type="Button" parent="ItemGrid/ItemGetPopup" unique_id=78342957]
-layout_mode = 2
 
 [node name="Options" parent="." unique_id=1342148050 instance=ExtResource("6_047uy")]
 visible = false

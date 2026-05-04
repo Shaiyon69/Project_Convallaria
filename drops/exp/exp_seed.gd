@@ -1,6 +1,6 @@
 extends Area2D
 
-@export_enum("Normal", "Magnet", "Speed", "Bomb", "Coin") var seed_type: int = 0
+@export_enum("Normal", "Magnet", "Speed", "Bomb", "Gold", "Silver") var seed_type: int = 0
 @export var exp_amount: int = 1
 
 var is_magnetic: bool = false
@@ -20,24 +20,27 @@ func _ready() -> void:
 
 func _apply_visuals() -> void:
 	match seed_type:
-		0: # Normal EXP
+		0: 
 			modulate = Color(1, 1, 1)
 			scale = Vector2(1, 1)
-		1: # Magnet
+		1: 
 			modulate = Color(1, 0.2, 0.2)
 			scale = Vector2(1.5, 1.5)
-		2: # Speed
+		2: 
 			modulate = Color(0.2, 0.5, 1)
 			scale = Vector2(1.3, 1.3)
-		3: # Bomb
+		3: 
 			modulate = Color(0.1, 0.1, 0.1)
 			scale = Vector2(1.4, 1.4)
-		4: # Golden Seed (Coin)
+		4: 
 			modulate = Color(1.0, 0.8, 0.1)
 			scale = Vector2(1.2, 1.2)
+		5: 
+			modulate = Color(0.8, 0.8, 0.85)
+			scale = Vector2(1.1, 1.1)
 
 func pull_to_player(target: Node2D) -> void:
-	if (seed_type == 0 or seed_type == 4) and not is_magnetic:
+	if (seed_type == 0 or seed_type == 4 or seed_type == 5) and not is_magnetic:
 		player = target
 		is_magnetic = true
 		set_physics_process(true) 
@@ -65,5 +68,8 @@ func _on_body_entered(body: Node2D) -> void:
 					body.activate_bomb_powerup(global_position)
 			4:
 				if body.has_method("collect_coin"):
-					body.collect_coin(exp_amount)
+					body.collect_coin(exp_amount, true)
+			5:
+				if body.has_method("collect_coin"):
+					body.collect_coin(exp_amount, false)
 		queue_free()

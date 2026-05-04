@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://bhkbhjldh33ii"]
 
 [ext_resource type="Texture2D" uid="uid://s1q71vcyhs2a" path="res://world/water.png" id="1_gldc4"]
-[ext_resource type="Script" path="res://world/map.gd" id="1_qyd10"]
+[ext_resource type="Script" uid="uid://ktics24a5vei" path="res://world/map.gd" id="1_qyd10"]
 [ext_resource type="Texture2D" uid="uid://dhqpgi7xau6yi" path="res://world/grass.png" id="2_0cso3"]
 [ext_resource type="PackedScene" uid="uid://1dettxb686dv" path="res://world/portal.tscn" id="2_2klcf"]
 [ext_resource type="PackedScene" uid="uid://ywkqdni4pqhj" path="res://world/tree.tscn" id="2_2lpho"]
