@@ -263,7 +263,7 @@ func _die() -> void:
 	if health_bar:
 		health_bar.hide()
 		
-	var spawner = get_tree().current_scene.get_node_or_null("Spawner")
+	var spawner = get_tree().current_scene.get_node_or_null("EnemySpawner")
 	
 	if is_boss:
 		AudioManager.stop_music()
