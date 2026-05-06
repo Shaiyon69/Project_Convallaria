@@ -2,81 +2,55 @@
 
 [ext_resource type="Script" uid="uid://cjtkbwegwjl2q" path="res://weapons/poison/poison.gd" id="1_6823q"]
 [ext_resource type="Texture2D" uid="uid://d371yhbtdywu8" path="res://weapons/poison/poison.png" id="2_1tvu1"]
+[ext_resource type="Texture2D" uid="uid://cjcvjik7x5tqm" path="res://weapons/poison/poison_radius..png" id="3_vr38p"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_1tvu1"]
 radius = 48.0
 
-[sub_resource type="Animation" id="Animation_sw2w0"]
+[sub_resource type="Animation" id="Animation_vh7x4"]
 length = 0.001
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
-tracks/0/path = NodePath("Sprite2D:scale")
+tracks/0/path = NodePath("Sprite2D:rotation")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0),
-"transitions": PackedFloat32Array(1),
-"update": 0,
-"values": [Vector2(1.8872817, 1.8872817)]
-}
-tracks/1/type = "value"
-tracks/1/imported = false
-tracks/1/enabled = true
-tracks/1/path = NodePath("Sprite2D:rotation")
-tracks/1/interp = 1
-tracks/1/loop_wrap = true
-tracks/1/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 0,
 "values": [0.0]
 }
 
-[sub_resource type="Animation" id="Animation_1tvu1"]
+[sub_resource type="Animation" id="Animation_7m2x6"]
 resource_name = "poison"
+length = 0.5
 loop_mode = 1
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
-tracks/0/path = NodePath("Sprite2D:scale")
+tracks/0/path = NodePath("Sprite2D:rotation")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0.1, 0.5, 1),
-"transitions": PackedFloat32Array(1, 1, 1),
+"times": PackedFloat32Array(0.1, 0.5),
+"transitions": PackedFloat32Array(1.5157167, 6.062862),
 "update": 0,
-"values": [Vector2(1.8872817, 1.8872817), Vector2(1.597, 1.597), Vector2(1.8872817, 1.8872817)]
-}
-tracks/1/type = "value"
-tracks/1/imported = false
-tracks/1/enabled = true
-tracks/1/path = NodePath("Sprite2D:rotation")
-tracks/1/interp = 1
-tracks/1/loop_wrap = true
-tracks/1/keys = {
-"times": PackedFloat32Array(0.1, 1),
-"transitions": PackedFloat32Array(1, 12.125715),
-"update": 0,
-"values": [0.0, 3.141592653589793]
+"values": [-6.283185307179586, 6.283185307179586]
 }
 
-[sub_resource type="AnimationLibrary" id="AnimationLibrary_sw2w0"]
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_wil7i"]
 _data = {
-&"RESET": SubResource("Animation_sw2w0"),
-&"poison": SubResource("Animation_1tvu1")
+&"RESET": SubResource("Animation_vh7x4"),
+&"poison": SubResource("Animation_7m2x6")
 }
 
 [node name="Poison" type="Area2D" unique_id=1163173372]
+z_index = -1
 y_sort_enabled = true
 collision_layer = 8
 collision_mask = 4
 script = ExtResource("1_6823q")
-
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=311538921]
-z_index = -1
-scale = Vector2(1.8872817, 1.8872817)
-texture = ExtResource("2_1tvu1")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1774678910]
 rotation = 1.5707964
@@ -85,7 +59,23 @@ shape = SubResource("CircleShape2D_1tvu1")
 [node name="AttackTimer" type="Timer" parent="." unique_id=1296624065]
 autostart = true
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=2023182853]
-libraries/ = SubResource("AnimationLibrary_sw2w0")
+[node name="CPUParticles2D" type="CPUParticles2D" parent="." unique_id=1093695921]
+amount = 50
+texture = ExtResource("2_1tvu1")
+lifetime = 0.3
+randomness = 1.0
+lifetime_randomness = 0.35
+fixed_fps = 60
+local_coords = true
+emission_shape = 1
+emission_sphere_radius = 47.79
+gravity = Vector2(0, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1305062826]
+scale = Vector2(2.07, 2.07)
+texture = ExtResource("3_vr38p")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=2138496910]
+libraries/ = SubResource("AnimationLibrary_wil7i")
 
 [connection signal="timeout" from="AttackTimer" to="." method="_on_attack_timer_timeout"]

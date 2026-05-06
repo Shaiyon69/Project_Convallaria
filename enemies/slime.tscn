@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c2ge1ejg4cvv0" path="res://enemies/slime.gd" id="1_mweif"]
 [ext_resource type="Texture2D" uid="uid://brm1064igsp8u" path="res://enemies/blob.png" id="2_4luf4"]
+[ext_resource type="PackedScene" uid="uid://doadam00gdmqm" path="res://enemies/enemy_projectile.tscn" id="2_n1ijq"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_fur4c"]
 atlas = ExtResource("2_4luf4")
@@ -245,6 +246,7 @@ collision_layer = 4
 collision_mask = 35
 motion_mode = 1
 script = ExtResource("1_mweif")
+projectile_scene = ExtResource("2_n1ijq")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1488600536]
 y_sort_enabled = true

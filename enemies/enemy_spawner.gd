@@ -1,6 +1,7 @@
 extends Node2D
 
 @export var slime_scene: PackedScene = preload("res://enemies/slime.tscn")
+@export var ratman_scene: PackedScene = preload("res://enemies/ratman/ratman.tscn") 
 @export var portal_scene: PackedScene
 @export var spawn_radius: float = 800.0
 
@@ -25,10 +26,8 @@ var horde_events: Dictionary = {
 }
 
 func _ready() -> void:
-	# Fetch player node from main gameplay node
 	player = get_tree().get_first_node_in_group("player")
 	
-	#Initiate stage counter
 	if Data.current_floor == Data.MAX_FLOORS:
 		if has_node("SpawnTimer"):
 			$SpawnTimer.stop()
@@ -36,29 +35,24 @@ func _ready() -> void:
 			$DifficultyTimer.stop()
 
 		set_process(false) 
-		
 		call_deferred("_spawn_final_boss")
 
 func _process(_delta: float) -> void:
-	#Check if player exists
 	if not player or is_end_times:
 		return
 		
-	# Stage time counter (for checking events)
 	var current_second = int(player.time_survived)
 	if current_second != last_processed_second:
 		last_processed_second = current_second
 		_check_time_events(current_second)
-	# Time check for end times start
+		
 	if current_second >= level_duration and not is_end_times:
 		start_end_times()
 		
-# Horde events helper func
 func _check_time_events(current_second: int) -> void:
 	if horde_events.has(current_second):
 		_spawn_horde(horde_events[current_second]["type"], horde_events[current_second]["amount"])
 
-# End times start function
 func start_end_times() -> void:
 	is_end_times = true
 	
@@ -78,13 +72,11 @@ func start_end_times() -> void:
 	death_timer.timeout.connect(func(): _spawn_death_slimes(4))
 	add_child(death_timer)
 
-# Boss Death notify
 func notify_boss_defeated() -> void:
 	boss_defeated = true
 	if not is_end_times:
 		start_end_times()
 
-# Death slimes spawn helper func for end times
 func _spawn_death_slimes(amount: int) -> void:
 	if not player or not grass_layer:
 		return
@@ -95,7 +87,6 @@ func _spawn_death_slimes(amount: int) -> void:
 	for i in range(amount):
 		_spawn_single_enemy("death_slime")
 
-# Spawn timer timeout
 func _on_spawn_timer_timeout() -> void:
 	if not player or not grass_layer or is_end_times:
 		return
@@ -106,7 +97,6 @@ func _on_spawn_timer_timeout() -> void:
 	for i in range(spawn_count):
 		_spawn_single_enemy()
 
-# Helper func for checking safe spawn
 func _is_safe_spawn_area(center_coords: Vector2i) -> bool:
 	for x in range(-1, 2):
 		for y in range(-1, 2):
@@ -114,7 +104,6 @@ func _is_safe_spawn_area(center_coords: Vector2i) -> bool:
 				return false
 	return true
 
-# Helper func for handling singular enemy spawn
 func _spawn_single_enemy(specific_type: String = "") -> void:
 	var valid_spawn = false
 	var spawn_pos = Vector2.ZERO
@@ -134,9 +123,20 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 		attempts += 1
 	
 	if valid_spawn:
-		var new_slime = slime_scene.instantiate()
-		new_slime.global_position = spawn_pos
-		get_parent().add_child(new_slime)
+		var enemy_type = specific_type
+		if enemy_type == "":
+			enemy_type = _get_weighted_enemy(player.time_survived)
+			
+		var scene_to_load = slime_scene
+		if Data.ENEMIES.has(enemy_type) and Data.ENEMIES[enemy_type].has("scene_path"):
+			var custom_path = Data.ENEMIES[enemy_type]["scene_path"]
+			var custom_scene = load(custom_path)
+			if custom_scene:
+				scene_to_load = custom_scene
+				
+		var new_enemy = scene_to_load.instantiate()
+		new_enemy.global_position = spawn_pos
+		get_parent().add_child(new_enemy)
 		
 		var final_stats: Dictionary
 		var minutes_survived = int(player.time_survived) / 60
@@ -145,7 +145,6 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 		
 		if spawn_death_slime:
 			final_stats = Data.ENEMIES["death_slime"].duplicate()
-			
 			var over_time = max(0, minutes_survived - 10)
 			if boss_defeated and over_time == 0:
 				over_time = 1
@@ -154,31 +153,23 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 			final_stats["health"] = int(final_stats["health"] * scaling_factor * floor_mult)
 			final_stats["damage"] = int(final_stats["damage"] * scaling_factor * floor_mult)
 			final_stats["speed"] += over_time * 15.0
-
 			final_stats["scale"] += over_time * 0.25 
+			
 			var shade = max(0.0, 0.15 - (over_time * 0.03))
 			final_stats["color"] = Color(shade, 0.0, shade)
 		else:
-			var enemy_type = specific_type
-			if enemy_type == "":
-				var enemy_types = _get_allowed_enemies(player.time_survived)
-				enemy_type = enemy_types[randi() % enemy_types.size()]
-				
 			final_stats = Data.get_scaled_enemy_stats(enemy_type, minutes_survived)
-
 			final_stats["health"] = int(final_stats["health"] * floor_mult)
 			final_stats["damage"] = int(final_stats["damage"] * floor_mult)
 			if final_stats.has("exp"):
 				final_stats["exp"] = int(final_stats["exp"] * floor_mult) 
 			
-		new_slime.apply_stats(final_stats)
+		new_enemy.apply_stats(final_stats)
 
-# Horde spawning helper func
 func _spawn_horde(enemy_type: String, amount: int) -> void:
 	for i in range(amount):
 		_spawn_single_enemy(enemy_type)
 
-# Difficulty timer
 func _on_difficulty_timer_timeout() -> void:
 	if not player or is_end_times:
 		return
@@ -188,7 +179,6 @@ func _on_difficulty_timer_timeout() -> void:
 	else:
 		spawn_count += 1
 
-# Portal spawn helper func
 func _spawn_portal() -> void:
 	boss_spawned = true
 	if not portal_scene:
@@ -211,7 +201,6 @@ func _spawn_portal() -> void:
 	portal.global_position = spawn_pos
 	get_parent().add_child(portal)
 
-# Space checking helper func (for spawning large entities)
 func _has_enough_space(center_cell: Vector2i, tile_radius: int) -> bool:
 	for x in range(-tile_radius, tile_radius + 1):
 		for y in range(-tile_radius, tile_radius + 1):
@@ -220,29 +209,57 @@ func _has_enough_space(center_cell: Vector2i, tile_radius: int) -> bool:
 				return false
 	return true
 
-# Helper func to fetch spawnable enemy
-func _get_allowed_enemies(time: float) -> Array:
-	if time < 60.0:
-		return ["basic"]
-	elif time < 120.0:
-		return ["basic", "basic", "basic", "runner", "swarm"]
-	elif time < 180.0:
-		return ["basic", "basic", "runner", "swarm", "swarm", "brute", "dasher"]
-	else:
-		return ["basic", "basic", "runner", "swarm", "brute", "tank", "dasher", "dasher"]
+func _get_weighted_enemy(time: float) -> String:
+	var minutes = time / 60.0
+	var total_weight = 0.0
+	var current_weights = {}
+	
+	for enemy_id in Data.ENEMY_SPAWN_CHANCES:
+		var chance_data = Data.ENEMY_SPAWN_CHANCES[enemy_id]
+		var weight = max(0.0, chance_data["base"] + (chance_data["growth"] * minutes))
+		current_weights[enemy_id] = weight
+		total_weight += weight
+		
+	var roll = randf() * total_weight
+	var accumulator = 0.0
+	
+	for enemy_id in current_weights:
+		accumulator += current_weights[enemy_id]
+		if roll <= accumulator:
+			return enemy_id
+			
+	return "basic" 
 
-# Helper function for handling boss spawn
 func _spawn_final_boss() -> void:
-	if not slime_scene or not player: 
+	if not player: 
 		return
 	
 	await get_tree().create_timer(2.5).timeout
-	
-	var boss = slime_scene.instantiate()
 
+	var boss = ratman_scene.instantiate() if ratman_scene else slime_scene.instantiate()
 	boss.global_position = player.global_position 
 	
-	var final_stats = Data.ENEMIES["boss"].duplicate()
-	boss.apply_stats(final_stats)
+	boss.tree_exited.connect(_on_final_boss_died)
 	
 	get_parent().add_child(boss)
+	var final_stats = Data.ENEMIES["boss"].duplicate()
+	
+	var minutes_survived = int(player.time_survived) / 60
+	var megabonk_multiplier = 1.0 + (minutes_survived * 0.5) + (Data.current_floor * 0.5)
+
+	final_stats["health"] = int(final_stats["health"] * megabonk_multiplier * 5.0) 
+	final_stats["damage"] = int(final_stats["damage"] * megabonk_multiplier * 2.0)
+	final_stats["speed"] = final_stats.get("speed", 100) * 1.5
+	final_stats["scale"] = 4.5 
+	final_stats["color"] = Color(0.8, 0.05, 0.1, 1.0)
+	final_stats["base_pitch"] = 0.5
+	
+	boss.apply_stats(final_stats)
+
+func _on_final_boss_died() -> void:
+	await get_tree().create_timer(4.0).timeout
+	
+	if player and player.has_method("save_data"):
+		player.save_data()
+		
+	TransitionManager.change_scene("res://ui/victory_screen.tscn")

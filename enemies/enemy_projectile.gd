@@ -1,7 +1,7 @@
 extends Area2D
 
 var speed: float = 250.0
-var damage: int = 15
+var damage: int = 5
 var direction: Vector2 = Vector2.ZERO
 
 func _ready() -> void:

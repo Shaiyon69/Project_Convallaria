@@ -7,6 +7,20 @@ var current_options: Array = []
 var _current_level: int = 1
 var _exp_display_timer: float = 0.0
 
+@onready var gold_label = %GoldLabel if has_node("%GoldLabel") else null
+@onready var silver_label = %SilverLabel if has_node("%SilverLabel") else null
+@onready var kill_label = %KillLabel if has_node("%KillLabel") else null
+@onready var health_bar = %HealthBar if has_node("%HealthBar") else null
+
+@onready var item_get_popup = %ItemGetPopup if has_node("%ItemGetPopup") else null
+@onready var item_name_label = %ItemNameLabel if has_node("%ItemNameLabel") else null
+@onready var item_icon_display = %ItemIconDisplay if has_node("%ItemIconDisplay") else null
+@onready var item_desc_label = %ItemDescLabel if has_node("%ItemDescLabel") else null
+@onready var continue_btn = %ContinueButton if has_node("%ContinueButton") else null
+
+@onready var item_grid = %ItemGrid if has_node("%ItemGrid") else null
+@onready var weapon_slots = %WeaponSlots if has_node("%WeaponSlots") else null
+
 @onready var pause_resume_btn = %PauseOverlay.get_node("VBoxContainer/ResumeButton") if has_node("%PauseOverlay") else null
 @onready var pause_options_btn = %PauseOverlay.get_node("VBoxContainer/OptionsButton") if has_node("%PauseOverlay") else null
 @onready var pause_quit_btn = %PauseOverlay.get_node("VBoxContainer/QuitButton") if has_node("%PauseOverlay") else null
@@ -17,17 +31,6 @@ var _exp_display_timer: float = 0.0
 
 @onready var sfx_hover = preload("res://ui/menu_hover.mp3")
 @onready var sfx_click = preload("res://ui/menu_click.mp3")
-
-@onready var item_get_popup = %ItemGetPopup
-@onready var item_name_label = %ItemNameLabel
-@onready var item_icon_display = %ItemIconDisplay
-@onready var item_desc_label = %ItemDescLabel
-@onready var continue_btn = %ContinueButton
-
-@onready var item_grid = %ItemGrid
-@onready var weapon_slots = %WeaponSlots if has_node("%WeaponSlots") else null
-@onready var gold_label = %GoldLabel if has_node("%GoldLabel") else null
-@onready var silver_label = %SilverLabel if has_node("%SilverLabel") else null
 
 var _base_button_scales: Dictionary = {}
 var _target_button_scales: Dictionary = {}
@@ -55,6 +58,9 @@ func _ready() -> void:
 	if pause_quit_btn: pause_quit_btn.pressed.connect(_on_pause_quit_pressed)
 	if pause_restart_btn: pause_restart_btn.pressed.connect(_on_pause_restart_pressed)
 	if mobile_pause_btn: mobile_pause_btn.pressed.connect(_toggle_pause)
+	
+	add_to_group("hud")
+	update_coins()
 	
 	_setup_button_animations()
 	
@@ -84,11 +90,15 @@ func update_level(level: int) -> void:
 		if _exp_display_timer <= 0:
 			%ExpLabel.text = "LVL " + str(_current_level)
 
-func update_coins(gold_amount: int, silver_amount: int) -> void:
+func update_coins(gold_amount: int = 0, silver_amount: int = 0) -> void:
 	if gold_label:
-		gold_label.text = str(gold_amount)
+		gold_label.text = "Gold: " + str(Data.coins)
 	if silver_label:
-		silver_label.text = str(silver_amount)
+		silver_label.text = "Silver: " + str(Data.silver)
+
+func update_kills(kills: int) -> void:
+	if kill_label:
+		kill_label.text = "Kills: " + str(kills)
 
 func show_item_get(item_id: String) -> void:
 	if not item_name_label or not item_desc_label:
@@ -107,7 +117,8 @@ func show_item_get(item_id: String) -> void:
 	item_get_popup.show()
 
 func _on_continue_pressed() -> void:
-	item_get_popup.hide()
+	if item_get_popup:
+		item_get_popup.hide()
 	get_tree().paused = false
 
 func update_inventory_display(owned_items: Array) -> void:
@@ -139,10 +150,23 @@ func update_inventory_display(owned_items: Array) -> void:
 			
 		item_grid.add_child(tex_rect)
 
+func update_weapon_slots(weapon_ids: Array) -> void:
+	if not weapon_slots: return
+	var slots = weapon_slots.get_children()
+	
+	for i in range(slots.size()):
+		var icon = slots[i].get_node("Icon")
+		if i < weapon_ids.size():
+			var w_id = weapon_ids[i]
+			var icon_path = Data.WEAPONS[w_id]["icon"]
+			icon.texture = load(icon_path)
+		else:
+			icon.texture = null
+
 func update_health(current: float, maximum: float) -> void:
-	if has_node("%HealthBar"):
-		%HealthBar.max_value = maximum
-		%HealthBar.value = current
+	if health_bar:
+		health_bar.max_value = maximum
+		health_bar.value = current
 	if has_node("%HealthLabel"):
 		%HealthLabel.text = str(int(current), "/", int(maximum))
 	
@@ -158,23 +182,6 @@ func update_time(minutes: int, seconds: int) -> void:
 			%TimeLabel.add_theme_color_override("font_color", Color(1, 0.2, 0.2))
 		else:
 			%TimeLabel.add_theme_color_override("font_color", Color(1, 1, 1))
-
-func update_kills(kills: int) -> void:
-	if has_node("%KillLabel"):
-		%KillLabel.text = "Kills: " + str(kills)
-
-func update_weapon_slots(weapon_ids: Array) -> void:
-	if not weapon_slots: return
-	var slots = weapon_slots.get_children()
-	
-	for i in range(slots.size()):
-		var icon = slots[i].get_node("Icon")
-		if i < weapon_ids.size():
-			var w_id = weapon_ids[i]
-			var icon_path = Data.WEAPONS[w_id]["icon"]
-			icon.texture = load(icon_path)
-		else:
-			icon.texture = null
 
 func show_level_up(options: Array) -> void:
 	current_options = options
@@ -211,7 +218,7 @@ func _on_exit_pressed() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if (has_node("%GameOverScreen") and %GameOverScreen.visible) or (has_node("%LevelUpScreen") and %LevelUpScreen.visible) or item_get_popup.visible:
+		if (has_node("%GameOverScreen") and %GameOverScreen.visible) or (has_node("%LevelUpScreen") and %LevelUpScreen.visible) or (item_get_popup and item_get_popup.visible):
 			return
 		_toggle_pause()
 

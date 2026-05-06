@@ -21,16 +21,22 @@ var valid_spawn_tiles: Array[Vector2i] = []
 var occupied_cells: Dictionary = {}
 
 func _ready() -> void:
+	if Data.current_floor == Data.MAX_FLOORS:
+		map_radius = 60
+		
 	_initialize_noise()
 	_generate_terrain()
 	_apply_biome()
 	_place_player()
-	_spawn_boss_portal()
-	_spawn_objects()
-	_spawn_trees() 
+	
+	if Data.current_floor < Data.MAX_FLOORS:
+		_spawn_boss_portal()
+		_spawn_objects()
+		_spawn_trees() 
 	
 	var battle_music = load(Data.MUSIC["battle"])
-	AudioManager.play_music(battle_music, 1.1)
+	if AudioManager.has_method("play_music"):
+		AudioManager.play_music(battle_music, 1.1)
 
 func _initialize_noise() -> void:
 	if use_random_seed:

@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://cjk4bb27u0y0n"]
+
+[ext_resource type="Script" uid="uid://cm8wbuiepv1so" path="res://world/world.gd" id="1_n0l6i"]
+[ext_resource type="PackedScene" uid="uid://b1m3mo8mcnu84" path="res://enemies/enemy_spawner.tscn" id="2_t8mkd"]
+[ext_resource type="PackedScene" uid="uid://bhkbhjldh33ii" path="res://world/map.tscn" id="3_m1xgd"]
+[ext_resource type="PackedScene" uid="uid://d4e1brvpuemsy" path="res://player/player.tscn" id="4_7j8uw"]
+[ext_resource type="PackedScene" uid="uid://cunwoj2qfpdwp" path="res://player/mobile_controls.tscn" id="5_hkvpb"]
+
+[node name="FinalBoss" type="Node2D" unique_id=1868345238]
+y_sort_enabled = true
+script = ExtResource("1_n0l6i")
+
+[node name="EnemySpawner" parent="." unique_id=646256932 instance=ExtResource("2_t8mkd")]
+
+[node name="Map" parent="." unique_id=971720462 instance=ExtResource("3_m1xgd")]
+z_index = -2
+
+[node name="Player" parent="." unique_id=993828270 instance=ExtResource("4_7j8uw")]
+position = Vector2(560, 456)
+
+[node name="MobileControls" parent="." unique_id=1098429242 instance=ExtResource("5_hkvpb")]
