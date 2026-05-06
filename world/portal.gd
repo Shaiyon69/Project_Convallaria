@@ -1,7 +1,7 @@
 extends Area2D
 
 @export var boss_scene: PackedScene
-@export var next_level_path: String = "res://scenes/world.tscn"
+@export var next_level_path: String = "res://world/world.tscn"
 
 var player_in_range: bool = false
 var current_state: String = "corrupted" 
@@ -117,9 +117,4 @@ func _teleport_player() -> void:
 			
 	Data.current_floor += 1
 	
-	if Data.current_floor < Data.MAX_FLOORS:
-		TransitionManager.change_scene(next_level_path)
-	elif Data.current_floor == Data.MAX_FLOORS:
-		TransitionManager.change_scene("res://scenes/final_boss_arena.tscn") 
-	else:
-		TransitionManager.change_scene("res://scenes/victory_screen.tscn")
+	TransitionManager.change_scene(next_level_path)

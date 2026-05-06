@@ -205,6 +205,8 @@ layout_mode = 2
 [node name="Upgrade" type="Label" parent="ShopPanel/VBoxContainer/HBoxContainer/LeftSide" unique_id=60407361]
 layout_mode = 2
 theme_override_fonts/font = SubResource("FontVariation_juqqw")
+text = "Upgrades"
+horizontal_alignment = 1
 
 [node name="UpgradeContainer" type="GridContainer" parent="ShopPanel/VBoxContainer/HBoxContainer/LeftSide" unique_id=597303193]
 unique_name_in_owner = true
@@ -216,6 +218,8 @@ layout_mode = 2
 [node name="Weapon" type="Label" parent="ShopPanel/VBoxContainer/HBoxContainer/RightSide" unique_id=1514594253]
 layout_mode = 2
 theme_override_fonts/font = SubResource("FontVariation_juqqw")
+text = "Weapons"
+horizontal_alignment = 1
 
 [node name="WeaponGrid" type="GridContainer" parent="ShopPanel/VBoxContainer/HBoxContainer/RightSide" unique_id=653124586]
 unique_name_in_owner = true

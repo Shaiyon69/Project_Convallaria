@@ -42,8 +42,39 @@ offset_left = -24.62503
 offset_top = -10.334997
 offset_right = 24.959991
 offset_bottom = 9.665003
+theme_override_colors/font_color = Color(1, 0.3977014, 0.3292555, 1)
 theme_override_fonts/font = SubResource("FontVariation_6fi6k")
 text = "Kills: 0"
+
+[node name="GoldLabel" type="Label" parent="." unique_id=1483863681]
+unique_name_in_owner = true
+anchors_preset = -1
+anchor_left = 0.24300002
+anchor_top = 0.014
+anchor_right = 0.24300002
+anchor_bottom = 0.014
+offset_left = 42.37497
+offset_top = -10.334997
+offset_right = 91.95999
+offset_bottom = 9.665003
+theme_override_colors/font_color = Color(1, 1, 0, 1)
+theme_override_fonts/font = SubResource("FontVariation_6fi6k")
+text = "Gold: 0"
+
+[node name="SilverLabel" type="Label" parent="." unique_id=2111450936]
+unique_name_in_owner = true
+anchors_preset = -1
+anchor_left = 0.24300002
+anchor_top = 0.014
+anchor_right = 0.24300002
+anchor_bottom = 0.014
+offset_left = 108.435
+offset_top = -10.335
+offset_right = 158.02002
+offset_bottom = 9.665001
+theme_override_colors/font_color = Color(0.7204674, 0.7204675, 0.7204674, 1)
+theme_override_fonts/font = SubResource("FontVariation_6fi6k")
+text = "Silver: 0"
 
 [node name="HealthBar" type="ProgressBar" parent="." unique_id=475658255]
 unique_name_in_owner = true

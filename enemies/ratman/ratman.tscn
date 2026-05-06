@@ -1,7 +1,10 @@
 [gd_scene format=3 uid="uid://uqeiehxboxq4"]
 
 [ext_resource type="Script" uid="uid://cg73b1vg760ke" path="res://enemies/ratman/ratman.gd" id="1_qn25w"]
+[ext_resource type="PackedScene" uid="uid://dkman6rpdpm64" path="res://drops/exp/exp_seed.tscn" id="2_ffdju"]
 [ext_resource type="Texture2D" uid="uid://cq4mrub7hkoe5" path="res://enemies/ratman/ratman.png" id="3_ffdju"]
+[ext_resource type="PackedScene" uid="uid://bjaqyncxsvvyd" path="res://enemies/damage_number.tscn" id="3_i7re1"]
+[ext_resource type="PackedScene" uid="uid://doadam00gdmqm" path="res://enemies/enemy_projectile.tscn" id="4_4gfci"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_i7re1"]
 atlas = ExtResource("3_ffdju")
@@ -98,7 +101,7 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_iwxsb")
 }],
-"loop": true,
+"loop": false,
 "name": &"death",
 "speed": 5.0
 }, {
@@ -183,11 +186,13 @@ collision_layer = 4
 collision_mask = 35
 motion_mode = 1
 script = ExtResource("1_qn25w")
+seed_scene = ExtResource("2_ffdju")
+damage_scene = ExtResource("3_i7re1")
+projectile_scene = ExtResource("4_4gfci")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1087490924]
 sprite_frames = SubResource("SpriteFrames_nwrhf")
-animation = &"death"
-frame_progress = 0.274599
+animation = &"walk_right"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=824799668]
 shape = SubResource("CapsuleShape2D_8tegq")

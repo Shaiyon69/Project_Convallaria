@@ -36,7 +36,6 @@ var base_speed_before_boost: float = 0.0
 var owned_weapons: Dictionary = {}
 var owned_items: Array = [] 
 
-
 var vampirism_rate: float = 0.0
 var greed_multiplier: float = 0.0
 var _prev_greed_bonus: float = 0.0
@@ -53,7 +52,6 @@ var shield_cooldown: float = 15.0
 var has_nova: bool = false
 var nova_timer: float = 0.0
 var nova_cooldown: float = 20.0
-
 
 var end_times_triggered: bool = false 
 
@@ -82,7 +80,7 @@ func _ready() -> void:
 	hud.update_level(level)
 	
 	if hud.has_method("update_coins"):
-		hud.update_coins(Data.coins, Data.silver)
+		hud.update_coins() # FIXED: No arguments needed!
 	
 	hud.upgrade_selected.connect(_apply_upgrade)
 	%MagnetZone.area_entered.connect(_on_magnet_zone_area_entered)
@@ -416,7 +414,7 @@ func collect_coin(amount: int, is_gold: bool = false) -> void:
 		
 	_play_pickup_sfx(2.0, -5.0, true)
 	if hud and hud.has_method("update_coins"):
-		hud.update_coins(Data.coins, Data.silver)
+		hud.update_coins() # FIXED: No arguments needed!
 
 func _apply_upgrade(upgrade: Dictionary) -> void:
 	var id = upgrade["id"]
@@ -489,7 +487,7 @@ func _handle_relics(delta: float) -> void:
 				_prev_greed_bonus += greed_multiplier
 				damage_multiplier += greed_multiplier
 				if hud and hud.has_method("update_coins"):
-					hud.update_coins(Data.coins, Data.silver)
+					hud.update_coins() # FIXED: No arguments needed!
 			else:
 				damage_multiplier -= _prev_greed_bonus
 				_prev_greed_bonus = 0.0
