@@ -6,8 +6,6 @@
 [ext_resource type="PackedScene" uid="uid://1dettxb686dv" path="res://world/portal.tscn" id="2_2klcf"]
 [ext_resource type="PackedScene" uid="uid://ywkqdni4pqhj" path="res://world/tree.tscn" id="2_2lpho"]
 [ext_resource type="Texture2D" uid="uid://dxpky3bl0jhcc" path="res://world/soil.png" id="3_2klcf"]
-[ext_resource type="PackedScene" uid="uid://bcll8ltk8xjfq" path="res://drops/chest/chest.tscn" id="3_gfy5m"]
-[ext_resource type="PackedScene" uid="uid://c6nl2x1x8y1n0" path="res://world/statue.tscn" id="4_4t333"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_gldc4"]
 texture = ExtResource("1_gldc4")
@@ -933,8 +931,6 @@ z_index = -1
 y_sort_enabled = true
 script = ExtResource("1_qyd10")
 tree_scene = ExtResource("2_2lpho")
-chest_scene = ExtResource("3_gfy5m")
-statue_scene = ExtResource("4_4t333")
 boss_portal_scene = ExtResource("2_2klcf")
 
 [node name="WaterLayer" type="TileMapLayer" parent="." unique_id=428502450]
