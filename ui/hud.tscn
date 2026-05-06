@@ -80,7 +80,6 @@ offset_top = -19.0
 offset_right = 640.0
 grow_horizontal = 2
 grow_vertical = 0
-fill_mode = 1
 show_percentage = false
 
 [node name="ExpLabel" type="Label" parent="ExpBar" unique_id=1384305215]

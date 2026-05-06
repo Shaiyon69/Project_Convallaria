@@ -25,8 +25,10 @@ var horde_events: Dictionary = {
 }
 
 func _ready() -> void:
+	# Fetch player node from main gameplay node
 	player = get_tree().get_first_node_in_group("player")
 	
+	#Initiate stage counter
 	if Data.current_floor == Data.MAX_FLOORS:
 		if has_node("SpawnTimer"):
 			$SpawnTimer.stop()
@@ -37,9 +39,11 @@ func _ready() -> void:
 		call_deferred("_spawn_final_boss")
 
 func _process(_delta: float) -> void:
+	#Check if player exists
 	if not player or is_end_times:
 		return
 		
+	# Stage time counter (for checking events)
 	var current_second = int(player.time_survived)
 	if current_second != last_processed_second:
 		last_processed_second = current_second
@@ -53,6 +57,7 @@ func _check_time_events(current_second: int) -> void:
 	if horde_events.has(current_second):
 		_spawn_horde(horde_events[current_second]["type"], horde_events[current_second]["amount"])
 
+# End times start function
 func start_end_times() -> void:
 	is_end_times = true
 	
@@ -72,11 +77,13 @@ func start_end_times() -> void:
 	death_timer.timeout.connect(func(): _spawn_death_slimes(4))
 	add_child(death_timer)
 
+# Boss Death notify
 func notify_boss_defeated() -> void:
 	boss_defeated = true
 	if not is_end_times:
 		start_end_times()
 
+# Death slimes spawn helper func for end times
 func _spawn_death_slimes(amount: int) -> void:
 	if not player or not grass_layer:
 		return
@@ -87,6 +94,7 @@ func _spawn_death_slimes(amount: int) -> void:
 	for i in range(amount):
 		_spawn_single_enemy("death_slime")
 
+# Spawn timer timeout
 func _on_spawn_timer_timeout() -> void:
 	if not player or not grass_layer or is_end_times:
 		return
@@ -97,6 +105,7 @@ func _on_spawn_timer_timeout() -> void:
 	for i in range(spawn_count):
 		_spawn_single_enemy()
 
+# Helper func for checking safe spawn
 func _is_safe_spawn_area(center_coords: Vector2i) -> bool:
 	for x in range(-1, 2):
 		for y in range(-1, 2):
@@ -104,6 +113,7 @@ func _is_safe_spawn_area(center_coords: Vector2i) -> bool:
 				return false
 	return true
 
+# Helper func for handling singular enemy spawn
 func _spawn_single_enemy(specific_type: String = "") -> void:
 	var valid_spawn = false
 	var spawn_pos = Vector2.ZERO
@@ -166,10 +176,12 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 			
 		new_enemy.apply_stats(final_stats)
 
+# Horde spawning helper func
 func _spawn_horde(enemy_type: String, amount: int) -> void:
 	for i in range(amount):
 		_spawn_single_enemy(enemy_type)
 
+# Difficulty timer
 func _on_difficulty_timer_timeout() -> void:
 	if not player or is_end_times:
 		return
@@ -179,6 +191,7 @@ func _on_difficulty_timer_timeout() -> void:
 	else:
 		spawn_count += 1
 
+# Portal spawn helper func
 func _spawn_portal() -> void:
 	boss_spawned = true
 	if not portal_scene:
@@ -201,6 +214,7 @@ func _spawn_portal() -> void:
 	portal.global_position = spawn_pos
 	get_parent().add_child(portal)
 
+# Space checking helper func (for spawning large entities)
 func _has_enough_space(center_cell: Vector2i, tile_radius: int) -> bool:
 	for x in range(-tile_radius, tile_radius + 1):
 		for y in range(-tile_radius, tile_radius + 1):
