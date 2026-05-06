@@ -60,7 +60,7 @@ shape = SubResource("CircleShape2D_1tvu1")
 autostart = true
 
 [node name="CPUParticles2D" type="CPUParticles2D" parent="." unique_id=1093695921]
-amount = 500
+amount = 50
 texture = ExtResource("2_1tvu1")
 lifetime = 0.3
 randomness = 1.0

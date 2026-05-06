@@ -21,16 +21,15 @@ var valid_spawn_tiles: Array[Vector2i] = []
 var occupied_cells: Dictionary = {}
 
 func _ready() -> void:
-	# Shrink the arena if it's the final boss floor
+	# --- CHANGED: Made the boss arena much bigger (60 instead of 25) ---
 	if Data.current_floor == Data.MAX_FLOORS:
-		map_radius = 25
+		map_radius = 60
 		
 	_initialize_noise()
 	_generate_terrain()
 	_apply_biome()
 	_place_player()
 	
-	# Only spawn clutter and exit portals on normal floors
 	if Data.current_floor < Data.MAX_FLOORS:
 		_spawn_boss_portal()
 		_spawn_objects()

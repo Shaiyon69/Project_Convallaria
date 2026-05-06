@@ -58,15 +58,9 @@ const WEAPONS = {
 const ENEMIES = {
 	"basic": {"health": 30, "speed": 45.0, "scale": 1.0, "color": Color(1.0, 1.0, 1.0), "damage": 10, "exp": 10, "base_pitch": 1.0, "scene_path": "res://enemies/slime.tscn"},
 	"ratman": {"health": 20, "speed": 110.0, "scale": 1.0, "color": Color(1.0, 1.0, 1.0), "damage": 12, "exp": 15, "base_pitch": 1.2, "scene_path": "res://enemies/ratman/ratman.tscn"},
-	
-	# UPDATED: Shooter is now bright Yellow
 	"shooter": {"health": 20, "speed": 50.0, "scale": 0.9, "color": Color(1.0, 0.831, 0.0, 1.0), "is_shooter": true, "damage": 15, "exp": 20, "base_pitch": 1.4, "scene_path": "res://enemies/slime.tscn"},
-	
 	"brute": {"health": 90, "speed": 25.0, "scale": 1.5, "color": Color(1.0, 0.4, 0.4), "damage": 25, "exp": 30, "base_pitch": 0.6, "scene_path": "res://enemies/slime.tscn"},
-	
-	# UPDATED: Runner is now bright Green
 	"runner": {"health": 15, "speed": 85.0, "scale": 0.8, "color": Color(0.2, 0.9, 0.2), "damage": 5, "exp": 15, "base_pitch": 1.5, "scene_path": "res://enemies/slime.tscn"},
-	
 	"swarm": {"health": 5, "speed": 100.0, "scale": 0.5, "color": Color(1.0, 0.5, 0.0), "damage": 2, "exp": 5, "base_pitch": 1.8, "scene_path": "res://enemies/slime.tscn"},
 	"tank": {"health": 300, "speed": 15.0, "scale": 2.0, "color": Color(0.2, 0.2, 0.2), "damage": 50, "exp": 100, "base_pitch": 0.4, "scene_path": "res://enemies/slime.tscn"},
 	"dasher": {"health": 25, "speed": 40.0, "scale": 0.9, "color": Color(0.1, 0.8, 0.8), "is_dasher": true, "damage": 15, "exp": 25, "base_pitch": 1.3, "scene_path": "res://enemies/slime.tscn"},
@@ -74,18 +68,15 @@ const ENEMIES = {
 	"death_slime": {"health": 15000, "speed": 250.0, "scale": 3.0, "color": Color(0.367, 0.0, 0.367, 1.0), "damage": 500, "exp": 0, "base_pitch": 0.2, "is_death_slime": true, "scene_path": "res://enemies/slime.tscn"} 
 }
 
-# --- NEW: DYNAMIC GROWTH SYSTEM ---
-# base: The chance of spawning at exactly 0:00.
-# growth: How much the weight increases for every minute survived.
 const ENEMY_SPAWN_CHANCES = {
-	"basic": {"base": 100.0, "growth": 0.0},     # Always high chance, but other enemies slowly dilute it
-	"ratman": {"base": 10.0, "growth": 15.0},    # Spawns early, chance shoots up over time
-	"runner": {"base": 0.0, "growth": 25.0},     # Green slimes start appearing and become common
-	"shooter": {"base": 0.0, "growth": 20.0},    # Yellow slimes follow closely behind
+	"basic": {"base": 100.0, "growth": 0.0},
+	"ratman": {"base": 10.0, "growth": 15.0}, 
+	"runner": {"base": 0.0, "growth": 25.0},
+	"shooter": {"base": 0.0, "growth": 20.0},  
 	"swarm": {"base": 0.0, "growth": 15.0},
 	"brute": {"base": 0.0, "growth": 10.0},
 	"dasher": {"base": 0.0, "growth": 8.0},
-	"tank": {"base": 0.0, "growth": 3.0}        # Tanks stay rare
+	"tank": {"base": 0.0, "growth": 3.0}
 }
 
 const UPGRADES = [

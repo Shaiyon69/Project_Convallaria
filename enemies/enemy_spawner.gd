@@ -1,6 +1,8 @@
 extends Node2D
 
 @export var slime_scene: PackedScene = preload("res://enemies/slime.tscn")
+# --- NEW: Added the Ratman preload ---
+@export var ratman_scene: PackedScene = preload("res://enemies/ratman/ratman.tscn") 
 @export var portal_scene: PackedScene
 @export var spawn_radius: float = 800.0
 
@@ -230,19 +232,36 @@ func _get_weighted_enemy(time: float) -> String:
 	return "basic" 
 
 func _spawn_final_boss() -> void:
-	if not slime_scene or not player: 
+	if not player: 
 		return
 	
 	await get_tree().create_timer(2.5).timeout
-	var boss = slime_scene.instantiate()
-	boss.global_position = player.global_position 
 	
-	var final_stats = Data.ENEMIES["boss"].duplicate()
-	boss.apply_stats(final_stats)
+	# --- CHANGED: Spawn the Ratman scene instead of the Slime scene! ---
+	var boss = ratman_scene.instantiate() if ratman_scene else slime_scene.instantiate()
+	boss.global_position = player.global_position 
 	
 	boss.tree_exited.connect(_on_final_boss_died)
 	
 	get_parent().add_child(boss)
+	
+	# --- NEW: Megabonk Scaling & Scary Modulation ---
+	var final_stats = Data.ENEMIES["boss"].duplicate()
+	
+	var minutes_survived = int(player.time_survived) / 60
+	var megabonk_multiplier = 1.0 + (minutes_survived * 0.5) + (Data.current_floor * 0.5)
+	
+	# Insane scaling
+	final_stats["health"] = int(final_stats["health"] * megabonk_multiplier * 5.0) 
+	final_stats["damage"] = int(final_stats["damage"] * megabonk_multiplier * 2.0)
+	final_stats["speed"] = final_stats.get("speed", 100) * 1.5
+	
+	# Make it huge, scary, and deep-voiced!
+	final_stats["scale"] = 4.5 
+	final_stats["color"] = Color(0.8, 0.05, 0.1, 1.0) # Deep blood red
+	final_stats["base_pitch"] = 0.5 # Deep terrifying voice
+	
+	boss.apply_stats(final_stats)
 
 func _on_final_boss_died() -> void:
 	await get_tree().create_timer(4.0).timeout

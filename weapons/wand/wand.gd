@@ -12,21 +12,21 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	if player and player.owned_weapons.has(weapon_id):
-		var w_level = player.owned_weapons[weapon_id]
-		var w_stats = Data.WEAPONS[weapon_id]["levels"][w_level]
+		var w_data = player.owned_weapons[weapon_id]
+		var w_level = w_data["level"]
 		
-		var speed_buff = 0.0
-		if "bonus_attacks" in player:
-			speed_buff = player.bonus_attacks * 0.05
+		# Safely clamp the level so we don't crash if they upgrade it past max base stats
+		var safe_level = w_level
+		if Data.WEAPONS.has(weapon_id) and Data.WEAPONS[weapon_id].has("max_level"):
+			safe_level = min(w_level, Data.WEAPONS[weapon_id]["max_level"])
 			
+		var w_stats = Data.WEAPONS[weapon_id]["levels"][safe_level]
 		var base_wait = w_stats["wait_time"]
-		var new_wait_time = base_wait
 		
-		if "fire_rate_multiplier" in player:
-			new_wait_time = (base_wait * player.fire_rate_multiplier) - speed_buff
-		else:
-			new_wait_time = base_wait - speed_buff
-			
+		# Combine global fire rate (from shop) with specific weapon fire rate (from level ups)
+		var global_fr = player.fire_rate_multiplier if "fire_rate_multiplier" in player else 1.0
+		var new_wait_time = (base_wait * global_fr) / w_data["fire_rate"]
+		
 		new_wait_time = max(0.05, new_wait_time)
 			
 		if attack_timer.wait_time != new_wait_time:
@@ -36,20 +36,24 @@ func _on_attack_timer_timeout() -> void:
 	if not player or not player.owned_weapons.has(weapon_id):
 		return
 		
-	var w_level = player.owned_weapons[weapon_id]
-	var w_stats = Data.WEAPONS[weapon_id]["levels"][w_level]
+	var w_data = player.owned_weapons[weapon_id]
+	var w_level = w_data["level"]
+	var safe_level = min(w_level, Data.WEAPONS[weapon_id].get("max_level", 1))
+	var w_stats = Data.WEAPONS[weapon_id]["levels"][safe_level]
 	
 	var target = _get_nearest_enemy()
 	if target:
 		var proj_count = w_stats["projectiles"]
-		_shoot(target, proj_count, w_stats)
+		_shoot(target, proj_count, w_stats, w_data)
 
-func _shoot(target: Node2D, count: int, stats: Dictionary) -> void:
-	var total_damage: float = float(stats["base_damage"])
-	if "damage_multiplier" in player:
-		total_damage *= player.damage_multiplier
-	var final_damage: int = round(total_damage)
+func _shoot(target: Node2D, count: int, base_stats: Dictionary, custom_stats: Dictionary) -> void:
+	# Base damage * Global Player Damage * Specific Weapon Damage = Final Damage!
+	var total_damage: float = float(base_stats["base_damage"])
+	if "base_damage_multiplier" in player:
+		total_damage *= player.base_damage_multiplier
+	total_damage *= custom_stats["damage"] 
 	
+	var final_damage: int = round(total_damage)
 	var base_dir = global_position.direction_to(target.global_position)
 	
 	for i in range(count):
@@ -60,9 +64,14 @@ func _shoot(target: Node2D, count: int, stats: Dictionary) -> void:
 		var angle_offset = (i - (count - 1) / 2.0) * spread_angle
 		proj.direction = base_dir.rotated(angle_offset)
 		
-		proj.speed = stats["speed"]
+		proj.speed = base_stats["speed"]
 		proj.player_ref = player
 
+		# --- NEW: Apply the custom specific stats! ---
+		proj.size_multiplier = custom_stats["size"]
+		proj.pierce_count = custom_stats["pierce"]
+		proj.ricochet_count = custom_stats["ricochet"]
+		
 		var crit_chance = 0.05
 		if "base_crit_chance" in player:
 			crit_chance += player.base_crit_chance
@@ -70,9 +79,11 @@ func _shoot(target: Node2D, count: int, stats: Dictionary) -> void:
 		if randf() <= crit_chance:
 			proj.damage = final_damage * 2
 			proj.modulate = Color(1.0, 0.8, 0.1)
-			proj.scale = Vector2(1.5, 1.5)
+			# Scale crit by size multiplier too!
+			proj.scale = Vector2(1.5 * custom_stats["size"], 1.5 * custom_stats["size"])
 		else:
 			proj.damage = final_damage
+			proj.scale = Vector2(custom_stats["size"], custom_stats["size"])
 		
 		if "imbue_fire" in player: proj.imbue_fire = player.imbue_fire
 		if "imbue_frost" in player: proj.imbue_frost = player.imbue_frost
