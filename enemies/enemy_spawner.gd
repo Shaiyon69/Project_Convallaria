@@ -237,7 +237,7 @@ func _spawn_final_boss() -> void:
 	await get_tree().create_timer(2.5).timeout
 
 	var boss = ratman_scene.instantiate() if ratman_scene else slime_scene.instantiate()
-	boss.global_position = player.global_position 
+	boss.global_position = player.global_position + (Vector2.UP * 500)
 	
 	boss.tree_exited.connect(_on_final_boss_died)
 	
