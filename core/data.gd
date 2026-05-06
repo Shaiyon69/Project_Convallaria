@@ -56,15 +56,44 @@ const WEAPONS = {
 }
 
 const ENEMIES = {
-	"basic": {"health": 30, "speed": 45.0, "scale": 1.0, "color": Color(1.0, 1.0, 1.0), "damage": 10, "exp": 10, "base_pitch": 1.0},
-	"brute": {"health": 90, "speed": 25.0, "scale": 1.5, "color": Color(1.0, 0.4, 0.4), "damage": 25, "exp": 30, "base_pitch": 0.6},
-	"runner": {"health": 15, "speed": 85.0, "scale": 0.8, "color": Color(0.4, 0.4, 1.0), "damage": 5, "exp": 15, "base_pitch": 1.5},
-	"swarm": {"health": 5, "speed": 100.0, "scale": 0.5, "color": Color(1.0, 1.0, 0.2), "damage": 2, "exp": 5, "base_pitch": 1.8},
-	"tank": {"health": 300, "speed": 15.0, "scale": 2.0, "color": Color(0.2, 0.2, 0.2), "damage": 50, "exp": 100, "base_pitch": 0.4},
-	"dasher": {"health": 25, "speed": 40.0, "scale": 0.9, "color": Color(0.1, 0.8, 0.8), "is_dasher": true, "damage": 15, "exp": 25, "base_pitch": 1.3},
-	"shooter": {"health": 20, "speed": 50.0, "scale": 0.9, "color": Color(0.8, 0.8, 0.2), "is_shooter": true, "damage": 15, "exp": 20, "base_pitch": 1.4},
-	"boss": {"health": 5000, "speed": 35.0, "scale": 2.0, "color": Color(0.8, 0.1, 0.8), "damage": 100, "exp": 1500, "base_pitch": 0.3},
-	"death_slime": {"health": 15000, "speed": 250.0, "scale": 3.0, "color": Color(0.1, 0.0, 0.1), "damage": 500, "exp": 0, "base_pitch": 0.2, "is_death_slime": true} 
+	"basic": {"health": 30, "speed": 45.0, "scale": 1.0, "color": Color(1.0, 1.0, 1.0), "damage": 10, "exp": 10, "base_pitch": 1.0, "scene_path": "res://enemies/slime.tscn"},
+	"ratman": {"health": 20, "speed": 110.0, "scale": 1.0, "color": Color(1.0, 1.0, 1.0), "damage": 12, "exp": 15, "base_pitch": 1.2, "scene_path": "res://enemies/ratman.tscn"},
+	"shooter": {"health": 20, "speed": 50.0, "scale": 0.9, "color": Color(0.8, 0.8, 0.2), "is_shooter": true, "damage": 15, "exp": 20, "base_pitch": 1.4, "scene_path": "res://enemies/slime.tscn"},
+	"brute": {"health": 90, "speed": 25.0, "scale": 1.5, "color": Color(1.0, 0.4, 0.4), "damage": 25, "exp": 30, "base_pitch": 0.6, "scene_path": "res://enemies/slime.tscn"},
+	"runner": {"health": 15, "speed": 85.0, "scale": 0.8, "color": Color(0.4, 0.4, 1.0), "damage": 5, "exp": 15, "base_pitch": 1.5, "scene_path": "res://enemies/slime.tscn"},
+	"swarm": {"health": 5, "speed": 100.0, "scale": 0.5, "color": Color(1.0, 1.0, 0.2), "damage": 2, "exp": 5, "base_pitch": 1.8, "scene_path": "res://enemies/slime.tscn"},
+	"tank": {"health": 300, "speed": 15.0, "scale": 2.0, "color": Color(0.2, 0.2, 0.2), "damage": 50, "exp": 100, "base_pitch": 0.4, "scene_path": "res://enemies/slime.tscn"},
+	"dasher": {"health": 25, "speed": 40.0, "scale": 0.9, "color": Color(0.1, 0.8, 0.8), "is_dasher": true, "damage": 15, "exp": 25, "base_pitch": 1.3, "scene_path": "res://enemies/slime.tscn"},
+	"boss": {"health": 5000, "speed": 35.0, "scale": 2.0, "color": Color(0.8, 0.1, 0.8), "damage": 100, "exp": 1500, "base_pitch": 0.3, "scene_path": "res://enemies/boss.tscn"},
+	"death_slime": {"health": 15000, "speed": 250.0, "scale": 3.0, "color": Color(0.1, 0.0, 0.1), "damage": 500, "exp": 0, "base_pitch": 0.2, "is_death_slime": true, "scene_path": "res://enemies/slime.tscn"} 
+}
+
+const SPAWN_POOLS = {
+	"tier_1": [
+		{"id": "basic", "weight": 50},
+		{"id": "ratman", "weight": 50}
+	],
+	"tier_2": [
+		{"id": "basic", "weight": 60},
+		{"id": "runner", "weight": 15},
+		{"id": "ratman", "weight": 25}
+	],
+	"tier_3": [
+		{"id": "basic", "weight": 40},
+		{"id": "ratman", "weight": 30},
+		{"id": "runner", "weight": 10},
+		{"id": "swarm", "weight": 10},
+		{"id": "shooter", "weight": 10}
+	],
+	"tier_4": [
+		{"id": "basic", "weight": 20},
+		{"id": "ratman", "weight": 30},
+		{"id": "runner", "weight": 10},
+		{"id": "swarm", "weight": 15},
+		{"id": "brute", "weight": 15},
+		{"id": "shooter", "weight": 5},
+		{"id": "dasher", "weight": 5}
+	]
 }
 
 const UPGRADES = [

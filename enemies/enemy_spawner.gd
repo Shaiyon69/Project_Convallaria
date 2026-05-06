@@ -34,7 +34,6 @@ func _ready() -> void:
 			$DifficultyTimer.stop()
 
 		set_process(false) 
-		
 		call_deferred("_spawn_final_boss")
 
 func _process(_delta: float) -> void:
@@ -45,10 +44,11 @@ func _process(_delta: float) -> void:
 	if current_second != last_processed_second:
 		last_processed_second = current_second
 		_check_time_events(current_second)
-
+	# Time check for end times start
 	if current_second >= level_duration and not is_end_times:
 		start_end_times()
-
+		
+# Horde events helper func
 func _check_time_events(current_second: int) -> void:
 	if horde_events.has(current_second):
 		_spawn_horde(horde_events[current_second]["type"], horde_events[current_second]["amount"])
@@ -123,9 +123,20 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 		attempts += 1
 	
 	if valid_spawn:
-		var new_slime = slime_scene.instantiate()
-		new_slime.global_position = spawn_pos
-		get_parent().add_child(new_slime)
+		var enemy_type = specific_type
+		if enemy_type == "":
+			enemy_type = _get_weighted_enemy(player.time_survived)
+			
+		var scene_to_load = slime_scene
+		if Data.ENEMIES.has(enemy_type) and Data.ENEMIES[enemy_type].has("scene_path"):
+			var custom_path = Data.ENEMIES[enemy_type]["scene_path"]
+			var custom_scene = load(custom_path)
+			if custom_scene:
+				scene_to_load = custom_scene
+				
+		var new_enemy = scene_to_load.instantiate()
+		new_enemy.global_position = spawn_pos
+		get_parent().add_child(new_enemy)
 		
 		var final_stats: Dictionary
 		var minutes_survived = int(player.time_survived) / 60
@@ -134,7 +145,6 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 		
 		if spawn_death_slime:
 			final_stats = Data.ENEMIES["death_slime"].duplicate()
-			
 			var over_time = max(0, minutes_survived - 10)
 			if boss_defeated and over_time == 0:
 				over_time = 1
@@ -143,24 +153,18 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 			final_stats["health"] = int(final_stats["health"] * scaling_factor * floor_mult)
 			final_stats["damage"] = int(final_stats["damage"] * scaling_factor * floor_mult)
 			final_stats["speed"] += over_time * 15.0
-
 			final_stats["scale"] += over_time * 0.25 
+			
 			var shade = max(0.0, 0.15 - (over_time * 0.03))
 			final_stats["color"] = Color(shade, 0.0, shade)
 		else:
-			var enemy_type = specific_type
-			if enemy_type == "":
-				var enemy_types = _get_allowed_enemies(player.time_survived)
-				enemy_type = enemy_types[randi() % enemy_types.size()]
-				
 			final_stats = Data.get_scaled_enemy_stats(enemy_type, minutes_survived)
-
 			final_stats["health"] = int(final_stats["health"] * floor_mult)
 			final_stats["damage"] = int(final_stats["damage"] * floor_mult)
 			if final_stats.has("exp"):
 				final_stats["exp"] = int(final_stats["exp"] * floor_mult) 
 			
-		new_slime.apply_stats(final_stats)
+		new_enemy.apply_stats(final_stats)
 
 func _spawn_horde(enemy_type: String, amount: int) -> void:
 	for i in range(amount):
@@ -205,6 +209,7 @@ func _has_enough_space(center_cell: Vector2i, tile_radius: int) -> bool:
 				return false
 	return true
 
+# Helper func to fetch spawnable enemy
 func _get_allowed_enemies(time: float) -> Array:
 	if time < 60.0:
 		return ["basic"]
@@ -215,17 +220,15 @@ func _get_allowed_enemies(time: float) -> Array:
 	else:
 		return ["basic", "basic", "runner", "swarm", "brute", "tank", "dasher", "dasher"]
 
+# Helper function for handling boss spawn
 func _spawn_final_boss() -> void:
 	if not slime_scene or not player: 
 		return
 	
 	await get_tree().create_timer(2.5).timeout
-	
 	var boss = slime_scene.instantiate()
-
 	boss.global_position = player.global_position 
 	
 	var final_stats = Data.ENEMIES["boss"].duplicate()
 	boss.apply_stats(final_stats)
-	
 	get_parent().add_child(boss)
