@@ -37,7 +37,6 @@ var special_timer: Timer
 @onready var bulldozer_zone = $BulldozerZone
 @onready var active_sprite: AnimatedSprite2D = $Sprites/AnimatedSprite2D
 
-# Local UI nodes
 @onready var boss_ui = get_node_or_null("BossUI")
 @onready var health_bar = get_node_or_null("BossUI/BossHealthBar")
 
@@ -65,8 +64,7 @@ func apply_stats(stats: Dictionary) -> void:
 	
 	var new_scale = Vector2(stats["scale"], stats["scale"])
 	scale = new_scale
-	
-	# Only counter-scale if it's NOT a CanvasLayer
+
 	if boss_ui and not boss_ui is CanvasLayer:
 		boss_ui.scale = Vector2(1.0, 1.0) / new_scale
 	

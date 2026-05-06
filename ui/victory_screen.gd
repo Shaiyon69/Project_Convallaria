@@ -10,18 +10,15 @@ var target_dir: Vector2 = Vector2.ZERO
 
 @onready var sfx_hover = preload("res://ui/menu_hover.mp3")
 @onready var sfx_click = preload("res://ui/menu_click.mp3")
-@onready var sfx_win = preload("res://ui/win.mp3") # --- NEW: Loaded the win audio! ---
+@onready var sfx_win = preload("res://ui/win.mp3")
 @onready var pixel_font = preload("res://ui/fonts/PixelifySans-VariableFont_wght.ttf")
 
 var _base_button_scales: Dictionary = {}
 var _target_button_scales: Dictionary = {}
 
 func _ready() -> void:
-	# Stop the boss music so the victory theme can shine!
 	if AudioManager.has_method("stop_music"):
 		AudioManager.stop_music()
-		
-	# Play the victory fanfare immediately
 	_play_sfx(sfx_win, 0.0) 
 
 	if return_button and not return_button.pressed.is_connected(_on_return_button_pressed):

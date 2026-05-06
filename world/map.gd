@@ -21,7 +21,6 @@ var valid_spawn_tiles: Array[Vector2i] = []
 var occupied_cells: Dictionary = {}
 
 func _ready() -> void:
-	# --- CHANGED: Made the boss arena much bigger (60 instead of 25) ---
 	if Data.current_floor == Data.MAX_FLOORS:
 		map_radius = 60
 		

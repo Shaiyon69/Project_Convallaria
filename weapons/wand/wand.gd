@@ -11,19 +11,17 @@ func _ready() -> void:
 	attack_timer.start()
 
 func _process(_delta: float) -> void:
+	
 	if player and player.owned_weapons.has(weapon_id):
 		var w_data = player.owned_weapons[weapon_id]
 		var w_level = w_data["level"]
-		
-		# Safely clamp the level so we don't crash if they upgrade it past max base stats
 		var safe_level = w_level
+		
 		if Data.WEAPONS.has(weapon_id) and Data.WEAPONS[weapon_id].has("max_level"):
 			safe_level = min(w_level, Data.WEAPONS[weapon_id]["max_level"])
 			
 		var w_stats = Data.WEAPONS[weapon_id]["levels"][safe_level]
 		var base_wait = w_stats["wait_time"]
-		
-		# Combine global fire rate (from shop) with specific weapon fire rate (from level ups)
 		var global_fr = player.fire_rate_multiplier if "fire_rate_multiplier" in player else 1.0
 		var new_wait_time = (base_wait * global_fr) / w_data["fire_rate"]
 		
@@ -47,7 +45,6 @@ func _on_attack_timer_timeout() -> void:
 		_shoot(target, proj_count, w_stats, w_data)
 
 func _shoot(target: Node2D, count: int, base_stats: Dictionary, custom_stats: Dictionary) -> void:
-	# Base damage * Global Player Damage * Specific Weapon Damage = Final Damage!
 	var total_damage: float = float(base_stats["base_damage"])
 	if "base_damage_multiplier" in player:
 		total_damage *= player.base_damage_multiplier
@@ -66,8 +63,6 @@ func _shoot(target: Node2D, count: int, base_stats: Dictionary, custom_stats: Di
 		
 		proj.speed = base_stats["speed"]
 		proj.player_ref = player
-
-		# --- NEW: Apply the custom specific stats! ---
 		proj.size_multiplier = custom_stats["size"]
 		proj.pierce_count = custom_stats["pierce"]
 		proj.ricochet_count = custom_stats["ricochet"]
@@ -79,7 +74,6 @@ func _shoot(target: Node2D, count: int, base_stats: Dictionary, custom_stats: Di
 		if randf() <= crit_chance:
 			proj.damage = final_damage * 2
 			proj.modulate = Color(1.0, 0.8, 0.1)
-			# Scale crit by size multiplier too!
 			proj.scale = Vector2(1.5 * custom_stats["size"], 1.5 * custom_stats["size"])
 		else:
 			proj.damage = final_damage

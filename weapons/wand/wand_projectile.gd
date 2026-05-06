@@ -5,11 +5,10 @@ var damage: int = 20
 var direction: Vector2 = Vector2.ZERO
 var explosion_radius: float = 35.0
 
-# --- NEW: Custom Buff Stats ---
 var size_multiplier: float = 1.0
 var pierce_count: int = 0
 var ricochet_count: int = 0
-var hit_enemies: Array = [] # Tracks who we've hit so we don't multi-hit the same enemy instantly
+var hit_enemies: Array = []
 
 var imbue_fire: bool = false
 var imbue_frost: bool = false
@@ -26,31 +25,29 @@ func _physics_process(delta: float) -> void:
 	rotation = direction.angle()
 
 func _on_body_entered(body: Node2D) -> void:
-	# Prevent the projectile from triggering on the exact same enemy multiple times
 	if hit_enemies.has(body):
 		return
 		
 	if body.is_in_group("enemy"):
 		hit_enemies.append(body)
 		_trigger_explosion()
-		
-		# --- NEW: Check for Pierce and Ricochet ---
+
 		if pierce_count > 0:
 			pierce_count -= 1
 		elif ricochet_count > 0:
 			ricochet_count -= 1
 			_bounce_to_next_target(body)
 		else:
-			queue_free() # Out of buffs, destroy it!
+			queue_free()
 			
-	# Destroy on walls/obstacles, ignoring the player/exp drops
+
 	elif not body.is_in_group("enemy") and not body.is_in_group("exp_seed"):
 		queue_free()
 
 func _bounce_to_next_target(exclude_target: Node2D) -> void:
 	var enemies = get_tree().get_nodes_in_group("enemy")
 	var nearest = null
-	var min_dist = 400.0 * size_multiplier # Bounce range
+	var min_dist = 400.0 * size_multiplier
 	
 	for enemy in enemies:
 		if enemy == exclude_target or enemy.get("is_dying") == true or hit_enemies.has(enemy):
@@ -60,8 +57,7 @@ func _bounce_to_next_target(exclude_target: Node2D) -> void:
 		if dist < min_dist:
 			min_dist = dist
 			nearest = enemy
-			
-	# If we found a target, redirect the projectile! Otherwise, destroy it.
+
 	if nearest:
 		direction = global_position.direction_to(nearest.global_position)
 		rotation = direction.angle()
@@ -73,7 +69,6 @@ func _trigger_explosion() -> void:
 	var query = PhysicsShapeQueryParameters2D.new()
 	
 	var circle_shape = CircleShape2D.new()
-	# Multiply the explosion radius by the specific size buff!
 	circle_shape.radius = explosion_radius * size_multiplier 
 	
 	query.shape = circle_shape

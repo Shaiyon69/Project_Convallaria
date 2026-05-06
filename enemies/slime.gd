@@ -36,7 +36,6 @@ var sfx_timer: float = 0.0
 var is_shooter: bool = false
 var stop_distance: float = 350.0
 
-# --- NEW: Randomized shooting intervals ---
 var shoot_cooldown_min: float = 3.5 
 var shoot_cooldown_max: float = 6.0 
 var shoot_timer: float = 0.0
@@ -49,8 +48,7 @@ func _ready() -> void:
 	player = get_tree().get_first_node_in_group("player")
 	logic_timer = randf_range(0.0, 0.2)
 	sfx_timer = randf_range(0.0, 2.0)
-	
-	# NEW: Initial random delay before the first shot
+
 	shoot_timer = randf_range(2.0, 4.0) 
 
 func apply_stats(stats: Dictionary) -> void:
@@ -123,7 +121,6 @@ func _physics_process(delta: float) -> void:
 					shoot_timer -= delta
 					if shoot_timer <= 0.0:
 						_shoot()
-						# NEW: Pick a random cooldown for the next shot
 						shoot_timer = randf_range(shoot_cooldown_min, shoot_cooldown_max)
 				else:
 					var steer_direction = _get_whisker_steering()

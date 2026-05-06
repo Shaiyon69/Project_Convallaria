@@ -7,7 +7,6 @@ var current_options: Array = []
 var _current_level: int = 1
 var _exp_display_timer: float = 0.0
 
-# --- SCENE UNIQUE NODES ---
 @onready var gold_label = %GoldLabel if has_node("%GoldLabel") else null
 @onready var silver_label = %SilverLabel if has_node("%SilverLabel") else null
 @onready var kill_label = %KillLabel if has_node("%KillLabel") else null
@@ -22,7 +21,6 @@ var _exp_display_timer: float = 0.0
 @onready var item_grid = %ItemGrid if has_node("%ItemGrid") else null
 @onready var weapon_slots = %WeaponSlots if has_node("%WeaponSlots") else null
 
-# --- PAUSE MENU NODES ---
 @onready var pause_resume_btn = %PauseOverlay.get_node("VBoxContainer/ResumeButton") if has_node("%PauseOverlay") else null
 @onready var pause_options_btn = %PauseOverlay.get_node("VBoxContainer/OptionsButton") if has_node("%PauseOverlay") else null
 @onready var pause_quit_btn = %PauseOverlay.get_node("VBoxContainer/QuitButton") if has_node("%PauseOverlay") else null
@@ -31,7 +29,6 @@ var _exp_display_timer: float = 0.0
 @onready var options_menu = $Options if has_node("Options") else null
 @onready var title_sprite = %PauseOverlay.get_node("HBoxContainer/Convallaria") if has_node("%PauseOverlay") else null
 
-# --- AUDIO ---
 @onready var sfx_hover = preload("res://ui/menu_hover.mp3")
 @onready var sfx_click = preload("res://ui/menu_click.mp3")
 
@@ -63,7 +60,7 @@ func _ready() -> void:
 	if mobile_pause_btn: mobile_pause_btn.pressed.connect(_toggle_pause)
 	
 	add_to_group("hud")
-	update_coins() # Ensure coins show correct values immediately on load
+	update_coins()
 	
 	_setup_button_animations()
 	
@@ -93,7 +90,6 @@ func update_level(level: int) -> void:
 		if _exp_display_timer <= 0:
 			%ExpLabel.text = "LVL " + str(_current_level)
 
-# --- COINS & KILLS ---
 func update_coins(gold_amount: int = 0, silver_amount: int = 0) -> void:
 	if gold_label:
 		gold_label.text = "Gold: " + str(Data.coins)
@@ -104,7 +100,6 @@ func update_kills(kills: int) -> void:
 	if kill_label:
 		kill_label.text = "Kills: " + str(kills)
 
-# --- ITEMS & INVENTORY ---
 func show_item_get(item_id: String) -> void:
 	if not item_name_label or not item_desc_label:
 		return
@@ -168,7 +163,6 @@ func update_weapon_slots(weapon_ids: Array) -> void:
 		else:
 			icon.texture = null
 
-# --- PLAYER VITALS & TIME ---
 func update_health(current: float, maximum: float) -> void:
 	if health_bar:
 		health_bar.max_value = maximum
@@ -189,7 +183,6 @@ func update_time(minutes: int, seconds: int) -> void:
 		else:
 			%TimeLabel.add_theme_color_override("font_color", Color(1, 1, 1))
 
-# --- MENUS & POPUPS ---
 func show_level_up(options: Array) -> void:
 	current_options = options
 	var buttons = []
@@ -248,7 +241,6 @@ func _on_pause_quit_pressed() -> void:
 	get_tree().paused = false
 	TransitionManager.change_scene("res://ui/gui.tscn")
 
-# --- ANIMATION & SOUND ---
 func _setup_title_animation() -> void:
 	var shadow = Sprite2D.new()
 	shadow.texture = title_sprite.texture
