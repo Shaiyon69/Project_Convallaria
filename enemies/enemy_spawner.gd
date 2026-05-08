@@ -64,13 +64,19 @@ func start_end_times() -> void:
 	if not boss_spawned:
 		_spawn_portal()
 		
-	_spawn_death_slimes(8)
+	var endgame_timer = Timer.new()
+	endgame_timer.wait_time = 5.0
+	endgame_timer.autostart = true
+	endgame_timer.timeout.connect(_on_endgame_tick.bind(endgame_timer))
+	add_child(endgame_timer)
+
+func _on_endgame_tick(timer: Timer) -> void:
+	var over_time_sec = max(0.0, player.time_survived - level_duration)
 	
-	var death_timer = Timer.new()
-	death_timer.wait_time = 1.5
-	death_timer.autostart = true
-	death_timer.timeout.connect(func(): _spawn_death_slimes(4))
-	add_child(death_timer)
+	var slimes_to_spawn = 1 + int(over_time_sec / 10.0)
+	_spawn_death_slimes(slimes_to_spawn)
+	
+	timer.wait_time = max(0.1, timer.wait_time * 0.90)
 
 func notify_boss_defeated() -> void:
 	boss_defeated = true
@@ -139,30 +145,45 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 		get_parent().add_child(new_enemy)
 		
 		var final_stats: Dictionary
-		var minutes_survived = int(player.time_survived) / 60
-		var spawn_death_slime = (minutes_survived >= 10) or boss_defeated or specific_type == "death_slime"
 		var floor_mult = 1.0 + ((Data.current_floor - 1) * 0.3) 
+		
+		var spawn_death_slime = (player.time_survived >= level_duration) or boss_defeated or specific_type == "death_slime"
 		
 		if spawn_death_slime:
 			final_stats = Data.ENEMIES["death_slime"].duplicate()
-			var over_time = max(0, minutes_survived - 10)
-			if boss_defeated and over_time == 0:
-				over_time = 1
+			var over_time_sec = max(0.0, player.time_survived - level_duration)
+			
+			if boss_defeated and over_time_sec == 0:
+				over_time_sec = 30.0
 				
-			var scaling_factor = 1.0 + (over_time * 0.5)
+			var scaling_factor = 1.0 + (over_time_sec * 0.02)
 			final_stats["health"] = int(final_stats["health"] * scaling_factor * floor_mult)
 			final_stats["damage"] = int(final_stats["damage"] * scaling_factor * floor_mult)
-			final_stats["speed"] += over_time * 15.0
-			final_stats["scale"] += over_time * 0.25 
 			
-			var shade = max(0.0, 0.15 - (over_time * 0.03))
+			final_stats["speed"] = final_stats.get("speed", 150) + (over_time_sec * 1.5)
+			final_stats["scale"] = final_stats.get("scale", 1.0) + (over_time_sec * 0.01)
+			
+			var shade = max(0.0, 0.15 - (over_time_sec * 0.005))
 			final_stats["color"] = Color(shade, 0.0, shade)
 		else:
-			final_stats = Data.get_scaled_enemy_stats(enemy_type, minutes_survived)
+			final_stats = Data.get_scaled_enemy_stats(enemy_type, int(player.time_survived) / 60)
 			final_stats["health"] = int(final_stats["health"] * floor_mult)
 			final_stats["damage"] = int(final_stats["damage"] * floor_mult)
 			if final_stats.has("exp"):
 				final_stats["exp"] = int(final_stats["exp"] * floor_mult) 
+			
+			if enemy_type == "ratman":
+				var variation_roll = randf()
+				if variation_roll > 0.75:
+					final_stats["scale"] = final_stats.get("scale", 1.0) * 1.25
+					final_stats["health"] = int(final_stats["health"] * 1.5)
+					final_stats["speed"] = final_stats.get("speed", 100) * 0.75
+					final_stats["color"] = Color(0.7, 0.6, 0.6)
+				elif variation_roll < 0.25:
+					final_stats["scale"] = final_stats.get("scale", 1.0) * 0.8
+					final_stats["health"] = int(final_stats["health"] * 0.6)
+					final_stats["speed"] = final_stats.get("speed", 100) * 1.4
+					final_stats["color"] = Color(1.2, 1.1, 1.1)
 			
 		new_enemy.apply_stats(final_stats)
 
@@ -245,10 +266,10 @@ func _spawn_final_boss() -> void:
 	var final_stats = Data.ENEMIES["boss"].duplicate()
 	
 	var minutes_survived = int(player.time_survived) / 60
-	var megabonk_multiplier = 1.0 + (minutes_survived * 0.5) + (Data.current_floor * 0.5)
+	var boss_multiplier = 1.0 + (minutes_survived * 0.5) + (Data.current_floor * 0.5)
 
-	final_stats["health"] = int(final_stats["health"] * megabonk_multiplier * 5.0) 
-	final_stats["damage"] = int(final_stats["damage"] * megabonk_multiplier * 2.0)
+	final_stats["health"] = int(final_stats["health"] * boss_multiplier * 5.0) 
+	final_stats["damage"] = int(final_stats["damage"] * boss_multiplier * 2.0)
 	final_stats["speed"] = final_stats.get("speed", 100) * 1.5
 	final_stats["scale"] = 4.5 
 	final_stats["color"] = Color(0.8, 0.05, 0.1, 1.0)

@@ -11,6 +11,7 @@ var _exp_display_timer: float = 0.0
 @onready var silver_label = %SilverLabel if has_node("%SilverLabel") else null
 @onready var kill_label = %KillLabel if has_node("%KillLabel") else null
 @onready var health_bar = %HealthBar if has_node("%HealthBar") else null
+@onready var boss_health_bar = %BossHealthBar if has_node("%BossHealthBar") else null
 
 @onready var item_get_popup = %ItemGetPopup if has_node("%ItemGetPopup") else null
 @onready var item_name_label = %ItemNameLabel if has_node("%ItemNameLabel") else null
@@ -40,6 +41,7 @@ func _ready() -> void:
 	if has_node("%PauseOverlay"): %PauseOverlay.hide()
 	if has_node("%GameOverScreen"): %GameOverScreen.hide()
 	if has_node("%LevelUpScreen"): %LevelUpScreen.hide()
+	if boss_health_bar: boss_health_bar.hide()
 	
 	if item_get_popup:
 		item_get_popup.hide()
@@ -151,17 +153,20 @@ func update_inventory_display(owned_items: Array) -> void:
 		item_grid.add_child(tex_rect)
 
 func update_weapon_slots(weapon_ids: Array) -> void:
-	if not weapon_slots: return
-	var slots = weapon_slots.get_children()
+	if not weapon_slots or weapon_slots.get_child_count() == 0: return
 	
-	for i in range(slots.size()):
-		var icon = slots[i].get_node("Icon")
-		if i < weapon_ids.size():
-			var w_id = weapon_ids[i]
-			var icon_path = Data.WEAPONS[w_id]["icon"]
-			icon.texture = load(icon_path)
-		else:
-			icon.texture = null
+	var slot = weapon_slots.get_child(0)
+	var icon = slot.get_node("Icon")
+	
+	if weapon_ids.size() > 0:
+		var w_id = weapon_ids[0]
+		var icon_path = Data.WEAPONS[w_id]["icon"]
+		icon.texture = load(icon_path)
+	else:
+		icon.texture = null
+		
+	for i in range(1, weapon_slots.get_child_count()):
+		weapon_slots.get_child(i).visible = false
 
 func update_health(current: float, maximum: float) -> void:
 	if health_bar:
@@ -312,3 +317,17 @@ func _play_sfx(stream: AudioStream, start_offset: float = 0.62) -> void:
 	add_child(player)
 	player.play(start_offset)
 	player.finished.connect(player.queue_free)
+
+func show_boss_health(max_hp: int) -> void:
+	if boss_health_bar:
+		boss_health_bar.max_value = max_hp
+		boss_health_bar.value = max_hp
+		boss_health_bar.show()
+
+func update_boss_health(current_hp: int) -> void:
+	if boss_health_bar:
+		boss_health_bar.value = current_hp
+
+func hide_boss_health() -> void:
+	if boss_health_bar:
+		boss_health_bar.hide()

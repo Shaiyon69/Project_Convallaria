@@ -49,8 +49,8 @@ const WEAPONS = {
 		"max_level": 3,
 		"levels": {
 			1: {"base_damage": 20, "projectiles": 1, "speed": 400.0, "wait_time": 1.0},
-			2: {"base_damage": 35, "projectiles": 2, "speed": 450.0, "wait_time": 0.8},
-			3: {"base_damage": 55, "projectiles": 3, "speed": 550.0, "wait_time": 0.5}
+			2: {"base_damage": 35, "projectiles": 1, "speed": 450.0, "wait_time": 0.8},
+			3: {"base_damage": 55, "projectiles": 1, "speed": 550.0, "wait_time": 0.5}
 		}
 	}
 }

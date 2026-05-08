@@ -250,7 +250,7 @@ motion_mode = 1
 script = ExtResource("1_8tpa5")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=889381716]
-position = Vector2(1, 13)
+position = Vector2(1, 9.703823)
 scale = Vector2(3.115735, 3.115735)
 shape = SubResource("CircleShape2D_6emkg")
 

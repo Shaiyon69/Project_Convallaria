@@ -22,22 +22,27 @@ func _apply_visuals() -> void:
 	match seed_type:
 		0: 
 			modulate = Color(1, 1, 1)
-			scale = Vector2(1, 1)
+			scale = Vector2(1.2, 1.2)
 		1: 
 			modulate = Color(1, 0.2, 0.2)
-			scale = Vector2(1.5, 1.5)
+			scale = Vector2(1.8, 1.8)
 		2: 
 			modulate = Color(0.2, 0.5, 1)
-			scale = Vector2(1.3, 1.3)
+			scale = Vector2(1.6, 1.6)
 		3: 
 			modulate = Color(0.1, 0.1, 0.1)
-			scale = Vector2(1.4, 1.4)
+			scale = Vector2(1.7, 1.7)
 		4: 
 			modulate = Color(1.0, 0.8, 0.1)
-			scale = Vector2(1.2, 1.2)
+			scale = Vector2(1.5, 1.5)
 		5: 
 			modulate = Color(0.8, 0.8, 0.85)
-			scale = Vector2(1.1, 1.1)
+			scale = Vector2(1.4, 1.4)
+			
+	var tween = create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	var glimmer_speed = randf_range(0.4, 0.7)
+	tween.tween_property(self, "modulate:a", 0.5, glimmer_speed)
+	tween.tween_property(self, "modulate:a", 1.0, glimmer_speed)
 
 func pull_to_player(target: Node2D) -> void:
 	if (seed_type == 0 or seed_type == 4 or seed_type == 5) and not is_magnetic:

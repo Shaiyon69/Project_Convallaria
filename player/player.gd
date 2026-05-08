@@ -11,7 +11,7 @@ var current_exp: int = 0
 var exp_to_next_level: int = 15 
 
 var current_health: float
-var base_damage_multiplier: float = 100000 #1.0
+var base_damage_multiplier: float = 1.0
 var damage_multiplier: float = 1.0 
 var time_survived: float = 0.0
 var kill_count: int = 0
@@ -65,7 +65,6 @@ var last_sfx_time: int = 0
 func _ready() -> void:
 	if Data.player_data.is_empty():
 		_apply_permanent_upgrades()
-		
 		current_health = max_health
 		Data.silver = 0
 		
@@ -90,51 +89,27 @@ func _apply_permanent_upgrades() -> void:
 	if "permanent_upgrades" in Data:
 		var upgrades = Data.permanent_upgrades
 		if upgrades.has("max_hp"):
-			max_health += _get_upgrade_level("max_hp") * 10.0 
+			max_health += upgrades["max_hp"]["level"] * 10.0 
 		if upgrades.has("damage"):
-			base_damage_multiplier += _get_upgrade_level("damage") * 0.05 
+			base_damage_multiplier += upgrades["damage"]["level"] * 0.05 
 		if upgrades.has("speed"):
-			speed += _get_upgrade_level("speed") * 10.0 
+			speed += upgrades["speed"]["level"] * 10.0 
 		if upgrades.has("regeneration"):
-			hp_regen_rate += _get_upgrade_level("regeneration") * 0.5 
+			hp_regen_rate += upgrades["regeneration"]["level"] * 0.5 
 		if upgrades.has("armor"):
-			thorns_multiplier += _get_upgrade_level("armor") * 0.1 
+			thorns_multiplier += upgrades["armor"]["level"] * 0.1 
 		if upgrades.has("evasion"):
-			evasion_chance += _get_upgrade_level("evasion") * 0.02 
-
-func _get_upgrade_level(key: String) -> float:
-	var val = Data.permanent_upgrades[key]
-
-	if typeof(val) == TYPE_DICTIONARY:
-		if val.has("level"): 
-			return float(val["level"])
-		elif val.has("value"): 
-			return float(val["value"])
-		return 0.0
-
-	return float(val)
+			evasion_chance += upgrades["evasion"]["level"] * 0.02 
 
 func save_data() -> void:
 	Data.player_data = {
-		"level": level,
-		"current_exp": current_exp,
-		"exp_to_next_level": exp_to_next_level,
-		"max_health": max_health,
-		"current_health": current_health,
-		"speed": speed,
-		"base_damage_multiplier": base_damage_multiplier,
-		"fire_rate_multiplier": fire_rate_multiplier,
-		"aoe_multiplier": aoe_multiplier,
-		"imbue_fire": imbue_fire,
-		"imbue_frost": imbue_frost,
-		"hp_regen_rate": hp_regen_rate,
-		"thorns_multiplier": thorns_multiplier,
-		"evasion_chance": evasion_chance,
-		"kill_count": kill_count,
-		"time_survived": time_survived,
-		"owned_weapons": owned_weapons,
-		"owned_items": owned_items,
-		"magnet_scale": magnet_scale
+		"level": level, "current_exp": current_exp, "exp_to_next_level": exp_to_next_level,
+		"max_health": max_health, "current_health": current_health, "speed": speed,
+		"base_damage_multiplier": base_damage_multiplier, "fire_rate_multiplier": fire_rate_multiplier,
+		"aoe_multiplier": aoe_multiplier, "imbue_fire": imbue_fire, "imbue_frost": imbue_frost,
+		"hp_regen_rate": hp_regen_rate, "thorns_multiplier": thorns_multiplier,
+		"evasion_chance": evasion_chance, "kill_count": kill_count, "time_survived": time_survived,
+		"owned_weapons": owned_weapons, "owned_items": owned_items, "magnet_scale": magnet_scale
 	}
 
 func _load_data() -> void:
@@ -170,17 +145,11 @@ func _load_data() -> void:
 	for w_id in saved_weapons:
 		var w_data = saved_weapons[w_id]
 		if typeof(w_data) == TYPE_INT:
-			owned_weapons[w_id] = {
-				"level": w_data,
-				"damage": 1.0,
-				"size": 1.0,
-				"fire_rate": 1.0,
-				"pierce": 0,
-				"ricochet": 0
-			}
+			owned_weapons[w_id] = {"level": w_data, "damage": 1.0, "size": 1.0, "fire_rate": 1.0, "pierce": 0, "ricochet": 0}
 		else:
 			owned_weapons[w_id] = w_data
-		$WeaponManager.add_weapon(Data.WEAPONS[w_id]["scene_path"])
+		if has_node("WeaponManager"):
+			$WeaponManager.add_weapon(Data.WEAPONS[w_id]["scene_path"])
 		
 	hud.update_weapon_slots(owned_weapons.keys())
 	if hud.has_method("update_inventory_display"):
@@ -192,72 +161,87 @@ func get_level_up_options() -> Array:
 	for upgrade in Data.UPGRADES:
 		valid_pool.append({"type": "stat", "data": upgrade})
 		
-	var possible_buffs = [
-		{"type": "damage", "text": "+15% Damage", "val": 0.15},
-		{"type": "size", "text": "+15% Size/Area", "val": 0.15},
-		{"type": "fire_rate", "text": "+10% Fire Rate", "val": 0.10},
-		{"type": "pierce", "text": "+1 Piercing", "val": 1.0},
-		{"type": "ricochet", "text": "+1 Ricochet", "val": 1.0}
-	]
-		
-	for w_id in Data.WEAPONS:
-		if owned_weapons.has(w_id):
-			var w_data = owned_weapons[w_id]
-			if w_data["level"] < Data.WEAPONS[w_id]["max_level"]:
-				var random_buff_1 = possible_buffs.pick_random()
-				var random_buff_2 = possible_buffs.pick_random()
-				valid_pool.append({"type": "weapon_buff", "id": w_id, "buff": random_buff_1})
-				valid_pool.append({"type": "weapon_buff", "id": w_id, "buff": random_buff_2})
-		else:
-			if owned_weapons.size() < Data.MAX_WEAPONS:
-				valid_pool.append({"type": "weapon_unlock", "id": w_id})
-				
+	if owned_weapons.size() < 1:
+		for w_id in Data.WEAPONS:
+			valid_pool.append({"type": "weapon_unlock", "id": w_id})
+	else:
+		var active_weapon = owned_weapons.keys()[0]
+		if owned_weapons[active_weapon]["level"] < 99:
+			var possible_buffs = [
+				{"type": "damage", "base_text": "+%s%% Damage", "val": 0.15},
+				{"type": "fire_rate", "base_text": "+%s%% Fire Rate", "val": 0.10}
+			]
+			
+			match active_weapon:
+				"poison_aura":
+					possible_buffs.append({"type": "size", "base_text": "+%s%% Aura Radius", "val": 0.15})
+				"wand":
+					possible_buffs.append({"type": "size", "base_text": "+%s%% Splash Size", "val": 0.15})
+					possible_buffs.append({"type": "ricochet", "base_text": "+%s Bounce", "val": 1.0})
+				"sword", "axe":
+					possible_buffs.append({"type": "size", "base_text": "+%s%% Reach", "val": 0.15})
+					possible_buffs.append({"type": "pierce", "base_text": "+%s Pierce", "val": 1.0})
+				"cat":
+					possible_buffs.append({"type": "size", "base_text": "+%s%% Size", "val": 0.15})
+					possible_buffs.append({"type": "ricochet", "base_text": "+%s Bounce", "val": 1.0})
+				_:
+					possible_buffs.append({"type": "size", "base_text": "+%s%% Size", "val": 0.15})
+					possible_buffs.append({"type": "pierce", "base_text": "+%s Pierce", "val": 1.0})
+					possible_buffs.append({"type": "ricochet", "base_text": "+%s Ricochet", "val": 1.0})
+			
+			for i in range(4):
+				var r_buff = possible_buffs.pick_random()
+				valid_pool.append({"type": "weapon_buff", "id": active_weapon, "buff": r_buff})
+
 	valid_pool.shuffle()
 	
 	var options = []
 	for i in range(min(3, valid_pool.size())):
 		var item = valid_pool[i]
 		
+		var rarity = _roll_rarity()
+		var r_data = Data.RARITY[rarity]
+		var rarity_color = r_data["color"]
+		
 		if item["type"] == "stat":
-			var rarity = _roll_rarity()
-			var r_data = Data.RARITY[rarity]
 			var final_val = item["data"]["base_val"] * r_data["mult"]
 			var display_text = item["data"]["base_text"]
 			if item["data"]["base_val"] > 0:
-				display_text = display_text % str(final_val)
+				if "%%" in display_text or final_val != int(final_val):
+					display_text = display_text % str(snapped(final_val, 0.1))
+				else:
+					display_text = display_text % str(int(final_val))
 				
 			options.append({
-				"id": item["data"]["id"],
-				"type": "stat",
-				"text": display_text,
-				"color": r_data["color"],
-				"value": final_val,
-				"rarity": rarity
+				"id": item["data"]["id"], "type": "stat", "text": display_text,
+				"color": rarity_color, "value": final_val, "rarity": rarity
 			})
 			
 		elif item["type"] == "weapon_unlock":
 			var w_data = Data.WEAPONS[item["id"]]
 			options.append({
-				"id": item["id"],
-				"type": "weapon_unlock",
-				"text": "New Weapon: " + w_data["display_name"],
-				"color": Data.RARITY["white"]["color"],
-				"value": 0,
-				"rarity": "white"
+				"id": item["id"], "type": "weapon_unlock",
+				"text": "New Weapon:\n" + w_data["display_name"],
+				"color": Data.RARITY["gold"]["color"], "value": 0, "rarity": "gold"
 			})
 			
 		elif item["type"] == "weapon_buff":
 			var w_data = Data.WEAPONS[item["id"]]
 			var buff_data = item["buff"]
+			var final_val = buff_data["val"] * r_data["mult"]
+			
+			var display_val = final_val
+			if buff_data["type"] in ["damage", "size", "fire_rate"]:
+				display_val = final_val * 100.0
+				
+			var buff_text = buff_data["base_text"] % str(snapped(display_val, 0.1))
 			var current_level = owned_weapons[item["id"]]["level"] + 1
+			
 			options.append({
-				"id": item["id"],
-				"type": "weapon_buff",
-				"buff_type": buff_data["type"],
-				"text": w_data["display_name"] + " Lv." + str(current_level) + "\n" + buff_data["text"],
-				"color": Data.RARITY["blue"]["color"], 
-				"value": buff_data["val"],
-				"rarity": "blue"
+				"id": item["id"], "type": "weapon_buff", "buff_type": buff_data["type"],
+				"text": w_data["display_name"] + " Lv." + str(current_level) + "\n" + buff_text,
+				"color": rarity_color, 
+				"value": final_val, "rarity": rarity
 			})
 			
 	return options
@@ -279,7 +263,7 @@ func _physics_process(delta: float) -> void:
 	_handle_powerups(delta)
 	_handle_relics(delta) 
 
-func _movement_handle() -> void:
+func _movement_handle():
 	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	velocity = direction * speed
 	if velocity.length() > 0:
@@ -290,20 +274,11 @@ func _movement_handle() -> void:
 	_update_animations(direction)
 	move_and_slide()
 
-func _timer_calc(delta: float) -> void:
+func _timer_calc(delta: float):
 	time_survived += delta
 	var minutes = int(time_survived) / 60
 	var seconds = int(time_survived) % 60
 	hud.update_time(minutes, seconds)
-	
-	if time_survived >= 600.0 and not end_times_triggered:
-		end_times_triggered = true
-		_trigger_end_times()
-
-func _trigger_end_times() -> void:
-	var spawner = get_tree().current_scene.get_node_or_null("Spawner")
-	if spawner and spawner.has_method("start_end_times"):
-		spawner.start_end_times()
 
 func _handle_regeneration(delta: float) -> void:
 	if hp_regen_rate > 0.0 and current_health < max_health:
@@ -325,20 +300,17 @@ func add_kill() -> void:
 func _handle_damage(_delta: float) -> void:
 	if is_invincible:
 		return
-		
 	var overlapping_mobs = %HurtBox.get_overlapping_bodies()
 	for body in overlapping_mobs:
 		if body.is_in_group("enemy"):
 			if randf() < evasion_chance:
 				return
-				
 			if shield_active:
 				shield_active = false
 				shield_timer = shield_cooldown
 				_trigger_beanie_shockwave()
 				trigger_iframes()
 				return
-				
 			var damage_taken = body.attack_damage if "attack_damage" in body else 10
 			current_health -= damage_taken
 			hud.update_health(current_health, max_health)
@@ -364,10 +336,8 @@ func take_damage(damage_amount: int) -> void:
 		_trigger_beanie_shockwave()
 		trigger_iframes()
 		return
-		
 	current_health -= damage_amount
 	hud.update_health(current_health, max_health)
-	
 	if current_health <= 0.0:
 		get_tree().paused = true
 		hud.show_game_over()
@@ -399,7 +369,6 @@ func _play_pickup_sfx(pitch: float, volume: float = -10.0, throttle: bool = fals
 		if current_time - last_sfx_time < 40:
 			return
 		last_sfx_time = current_time
-		
 	var player_audio = AudioStreamPlayer.new()
 	player_audio.stream = sfx_pickup
 	player_audio.pitch_scale = pitch
@@ -449,7 +418,6 @@ func collect_coin(amount: int, is_gold: bool = false) -> void:
 		Data.coins += amount
 	else:
 		Data.silver += amount
-		
 	_play_pickup_sfx(2.0, -5.0, true)
 	if hud and hud.has_method("update_coins"):
 		hud.update_coins()
@@ -489,16 +457,12 @@ func _apply_upgrade(upgrade: Dictionary) -> void:
 	hud.update_health(current_health, max_health)
 
 func _acquire_weapon(weapon_id: String) -> void:
-	if not owned_weapons.has(weapon_id):
-		if owned_weapons.size() < Data.MAX_WEAPONS:
-			owned_weapons[weapon_id] = {
-				"level": 1,
-				"damage": 1.0,
-				"size": 1.0,
-				"fire_rate": 1.0,
-				"pierce": 0,
-				"ricochet": 0
-			}
+	if owned_weapons.size() < 1:
+		owned_weapons[weapon_id] = {
+			"level": 1, "damage": 1.0, "size": 1.0, 
+			"fire_rate": 1.0, "pierce": 0, "ricochet": 0
+		}
+		if has_node("WeaponManager"):
 			$WeaponManager.add_weapon(Data.WEAPONS[weapon_id]["scene_path"])
 			
 	hud.update_weapon_slots(owned_weapons.keys())
@@ -558,7 +522,6 @@ func _trigger_beanie_shockwave() -> void:
 	var radius = 200.0 * aoe_multiplier
 	var blast_dmg = 50 + (thorns_multiplier * 500)
 	_play_pickup_sfx(0.4, 2.0) 
-	
 	var enemies = get_tree().get_nodes_in_group("enemy")
 	for e in enemies:
 		if global_position.distance_to(e.global_position) <= radius:
@@ -572,7 +535,6 @@ func _trigger_sprinkler_nova() -> void:
 	var base_dmg = 200 + (level * 20)
 	var final_dmg = int(base_dmg * damage_multiplier)
 	_play_pickup_sfx(0.6, 5.0) 
-	
 	var enemies = get_tree().get_nodes_in_group("enemy")
 	for e in enemies:
 		if global_position.distance_to(e.global_position) <= radius:
@@ -584,7 +546,6 @@ func _trigger_sprinkler_nova() -> void:
 func add_relic_item(item_id: String) -> void:
 	owned_items.append(item_id)
 	_apply_relic_stats(item_id, true)
-	
 	if hud.has_method("show_item_get"):
 		hud.show_item_get(item_id)
 	if hud.has_method("update_inventory_display"):

@@ -25,6 +25,7 @@ var selected_weapon: String = "wand"
 
 @onready var sfx_hover = preload("res://ui/menu_hover.mp3")
 @onready var sfx_click = preload("res://ui/menu_click.mp3")
+@onready var shop_music = preload("res://ui/shopping.wav")
 
 @onready var custom_font = preload("res://ui/fonts/PixelifySans-VariableFont_wght.ttf")
 
@@ -84,6 +85,8 @@ func _on_main_menu_start_pressed() -> void:
 	shop_panel.show()
 	details_label.text = "Prepare for your journey."
 	
+	AudioManager.play_music(shop_music)
+	
 	if Data.starting_weapon != "":
 		selected_weapon = Data.starting_weapon
 		
@@ -98,6 +101,7 @@ func _on_quit_button_pressed() -> void:
 func _on_shop_closed() -> void:
 	shop_panel.hide()
 	main_menu.show()
+	AudioManager.play_music(load(Data.MUSIC["menu"]))
 
 func _on_start_run_pressed() -> void:
 	Data.starting_weapon = selected_weapon

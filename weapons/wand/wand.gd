@@ -11,17 +11,17 @@ func _ready() -> void:
 	attack_timer.start()
 
 func _process(_delta: float) -> void:
-	
 	if player and player.owned_weapons.has(weapon_id):
 		var w_data = player.owned_weapons[weapon_id]
 		var w_level = w_data["level"]
-		var safe_level = w_level
 		
+		var safe_level = w_level
 		if Data.WEAPONS.has(weapon_id) and Data.WEAPONS[weapon_id].has("max_level"):
 			safe_level = min(w_level, Data.WEAPONS[weapon_id]["max_level"])
 			
 		var w_stats = Data.WEAPONS[weapon_id]["levels"][safe_level]
 		var base_wait = w_stats["wait_time"]
+		
 		var global_fr = player.fire_rate_multiplier if "fire_rate_multiplier" in player else 1.0
 		var new_wait_time = (base_wait * global_fr) / w_data["fire_rate"]
 		
@@ -41,7 +41,7 @@ func _on_attack_timer_timeout() -> void:
 	
 	var target = _get_nearest_enemy()
 	if target:
-		var proj_count = w_stats["projectiles"]
+		var proj_count = w_stats["projectiles"] + w_data.get("projectile", 0)
 		_shoot(target, proj_count, w_stats, w_data)
 
 func _shoot(target: Node2D, count: int, base_stats: Dictionary, custom_stats: Dictionary) -> void:
@@ -63,6 +63,7 @@ func _shoot(target: Node2D, count: int, base_stats: Dictionary, custom_stats: Di
 		
 		proj.speed = base_stats["speed"]
 		proj.player_ref = player
+
 		proj.size_multiplier = custom_stats["size"]
 		proj.pierce_count = custom_stats["pierce"]
 		proj.ricochet_count = custom_stats["ricochet"]

@@ -4,9 +4,9 @@ var scroll_speed: float = 40.0
 var current_dir: Vector2 = Vector2.ZERO
 var target_dir: Vector2 = Vector2.ZERO
 
-@onready var stats_container = %StatsCointainer
-@onready var return_button = %ReturnButton
-@onready var parallax = $Parallax2D
+@onready var stats_container = get_node_or_null("%StatsContainer") 
+@onready var return_button = get_node_or_null("%ReturnButton")
+@onready var parallax = get_node_or_null("Parallax2D")
 
 @onready var sfx_hover = preload("res://ui/menu_hover.mp3")
 @onready var sfx_click = preload("res://ui/menu_click.mp3")
@@ -17,6 +17,8 @@ var _base_button_scales: Dictionary = {}
 var _target_button_scales: Dictionary = {}
 
 func _ready() -> void:
+	get_tree().paused = false
+	
 	if AudioManager.has_method("stop_music"):
 		AudioManager.stop_music()
 	_play_sfx(sfx_win, 0.0) 
@@ -24,7 +26,7 @@ func _ready() -> void:
 	if return_button and not return_button.pressed.is_connected(_on_return_button_pressed):
 		return_button.pressed.connect(_on_return_button_pressed)
 
-	_setup_button_animations()
+	call_deferred("_setup_button_animations")
 
 	var victory_bonus = 1000
 	Data.coins += victory_bonus
@@ -36,12 +38,13 @@ func _ready() -> void:
 	var secs = int(time) % 60
 	var time_string = "%02d:%02d" % [mins, secs]
 
-	for child in stats_container.get_children():
-		child.queue_free()
-		
-	_add_stat_row("Time Survived:", time_string, Color.WHITE)
-	_add_stat_row("Enemies Slain:", str(kills), Color.WHITE)
-	_add_stat_row("Victory Bonus:", "+ " + str(victory_bonus) + " Gold", Color(1.0, 0.84, 0.0))
+	if stats_container:
+		for child in stats_container.get_children():
+			child.queue_free()
+			
+		_add_stat_row("Time Survived:", time_string, Color.WHITE)
+		_add_stat_row("Enemies Slain:", str(kills), Color.WHITE)
+		_add_stat_row("Victory Bonus:", "+ " + str(victory_bonus) + " Gold", Color(1.0, 0.84, 0.0))
 	
 	target_dir = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)).normalized()
 	current_dir = target_dir
@@ -89,6 +92,7 @@ func _pick_new_direction() -> void:
 
 func _setup_button_animations() -> void:
 	if return_button:
+		return_button.pivot_offset = return_button.size / 2.0
 		_base_button_scales[return_button.name] = return_button.scale
 		_target_button_scales[return_button.name] = return_button.scale
 		
@@ -104,6 +108,7 @@ func _setup_button_animations() -> void:
 func _on_button_hover(button: BaseButton) -> void:
 	button.pivot_offset = button.size / 2.0
 	var tween = create_tween().set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS) # Bulletproof un-pausing
 	_target_button_scales[button.name] = _base_button_scales[button.name] * 1.1
 	tween.tween_property(button, "scale", _target_button_scales[button.name], 0.15)
 	_play_sfx(sfx_hover)
@@ -111,24 +116,27 @@ func _on_button_hover(button: BaseButton) -> void:
 func _on_button_exit(button: BaseButton) -> void:
 	button.pivot_offset = button.size / 2.0
 	var tween = create_tween().set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_target_button_scales[button.name] = _base_button_scales[button.name]
 	tween.tween_property(button, "scale", _target_button_scales[button.name], 0.15)
 
 func _on_button_pressed_animate(button: BaseButton) -> void:
 	button.pivot_offset = button.size / 2.0
 	var tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tween.tween_property(button, "scale", _base_button_scales[button.name] * 0.9, 0.05)
 	tween.tween_property(button, "scale", _target_button_scales[button.name], 0.15)
 	_play_sfx(sfx_click)
 
 func _play_sfx(stream: AudioStream, start_offset: float = 0.62) -> void:
-	var player = AudioStreamPlayer.new()
-	player.stream = stream
-	player.bus = "SFX"
-	player.process_mode = Node.PROCESS_MODE_ALWAYS 
-	add_child(player)
-	player.play(start_offset)
-	player.finished.connect(player.queue_free)
+	if not stream: return
+	var sfx_player = AudioStreamPlayer.new()
+	sfx_player.stream = stream
+	sfx_player.bus = "SFX"
+	sfx_player.process_mode = Node.PROCESS_MODE_ALWAYS 
+	add_child(sfx_player)
+	sfx_player.play(start_offset)
+	sfx_player.finished.connect(sfx_player.queue_free)
 
 func _on_return_button_pressed() -> void:
 	Data.player_data.clear()
