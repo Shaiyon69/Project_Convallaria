@@ -150,21 +150,21 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 		var spawn_death_slime = (player.time_survived >= level_duration) or boss_defeated or specific_type == "death_slime"
 		
 		if spawn_death_slime:
-			final_stats = Data.ENEMIES["death_slime"].duplicate()
+			final_stats = Data.ENEMIES["basic"].duplicate()
 			var over_time_sec = max(0.0, player.time_survived - level_duration)
 			
 			if boss_defeated and over_time_sec == 0:
 				over_time_sec = 30.0
 				
-			var scaling_factor = 1.0 + (over_time_sec * 0.02)
-			final_stats["health"] = int(final_stats["health"] * scaling_factor * floor_mult)
-			final_stats["damage"] = int(final_stats["damage"] * scaling_factor * floor_mult)
+			final_stats["health"] = int((30.0 + (over_time_sec * 25.0)) * floor_mult)
+			final_stats["damage"] = int((12.0 + (over_time_sec * 1.5)) * floor_mult)
+			final_stats["speed"] = 80.0 + (over_time_sec * 2.0)
+			final_stats["scale"] = 1.2 + (over_time_sec * 0.015)
+			final_stats["exp"] = int((10.0 + (over_time_sec * 0.5)) * floor_mult)
 			
-			final_stats["speed"] = final_stats.get("speed", 150) + (over_time_sec * 1.5)
-			final_stats["scale"] = final_stats.get("scale", 1.0) + (over_time_sec * 0.01)
-			
-			var shade = max(0.0, 0.15 - (over_time_sec * 0.005))
-			final_stats["color"] = Color(shade, 0.0, shade)
+			var color_intensity = max(0.0, 0.4 - (over_time_sec * 0.003))
+			final_stats["color"] = Color(color_intensity, 0.0, color_intensity)
+			final_stats["base_pitch"] = max(0.2, 1.0 - (over_time_sec * 0.01))
 		else:
 			final_stats = Data.get_scaled_enemy_stats(enemy_type, int(player.time_survived) / 60)
 			final_stats["health"] = int(final_stats["health"] * floor_mult)
@@ -278,9 +278,17 @@ func _spawn_final_boss() -> void:
 	boss.apply_stats(final_stats)
 
 func _on_final_boss_died() -> void:
+
+	if not is_inside_tree() or get_tree() == null:
+		return
+		
 	await get_tree().create_timer(4.0).timeout
+
+	if not is_inside_tree() or get_tree() == null:
+		return
 	
 	if player and player.has_method("save_data"):
 		player.save_data()
 		
-	TransitionManager.change_scene("res://ui/victory_screen.tscn")
+	if TransitionManager and TransitionManager.has_method("change_scene"):
+		TransitionManager.change_scene("res://ui/victory_screen.tscn")

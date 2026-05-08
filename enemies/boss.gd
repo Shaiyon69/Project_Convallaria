@@ -32,29 +32,7 @@ var special_timer: Timer
 var phase: int = 1
 
 var default_sprite_scale: Vector2 = Vector2(1.0, 1.0)
-
-const SHADER_CODE = """
-shader_type canvas_item;
-
-uniform bool enraged = false;
-uniform vec4 enraged_color : source_color = vec4(1.0, 0.0, 0.0, 1.0);
-uniform float pulse_speed = 5.0;
-uniform bool hit_flash = false;
-
-void fragment() {
-	vec4 tex_color = texture(TEXTURE, UV);
-	
-	if (hit_flash && tex_color.a > 0.0) {
-		COLOR = vec4(1.0, 1.0, 1.0, tex_color.a);
-	} else if (enraged && tex_color.a > 0.0) {
-		float pulse = (sin(TIME * pulse_speed) + 1.0) * 0.5;
-		vec4 glow = mix(tex_color, enraged_color, pulse * 0.55);
-		COLOR = glow;
-	} else {
-		COLOR = tex_color;
-	}
-}
-"""
+var pulse_tween: Tween
 
 @onready var soft_collision = $SoftCollision
 @onready var dash_timer = $DashTimer
@@ -76,12 +54,6 @@ func _ready() -> void:
 	default_sprite_scale = active_sprite.scale
 	active_sprite.show()
 	y_sort_enabled = true 
-	
-	var mat = ShaderMaterial.new()
-	var shader = Shader.new()
-	shader.code = SHADER_CODE
-	mat.shader = shader
-	active_sprite.material = mat
 	
 	if boss_ui:
 		boss_ui.hide()
@@ -155,10 +127,6 @@ func _on_bulldozer_zone_body_entered(body: Node2D) -> void:
 	if body.has_method("destroy"):
 		body.destroy()
 
-func _on_path_timer_timeout() -> void:
-	if player and not is_dying:
-		nav_agent.target_position = player.global_position
-
 func _physics_process(_delta: float) -> void:
 	if is_dying or is_casting:
 		return
@@ -217,6 +185,9 @@ func _on_special_attack() -> void:
 	velocity = Vector2.ZERO
 	active_sprite.stop()
 	
+	if pulse_tween:
+		pulse_tween.pause()
+	
 	var tween = create_tween().set_parallel(true)
 	var squash_scale = Vector2(default_sprite_scale.x * 1.3, default_sprite_scale.y * 0.75)
 	tween.tween_property(active_sprite, "scale", squash_scale, 0.4).set_trans(Tween.TRANS_QUAD)
@@ -227,22 +198,37 @@ func _on_special_attack() -> void:
 	if is_dying or not is_inside_tree():
 		return
 	
-	active_sprite.scale = default_sprite_scale
-	active_sprite.modulate = base_color
+	var dash_tween = create_tween().set_parallel(true)
+	var stretch_scale = Vector2(default_sprite_scale.x * 0.85, default_sprite_scale.y * 1.2)
+	dash_tween.tween_property(active_sprite, "scale", stretch_scale, 0.1)
+	
+	if pulse_tween:
+		pulse_tween.play()
+	else:
+		active_sprite.modulate = base_color
 		
 	is_casting = false
 	is_dashing = true
 	dash_direction = global_position.direction_to(player.global_position)
 	
 	await get_tree().create_timer(0.35).timeout
+	
+	if is_dying or not is_inside_tree():
+		return
+		
 	is_dashing = false
+	
+	var recover_tween = create_tween()
+	recover_tween.tween_property(active_sprite, "scale", default_sprite_scale, 0.2).set_trans(Tween.TRANS_BOUNCE)
 
 func apply_burn(burn_damage: float) -> void:
 	if is_burning or is_dying:
 		return
 		
 	is_burning = true
-	active_sprite.modulate = Color(1.0, 0.4, 0.1)
+	
+	if not is_enraged:
+		active_sprite.modulate = Color(1.0, 0.4, 0.1)
 	
 	for i in range(4):
 		if is_dying:
@@ -250,7 +236,7 @@ func apply_burn(burn_damage: float) -> void:
 		await get_tree().create_timer(0.5).timeout
 		take_damage(int(burn_damage))
 		
-	if not is_dying and not is_slowed and not is_casting:
+	if not is_dying and not is_slowed and not is_casting and not is_enraged:
 		active_sprite.modulate = base_color
 		
 	is_burning = false
@@ -261,13 +247,15 @@ func apply_slow(slow_multiplier: float) -> void:
 		
 	is_slowed = true
 	speed = original_speed * slow_multiplier
-	active_sprite.modulate = Color(0.3, 0.8, 1.0)
+	
+	if not is_enraged:
+		active_sprite.modulate = Color(0.3, 0.8, 1.0)
 	
 	await get_tree().create_timer(3.0).timeout
 	
 	if not is_dying:
 		speed = original_speed
-		if not is_burning and not is_casting:
+		if not is_burning and not is_casting and not is_enraged:
 			active_sprite.modulate = base_color
 			
 	is_slowed = false
@@ -309,25 +297,27 @@ func _transform_phase_two() -> void:
 	velocity = Vector2.ZERO
 	active_sprite.stop()
 	
+	active_sprite.scale = default_sprite_scale
+	
 	var current_floor = Data.current_floor if "current_floor" in Data else 1
 	var new_color = base_color
-	var shader_glow = Color(1.0, 0.0, 0.0)
+	var glow_color = Color(1.0, 0.0, 0.0)
 
 	if current_floor == 1:
 		new_color = Color(0.8, 0.7, 0.2)
-		shader_glow = Color(1.0, 0.8, 0.0)
+		glow_color = Color(1.0, 0.9, 0.4)
 		speed = original_speed * 1.3
 		attack_damage = int(attack_damage * 1.2)
 		special_timer.wait_time = 4.0
 	elif current_floor == 2:
 		new_color = Color(0.8, 0.2, 0.8)
-		shader_glow = Color(1.0, 0.0, 1.0)
+		glow_color = Color(1.0, 0.4, 1.0)
 		speed = original_speed * 1.5
 		attack_damage = int(attack_damage * 1.4)
 		special_timer.wait_time = 3.5
 	else:
 		new_color = Color(1.0, 0.0, 0.0)
-		shader_glow = Color(1.0, 0.2, 0.0)
+		glow_color = Color(1.0, 0.4, 0.2)
 		speed = original_speed * 1.8
 		attack_damage = int(attack_damage * 1.6)
 		special_timer.wait_time = 2.5
@@ -343,12 +333,13 @@ func _transform_phase_two() -> void:
 	base_color = new_color
 	original_speed = speed
 	
-	active_sprite.material.set_shader_parameter("enraged", true)
-	active_sprite.material.set_shader_parameter("enraged_color", shader_glow)
-	
 	await get_tree().create_timer(1.2).timeout
 	if not is_inside_tree() or is_dying:
 		return
+		
+	pulse_tween = create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	pulse_tween.tween_property(active_sprite, "modulate", glow_color, 0.5)
+	pulse_tween.tween_property(active_sprite, "modulate", base_color, 0.5)
 		
 	is_casting = false
 
@@ -361,25 +352,32 @@ func _play_hurt() -> void:
 	if boss_sfx and AudioManager.has_method("play_sfx_2d"):
 		AudioManager.play_sfx_2d(boss_sfx, global_position, -5.0, 0.3, "hit")
 		
-	active_sprite.material.set_shader_parameter("hit_flash", true)
-	
+	if pulse_tween:
+		pulse_tween.pause()
+		
+	active_sprite.modulate = Color(3.0, 3.0, 3.0) 
 	active_sprite.play("hurt_" + facing)
+	
 	await get_tree().create_timer(0.15).timeout
 	
-	if is_inside_tree() and active_sprite and active_sprite.material:
-		active_sprite.material.set_shader_parameter("hit_flash", false)
+	if is_inside_tree() and active_sprite:
+		if pulse_tween:
+			pulse_tween.play()
+		else:
+			active_sprite.modulate = base_color
 		
 	is_hurt = false
 
 func _die() -> void:
 	is_dying = true
 	
+	if pulse_tween:
+		pulse_tween.kill()
+	
 	if boss_ui:
 		boss_ui.hide()
 		
-	if active_sprite and active_sprite.material:
-		active_sprite.material.set_shader_parameter("hit_flash", false)
-		active_sprite.material.set_shader_parameter("enraged", false)
+	active_sprite.modulate = base_color
 		
 	var spawner = get_tree().current_scene.get_node_or_null("EnemySpawner")
 	

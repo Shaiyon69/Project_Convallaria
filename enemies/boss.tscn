@@ -242,6 +242,7 @@ animations = [{
 radius = 18.128975
 
 [node name="Boss" type="CharacterBody2D" unique_id=2015046533]
+z_index = 8
 y_sort_enabled = true
 scale = Vector2(0.6067635, 0.6067635)
 collision_layer = 4

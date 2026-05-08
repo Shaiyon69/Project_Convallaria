@@ -205,20 +205,26 @@ collision_mask = 32
 [node name="CollisionShape2D" type="CollisionShape2D" parent="SoftCollision" unique_id=408669168]
 shape = SubResource("CircleShape2D_p2gj0")
 
-[node name="HealthBar" type="ProgressBar" parent="." unique_id=558559648]
-unique_name_in_owner = true
-modulate = Color(0.5176471, 0, 0, 1)
-offset_left = -3.0
-offset_top = -11.0
-offset_right = 17.0
-offset_bottom = -4.0
-scale = Vector2(0.29466522, 0.29466522)
-rounded = true
-show_percentage = false
-metadata/_edit_use_anchors_ = true
-
 [node name="PathTimer" type="Timer" parent="." unique_id=1020455632]
 wait_time = 0.2
 autostart = true
+
+[node name="BossUI" type="CanvasLayer" parent="." unique_id=1182964031]
+
+[node name="BossHealthBar" type="ProgressBar" parent="BossUI" unique_id=1892497269]
+modulate = Color(1, 0, 0, 1)
+self_modulate = Color(1, 0, 0, 1)
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -638.0
+offset_top = -60.0
+offset_right = 638.0
+offset_bottom = -33.0
+grow_horizontal = 2
+grow_vertical = 0
+show_percentage = false
 
 [connection signal="timeout" from="PathTimer" to="." method="_on_path_timer_timeout"]

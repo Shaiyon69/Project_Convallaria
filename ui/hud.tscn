@@ -220,8 +220,13 @@ size_flags_horizontal = 3
 
 [node name="RightPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=1297550362]
 layout_mode = 2
+size_flags_horizontal = 8
 
 [node name="StatList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen/RightPanel" unique_id=809911478]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Stats" type="GridContainer" parent="MarginContainer/VBoxContainer/MainScreen/RightPanel/StatList" unique_id=1745760830]
 unique_name_in_owner = true
 layout_mode = 2
 
@@ -271,11 +276,12 @@ layout_mode = 2
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -152.0
-offset_top = 8.0
-offset_right = -24.0
-offset_bottom = 56.0
+offset_left = -109.0
+offset_top = 30.0
+offset_right = 19.0
+offset_bottom = 78.0
 grow_horizontal = 0
+scale = Vector2(0.71430814, 0.71430814)
 
 [node name="PauseButton" type="TextureButton" parent="PauseBox" unique_id=1271179517]
 layout_mode = 2

@@ -13,6 +13,8 @@ var _exp_display_timer: float = 0.0
 @onready var health_bar = %HealthBar if has_node("%HealthBar") else null
 @onready var boss_health_bar = %BossHealthBar if has_node("%BossHealthBar") else null
 
+@onready var stat_list = $MarginContainer/VBoxContainer/MainScreen/RightPanel/StatList if has_node("MarginContainer/VBoxContainer/MainScreen/RightPanel/StatList") else find_child("StatList", true, false)
+
 @onready var item_get_popup = %ItemGetPopup if has_node("%ItemGetPopup") else null
 @onready var item_name_label = %ItemNameLabel if has_node("%ItemNameLabel") else null
 @onready var item_icon_display = %ItemIconDisplay if has_node("%ItemIconDisplay") else null
@@ -42,6 +44,24 @@ func _ready() -> void:
 	if has_node("%GameOverScreen"): %GameOverScreen.hide()
 	if has_node("%LevelUpScreen"): %LevelUpScreen.hide()
 	if boss_health_bar: boss_health_bar.hide()
+	
+	var right_panel = find_child("RightPanel", true, false)
+	if right_panel:
+		right_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
+		right_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		
+		if right_panel is PanelContainer or right_panel is Panel:
+			var style = StyleBoxFlat.new()
+			style.bg_color = Color(0.1, 0.1, 0.1, 0.8)
+			style.corner_radius_top_left = 8
+			style.corner_radius_top_right = 8
+			style.corner_radius_bottom_left = 8
+			style.corner_radius_bottom_right = 8
+			style.content_margin_left = 15
+			style.content_margin_right = 15
+			style.content_margin_top = 15
+			style.content_margin_bottom = 15
+			right_panel.add_theme_stylebox_override("panel", style)
 	
 	if item_get_popup:
 		item_get_popup.hide()
@@ -331,3 +351,86 @@ func update_boss_health(current_hp: int) -> void:
 func hide_boss_health() -> void:
 	if boss_health_bar:
 		boss_health_bar.hide()
+
+func update_player_stats(player: Node2D) -> void:
+	var stats_grid = find_child("Stats", true, false)
+	
+	if not stats_grid: 
+		return
+		
+	if stats_grid is GridContainer:
+		stats_grid.columns = 2
+		
+	for child in stats_grid.get_children():
+		child.queue_free()
+		
+	var custom_font = load("res://ui/fonts/PixelifySans-VariableFont_wght.ttf")
+	
+	var add_header = func(text: String):
+		var lbl1 = Label.new()
+		lbl1.text = text
+		lbl1.add_theme_color_override("font_color", Color("yellow"))
+		if custom_font: lbl1.add_theme_font_override("font", custom_font)
+		
+		var lbl2 = Label.new() 
+		
+		stats_grid.add_child(lbl1)
+		stats_grid.add_child(lbl2)
+
+	var add_stat = func(name: String, value: String, color: Color):
+		var lbl_name = Label.new()
+		lbl_name.text = name
+		lbl_name.add_theme_color_override("font_color", color)
+		if custom_font: lbl_name.add_theme_font_override("font", custom_font)
+		
+		var lbl_val = Label.new()
+		lbl_val.text = value
+		if custom_font: lbl_val.add_theme_font_override("font", custom_font)
+		
+		stats_grid.add_child(lbl_name)
+		stats_grid.add_child(lbl_val)
+
+	add_header.call("PLAYER STATS       ")
+	
+	add_stat.call("Max HP:", str(int(player.max_health)), Color("lightgreen"))
+	add_stat.call("Speed:", str(int(player.speed)), Color("cyan"))
+	
+	var total_dmg = player.base_damage_multiplier * player.damage_multiplier
+	add_stat.call("Damage:", str(snapped(total_dmg * 100.0, 1.0)) + "%", Color("tomato"))
+	add_stat.call("Area Size:", str(snapped(player.aoe_multiplier * 100.0, 1.0)) + "%", Color("lightgreen"))
+	add_stat.call("Cooldown:", str(snapped(player.fire_rate_multiplier * 100.0, 1.0)) + "%", Color("cyan"))
+	
+	if player.hp_regen_rate > 0:
+		add_stat.call("HP Regen:", str(snapped(player.hp_regen_rate, 0.1)) + "/s", Color("pink"))
+	if player.evasion_chance > 0:
+		add_stat.call("Evasion:", str(snapped(player.evasion_chance * 100.0, 1.0)) + "%", Color("lightblue"))
+	if player.thorns_multiplier > 0:
+		add_stat.call("Thorns:", str(snapped(player.thorns_multiplier * 100.0, 1.0)) + "%", Color("orange"))
+	if player.vampirism_rate > 0:
+		add_stat.call("Vampirism:", str(snapped(player.vampirism_rate * 100.0, 1.0)) + "%", Color("red"))
+	if player.greed_multiplier > 0:
+		add_stat.call("Greed Bonus:", "+" + str(snapped(player.greed_multiplier * 100.0, 1.0)) + "%", Color("gold"))
+		
+	add_header.call("WEAPON BUFFS      ")
+	
+	if player.owned_weapons.size() > 0:
+		var w_id = player.owned_weapons.keys()[0]
+		var w_data = player.owned_weapons[w_id]
+		var display_name = Data.WEAPONS[w_id]["display_name"] if Data.WEAPONS.has(w_id) else "Weapon"
+		
+		add_stat.call("Equipped:", display_name + " Lv." + str(w_data["level"]), Color("orange"))
+		
+		if w_data["damage"] > 1.0:
+			add_stat.call("Bonus Dmg:", "+" + str(snapped((w_data["damage"] - 1.0) * 100.0, 1.0)) + "%", Color("tomato"))
+		if w_data["size"] > 1.0:
+			add_stat.call("Bonus Size:", "+" + str(snapped((w_data["size"] - 1.0) * 100.0, 1.0)) + "%", Color("lightgreen"))
+		if w_data["fire_rate"] > 1.0:
+			add_stat.call("Bonus Speed:", "+" + str(snapped((w_data["fire_rate"] - 1.0) * 100.0, 1.0)) + "%", Color("cyan"))
+		if w_data.get("pierce", 0) > 0:
+			add_stat.call("Pierce:", "+" + str(w_data["pierce"]), Color("yellow"))
+		if w_data.get("ricochet", 0) > 0:
+			add_stat.call("Ricochet:", "+" + str(w_data["ricochet"]), Color("lightblue"))
+		if w_data.get("projectile", 0) > 0:
+			add_stat.call("Projectiles:", "+" + str(w_data["projectile"]), Color("yellow"))
+	else:
+		add_header.call("No Weapon Equipped")

@@ -1,7 +1,7 @@
 extends CharacterBody2D
 
 @export var speed: float = 150.0
-@export var max_health: float = 100.0
+@export var max_health: float = 500
 
 var is_invincible: bool = false
 var i_frame_duration: float = 0.2
@@ -84,6 +84,9 @@ func _ready() -> void:
 	
 	hud.upgrade_selected.connect(_apply_upgrade)
 	%MagnetZone.area_entered.connect(_on_magnet_zone_area_entered)
+	
+	if hud.has_method("update_player_stats"):
+		hud.update_player_stats(self)
 
 func _apply_permanent_upgrades() -> void:
 	if "permanent_upgrades" in Data:
@@ -145,7 +148,7 @@ func _load_data() -> void:
 	for w_id in saved_weapons:
 		var w_data = saved_weapons[w_id]
 		if typeof(w_data) == TYPE_INT:
-			owned_weapons[w_id] = {"level": w_data, "damage": 1.0, "size": 1.0, "fire_rate": 1.0, "pierce": 0, "ricochet": 0}
+			owned_weapons[w_id] = {"level": w_data, "damage": 1.0, "size": 1.0, "fire_rate": 1.0, "pierce": 0, "ricochet": 0, "projectile": 0}
 		else:
 			owned_weapons[w_id] = w_data
 		if has_node("WeaponManager"):
@@ -178,6 +181,7 @@ func get_level_up_options() -> Array:
 				"wand":
 					possible_buffs.append({"type": "size", "base_text": "+%s%% Splash Size", "val": 0.15})
 					possible_buffs.append({"type": "ricochet", "base_text": "+%s Bounce", "val": 1.0})
+					possible_buffs.append({"type": "projectile", "base_text": "+%s Projectile", "val": 1.0})
 				"sword", "axe":
 					possible_buffs.append({"type": "size", "base_text": "+%s%% Reach", "val": 0.15})
 					possible_buffs.append({"type": "pierce", "base_text": "+%s Pierce", "val": 1.0})
@@ -455,12 +459,15 @@ func _apply_upgrade(upgrade: Dictionary) -> void:
 			evasion_chance += (val / 100.0)
 			
 	hud.update_health(current_health, max_health)
+	
+	if hud.has_method("update_player_stats"):
+		hud.update_player_stats(self)
 
 func _acquire_weapon(weapon_id: String) -> void:
 	if owned_weapons.size() < 1:
 		owned_weapons[weapon_id] = {
 			"level": 1, "damage": 1.0, "size": 1.0, 
-			"fire_rate": 1.0, "pierce": 0, "ricochet": 0
+			"fire_rate": 1.0, "pierce": 0, "ricochet": 0, "projectile": 0
 		}
 		if has_node("WeaponManager"):
 			$WeaponManager.add_weapon(Data.WEAPONS[weapon_id]["scene_path"])
@@ -484,9 +491,14 @@ func _apply_weapon_buff(weapon_id: String, buff_type: String, val: float) -> voi
 		w_data["pierce"] += int(val)
 	elif buff_type == "ricochet":
 		w_data["ricochet"] += int(val)
+	elif buff_type == "projectile":
+		w_data["projectile"] += int(val)
 	
 	if has_node("WeaponManager") and $WeaponManager.has_method("update_weapon_stats"):
 		$WeaponManager.update_weapon_stats(weapon_id, w_data)
+		
+	if hud.has_method("update_player_stats"):
+		hud.update_player_stats(self)
 
 func _on_magnet_zone_area_entered(area: Area2D) -> void:
 	if area.has_method("pull_to_player"):
