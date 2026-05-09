@@ -30,7 +30,10 @@ var stats_wrapper: Control = null
 @onready var pause_options_btn = %PauseOverlay.get_node("VBoxContainer/OptionsButton") if has_node("%PauseOverlay") else null
 @onready var pause_quit_btn = %PauseOverlay.get_node("VBoxContainer/QuitButton") if has_node("%PauseOverlay") else null
 @onready var pause_restart_btn = %PauseOverlay.get_node("RestartButton") if has_node("%PauseOverlay") else null
-@onready var mobile_pause_btn = $PauseBox/PauseButton if has_node("PauseBox/PauseButton") else null
+
+# FIX: Targeting the Unique Node correctly from your screenshot
+@onready var mobile_pause_btn = %PauseButton if has_node("%PauseButton") else null
+
 @onready var options_menu = $Options if has_node("Options") else null
 @onready var title_sprite = %PauseOverlay.get_node("HBoxContainer/Convallaria") if has_node("%PauseOverlay") else null
 
@@ -41,6 +44,9 @@ var _base_button_scales: Dictionary = {}
 var _target_button_scales: Dictionary = {}
 
 func _ready() -> void:
+	# FIX: Ensure the HUD and its buttons still process inputs and animations while paused
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	
 	get_tree().paused = false
 	if has_node("%PauseOverlay"): %PauseOverlay.hide()
 	if has_node("%GameOverScreen"): %GameOverScreen.hide()
@@ -121,7 +127,7 @@ func update_exp(current: int, maximum: int) -> void:
 		
 	if has_node("%ExpLabel"):
 		%ExpLabel.text = str(current) + " / " + str(maximum)
-		_exp_display_timer = 2.0 
+		_exp_display_timer = 2.0
 
 func update_level(level: int) -> void:
 	_current_level = level
@@ -148,7 +154,7 @@ func show_item_get(item_id: String) -> void:
 	
 	item_name_label.text = item_data["name"]
 	item_icon_display.texture = load(item_data["icon"])
-	item_desc_label.text = item_data["desc"] 
+	item_desc_label.text = item_data["desc"]
 	
 	if Data.RARITY.has(item_data["rarity"]):
 		item_name_label.add_theme_color_override("font_color", Data.RARITY[item_data["rarity"]]["color"])
@@ -259,7 +265,7 @@ func _on_try_again_pressed() -> void:
 
 func _on_exit_pressed() -> void:
 	get_tree().paused = false
-	TransitionManager.change_scene("res://ui/gui.tscn") 
+	TransitionManager.change_scene("res://ui/gui.tscn")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
@@ -298,7 +304,7 @@ func _setup_title_animation() -> void:
 	var start_y = title_sprite.position.y
 	var tween = create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tween.bind_node(title_sprite)
-	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS) 
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	
 	tween.tween_property(title_sprite, "position:y", start_y - 10.0, 1.5)
 	tween.tween_property(title_sprite, "position:y", start_y, 1.5)
@@ -331,7 +337,8 @@ func _setup_button_animations() -> void:
 func _on_button_hover(button: BaseButton) -> void:
 	if not button: return
 	button.pivot_offset = button.size / 2.0
-	var tween = create_tween().set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	# FIX: Added .set_pause_mode(Tween.TWEEN_PAUSE_PROCESS) so it animates while paused
+	var tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	_target_button_scales[button.name] = _base_button_scales[button.name] * 1.1
 	tween.tween_property(button, "scale", _target_button_scales[button.name], 0.15)
 	_play_sfx(sfx_hover)
@@ -339,14 +346,16 @@ func _on_button_hover(button: BaseButton) -> void:
 func _on_button_exit(button: BaseButton) -> void:
 	if not button: return
 	button.pivot_offset = button.size / 2.0
-	var tween = create_tween().set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	# FIX: Added .set_pause_mode(Tween.TWEEN_PAUSE_PROCESS) so it animates while paused
+	var tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
 	_target_button_scales[button.name] = _base_button_scales[button.name]
 	tween.tween_property(button, "scale", _target_button_scales[button.name], 0.15)
 
 func _on_button_pressed_animate(button: BaseButton) -> void:
 	if not button: return
 	button.pivot_offset = button.size / 2.0
-	var tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# FIX: Added .set_pause_mode(Tween.TWEEN_PAUSE_PROCESS) so it animates while paused
+	var tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(button, "scale", _base_button_scales[button.name] * 0.9, 0.05)
 	tween.tween_property(button, "scale", _target_button_scales[button.name], 0.15)
 	_play_sfx(sfx_click)
@@ -376,7 +385,7 @@ func hide_boss_health() -> void:
 func update_player_stats(player: Node2D) -> void:
 	var stats_grid = find_child("Stats", true, false)
 	
-	if not stats_grid: 
+	if not stats_grid:
 		return
 		
 	if stats_grid is GridContainer:
@@ -393,7 +402,7 @@ func update_player_stats(player: Node2D) -> void:
 		lbl1.add_theme_color_override("font_color", Color("yellow"))
 		if custom_font: lbl1.add_theme_font_override("font", custom_font)
 		
-		var lbl2 = Label.new() 
+		var lbl2 = Label.new()
 		
 		stats_grid.add_child(lbl1)
 		stats_grid.add_child(lbl2)
@@ -411,7 +420,7 @@ func update_player_stats(player: Node2D) -> void:
 		stats_grid.add_child(lbl_name)
 		stats_grid.add_child(lbl_val)
 
-	add_header.call("--- PLAYER STATS ---")
+	add_header.call("PLAYER STATS      ")
 	
 	add_stat.call("Max HP:", str(int(player.max_health)), Color("lightgreen"))
 	add_stat.call("Speed:", str(int(player.speed)), Color("cyan"))
@@ -434,7 +443,7 @@ func update_player_stats(player: Node2D) -> void:
 	if player.greed_multiplier > 0:
 		add_stat.call("Greed Bonus:", "+" + str(snapped(player.greed_multiplier * 100.0, 1.0)) + "%", Color("gold"))
 		
-	add_header.call("--- WEAPON BUFFS ---")
+	add_header.call("WEAPON BUFFS      ")
 	
 	if player.owned_weapons.size() > 0:
 		var w_id = player.owned_weapons.keys()[0]
