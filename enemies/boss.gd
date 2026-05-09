@@ -2,6 +2,8 @@ extends CharacterBody2D
 
 @export var seed_scene: PackedScene = preload("res://drops/exp/exp_seed.tscn")
 @export var damage_scene: PackedScene = preload("res://enemies/damage_number.tscn")
+@export var projectile_scene: PackedScene
+@export var minion_scene: PackedScene = preload("res://enemies/slime.tscn")
 
 var boss_sfx = preload("res://enemies/slime.ogg")
 
@@ -53,7 +55,7 @@ func _ready() -> void:
 		
 	default_sprite_scale = active_sprite.scale
 	active_sprite.show()
-	y_sort_enabled = true 
+	y_sort_enabled = true
 	
 	if boss_ui:
 		boss_ui.hide()
@@ -86,6 +88,16 @@ func apply_stats(stats: Dictionary) -> void:
 func _setup_as_boss() -> void:
 	is_boss = true
 	
+	var current_floor = Data.current_floor if "current_floor" in Data else 1
+	var hp_multiplier = 1.0 + ((current_floor - 1) * 1.5)
+	var dmg_multiplier = 1.0 + ((current_floor - 1) * 0.3)
+	
+	max_health = int(max_health * hp_multiplier)
+	health = max_health
+	attack_damage = int(attack_damage * dmg_multiplier)
+	speed = speed + ((current_floor - 1) * 20.0)
+	original_speed = speed
+	
 	if boss_ui:
 		boss_ui.show()
 		
@@ -93,7 +105,6 @@ func _setup_as_boss() -> void:
 		health_bar.max_value = health
 		health_bar.value = health
 		
-	var current_floor = Data.current_floor if "current_floor" in Data else 1
 	var boss_track = ""
 
 	if current_floor == 1:
@@ -185,7 +196,7 @@ func _on_special_attack() -> void:
 	velocity = Vector2.ZERO
 	active_sprite.stop()
 	
-	if pulse_tween:
+	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.pause()
 	
 	var tween = create_tween().set_parallel(true)
@@ -202,10 +213,33 @@ func _on_special_attack() -> void:
 	var stretch_scale = Vector2(default_sprite_scale.x * 0.85, default_sprite_scale.y * 1.2)
 	dash_tween.tween_property(active_sprite, "scale", stretch_scale, 0.1)
 	
-	if pulse_tween:
+	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.play()
 	else:
 		active_sprite.modulate = base_color
+
+	var proj_count = 8 if is_enraged else 4
+	var angle_step = TAU / proj_count
+	for i in range(proj_count):
+		_shoot_projectile(Vector2.RIGHT.rotated(i * angle_step))
+		
+	if minion_scene:
+		var minion_count = 2 if is_enraged else 1
+		for i in range(minion_count):
+			var minion = minion_scene.instantiate()
+			var spawn_offset = Vector2(randf_range(-100, 100), randf_range(-100, 100))
+			minion.global_position = global_position + spawn_offset
+			
+			var minion_stats = {
+				"health": int(max_health * 0.03) + 10,
+				"speed": original_speed * 1.1,
+				"damage": int(attack_damage * 0.3),
+				"scale": 0.6,
+				"color": base_color,
+				"exp": 0
+			}
+			get_parent().call_deferred("add_child", minion)
+			minion.call_deferred("apply_stats", minion_stats)
 		
 	is_casting = false
 	is_dashing = true
@@ -220,6 +254,20 @@ func _on_special_attack() -> void:
 	
 	var recover_tween = create_tween()
 	recover_tween.tween_property(active_sprite, "scale", default_sprite_scale, 0.2).set_trans(Tween.TRANS_BOUNCE)
+
+func _shoot_projectile(dir: Vector2) -> void:
+	if not projectile_scene or is_dying: return
+	
+	var proj = projectile_scene.instantiate()
+	proj.global_position = global_position
+	proj.direction = dir
+	proj.damage = int(attack_damage * 0.4)
+	
+	proj.modulate = base_color
+	if is_enraged:
+		proj.scale = Vector2(1.2, 1.2)
+		
+	get_tree().current_scene.add_child(proj)
 
 func apply_burn(burn_damage: float) -> void:
 	if is_burning or is_dying:
@@ -308,19 +356,18 @@ func _transform_phase_two() -> void:
 		glow_color = Color(1.0, 0.9, 0.4)
 		speed = original_speed * 1.3
 		attack_damage = int(attack_damage * 1.2)
-		special_timer.wait_time = 4.0
 	elif current_floor == 2:
 		new_color = Color(0.8, 0.2, 0.8)
 		glow_color = Color(1.0, 0.4, 1.0)
 		speed = original_speed * 1.5
-		attack_damage = int(attack_damage * 1.4)
-		special_timer.wait_time = 3.5
+		attack_damage = int(attack_damage * 1.3)
+		special_timer.wait_time = 4.5
 	else:
 		new_color = Color(1.0, 0.0, 0.0)
 		glow_color = Color(1.0, 0.4, 0.2)
 		speed = original_speed * 1.8
-		attack_damage = int(attack_damage * 1.6)
-		special_timer.wait_time = 2.5
+		attack_damage = int(attack_damage * 1.4)
+		special_timer.wait_time = 3.5
 
 	var target_scale = scale * 1.3
 	var tween = create_tween().set_parallel(true)
@@ -344,7 +391,7 @@ func _transform_phase_two() -> void:
 	is_casting = false
 
 func _play_hurt() -> void:
-	if is_hurt or is_casting:
+	if is_hurt or is_casting or is_dying:
 		return
 		
 	is_hurt = true
@@ -352,26 +399,28 @@ func _play_hurt() -> void:
 	if boss_sfx and AudioManager.has_method("play_sfx_2d"):
 		AudioManager.play_sfx_2d(boss_sfx, global_position, -5.0, 0.3, "hit")
 		
-	if pulse_tween:
+	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.pause()
 		
-	active_sprite.modulate = Color(3.0, 3.0, 3.0) 
+	active_sprite.modulate = Color(3.0, 3.0, 3.0)
 	active_sprite.play("hurt_" + facing)
 	
 	await get_tree().create_timer(0.15).timeout
-	
-	if is_inside_tree() and active_sprite:
-		if pulse_tween:
-			pulse_tween.play()
-		else:
-			active_sprite.modulate = base_color
+
+	if is_dying or not is_inside_tree() or not active_sprite:
+		return
+		
+	if pulse_tween and pulse_tween.is_valid():
+		pulse_tween.play()
+	else:
+		active_sprite.modulate = base_color
 		
 	is_hurt = false
 
 func _die() -> void:
 	is_dying = true
 	
-	if pulse_tween:
+	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.kill()
 	
 	if boss_ui:

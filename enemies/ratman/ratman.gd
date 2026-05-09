@@ -116,10 +116,18 @@ func _setup_as_boss() -> void:
 	is_boss = true
 	is_shooter = true 
 	
-	# Significantly lower his tankiness and flat damage to compensate for his bullet-hell mechanics
-	max_health = int(max_health * 0.35)
+	var minutes_survived = 0.0
+	if player and "time_survived" in player:
+		minutes_survived = player.time_survived / 60.0
+
+	var hp_mult = 1.0 + (minutes_survived * 0.40)
+	var dmg_mult = 1.0 + (minutes_survived * 0.15)
+	
+	# Lower base stats, but heavily scaled by time survived
+	max_health = int((max_health * 0.35) * hp_mult)
 	current_health = max_health
-	attack_damage = int(attack_damage * 0.60)
+	attack_damage = int((attack_damage * 0.40) * dmg_mult)
+	movement_speed += (minutes_survived * 2.0)
 	
 	if boss_ui:
 		boss_ui.show()
@@ -162,9 +170,9 @@ func _physics_process(delta: float) -> void:
 			var p_scale = 1.0 + (missing_hp * 0.8) # Passive bullets get up to 80% bigger
 			_shoot_projectile(direction, p_scale)
 			
-			var next_shot = randf_range(2.0, 3.5) - (missing_hp * 1.8) # Shoots much faster as HP drops
-			if is_enraged: next_shot *= 0.6
-			shoot_timer = max(0.4, next_shot)
+			var next_shot = randf_range(2.0, 3.5) - (missing_hp * 2.0) # Shoots much faster as HP drops
+			if is_enraged: next_shot *= 0.5
+			shoot_timer = max(0.3, next_shot)
 	
 	_update_animation(direction)
 	move_and_slide()
@@ -205,7 +213,7 @@ func _shoot_projectile(dir: Vector2, scale_mult: float = 1.0) -> void:
 	
 	var final_damage = attack_damage
 	if is_boss:
-		final_damage = int(attack_damage * (1.0 + scale_mult * 0.5))
+		final_damage = int(attack_damage * (1.0 + scale_mult * 0.4))
 	proj.damage = final_damage
 	
 	if is_minion:
@@ -220,9 +228,10 @@ func _shoot_projectile(dir: Vector2, scale_mult: float = 1.0) -> void:
 		
 	get_tree().current_scene.add_child(proj)
 	
-	var tween = create_tween()
-	tween.tween_property(anim, "scale", Vector2(default_sprite_scale.x * 1.2, default_sprite_scale.y * 0.8), 0.1)
-	tween.tween_property(anim, "scale", default_sprite_scale, 0.1)
+	if is_inside_tree() and anim:
+		var tween = create_tween()
+		tween.tween_property(anim, "scale", Vector2(default_sprite_scale.x * 1.2, default_sprite_scale.y * 0.8), 0.1)
+		tween.tween_property(anim, "scale", default_sprite_scale, 0.1)
 
 func _on_special_attack() -> void:
 	if is_dying or not player or not is_inside_tree(): return
@@ -231,7 +240,7 @@ func _on_special_attack() -> void:
 	anim.stop()
 	velocity = Vector2.ZERO
 	
-	if pulse_tween:
+	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.pause()
 		
 	var tween = create_tween().set_parallel(true)
@@ -245,18 +254,18 @@ func _on_special_attack() -> void:
 	var recover_tween = create_tween().set_parallel(true)
 	recover_tween.tween_property(anim, "scale", default_sprite_scale, 0.2).set_trans(Tween.TRANS_BOUNCE)
 	
-	if pulse_tween:
+	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.play()
 	else:
 		anim.modulate = base_color
 	
-	# Dynamic Special Attack based on Missing HP
+	# Massive Dynamic Special Attack based on Missing HP
 	var missing_hp = 1.0 - (float(current_health) / float(max_health))
 	
 	var base_dir = global_position.direction_to(player.global_position)
-	var spread = deg_to_rad(20 + (missing_hp * 20))
-	var proj_count = 3 + int(missing_hp * 8) # Up to 11 projectiles
-	if is_enraged: proj_count += 3
+	var spread = deg_to_rad(15 + (missing_hp * 25))
+	var proj_count = 5 + int(missing_hp * 12) # Up to 17 projectiles!
+	if is_enraged: proj_count += 4 # Up to 21 projectiles!
 	
 	var p_scale = 1.0 + (missing_hp * 1.5) # Up to 2.5x bigger
 	if is_enraged: p_scale *= 1.2
@@ -267,18 +276,18 @@ func _on_special_attack() -> void:
 		
 	var minion_scene = load("res://enemies/ratman/ratman.tscn")
 	if minion_scene:
-		var minion_count = 2 + int(missing_hp * 5) # Up to 7 minions
-		if is_enraged: minion_count += 2
+		var minion_count = 3 + int(missing_hp * 6) # Up to 9 minions!
+		if is_enraged: minion_count += 3 # Up to 12 minions!
 		
 		for i in range(minion_count):
 			var minion = minion_scene.instantiate()
-			var spawn_offset = Vector2(randf_range(-150, 150), randf_range(-150, 150))
+			var spawn_offset = Vector2(randf_range(-200, 200), randf_range(-200, 200))
 			minion.global_position = global_position + spawn_offset
 			
 			var minion_stats = {
-				"health": 100 + (Data.current_floor * 30),
-				"speed": movement_speed * 1.2,
-				"damage": int(attack_damage * 0.4),
+				"health": 80 + (Data.current_floor * 20),
+				"speed": movement_speed * 1.1,
+				"damage": int(attack_damage * 0.3),
 				"scale": 0.8,
 				"color": Color(0.3, 0.3, 0.3), 
 				"base_pitch": 1.5,
@@ -307,8 +316,8 @@ func take_damage(amount: int) -> void:
 		_transform_phase_two()
 		
 	if is_boss and special_timer:
-		# Cooldown drastically drops as his HP lowers (From 7s down to 2s)
-		special_timer.wait_time = max(2.0, 7.0 - ((1.0 - hp_percent) * 5.0))
+		# Cooldown drastically drops as his HP lowers (From 7s down to 1.5s)
+		special_timer.wait_time = max(1.5, 7.0 - ((1.0 - hp_percent) * 5.5))
 		
 	if is_boss and AudioManager.has_method("set_music_speed"):
 		var dynamic_bpm = 1.0 + ((1.0 - hp_percent) * 0.6)
@@ -365,16 +374,16 @@ func _play_hurt() -> void:
 	
 	anim.material.set_shader_parameter("hit_flash", true)
 	
-	if pulse_tween:
+	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.pause()
 		
 	anim.modulate = Color(3.0, 3.0, 3.0)
 	
 	await get_tree().create_timer(0.15).timeout
 	
-	if is_inside_tree() and anim and anim.material:
+	if is_inside_tree() and anim and anim.material and not is_dying:
 		anim.material.set_shader_parameter("hit_flash", false)
-		if pulse_tween:
+		if pulse_tween and pulse_tween.is_valid():
 			pulse_tween.play()
 		else:
 			anim.modulate = base_color
@@ -385,7 +394,7 @@ func die() -> void:
 	collision_mask = 0
 	anim.play("death")
 	
-	if pulse_tween:
+	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.kill()
 		
 	if anim and anim.material:

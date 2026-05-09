@@ -7,6 +7,8 @@ var current_options: Array = []
 var _current_level: int = 1
 var _exp_display_timer: float = 0.0
 
+var stats_wrapper: Control = null
+
 @onready var gold_label = %GoldLabel if has_node("%GoldLabel") else null
 @onready var silver_label = %SilverLabel if has_node("%SilverLabel") else null
 @onready var kill_label = %KillLabel if has_node("%KillLabel") else null
@@ -46,22 +48,38 @@ func _ready() -> void:
 	if boss_health_bar: boss_health_bar.hide()
 	
 	var right_panel = find_child("RightPanel", true, false)
-	if right_panel:
-		right_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
-		right_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	if right_panel and right_panel.get_parent():
+		var parent = right_panel.get_parent()
+		
+		var spacer = MarginContainer.new()
+		spacer.add_theme_constant_override("margin_top", 75)
+		spacer.size_flags_horizontal = Control.SIZE_SHRINK_END
+		spacer.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		
+		var idx = right_panel.get_index()
+		parent.remove_child(right_panel)
+		parent.add_child(spacer)
+		parent.move_child(spacer, idx)
+		spacer.add_child(right_panel)
+		
+		right_panel.size_flags_horizontal = Control.SIZE_FILL
+		right_panel.size_flags_vertical = Control.SIZE_FILL
 		
 		if right_panel is PanelContainer or right_panel is Panel:
 			var style = StyleBoxFlat.new()
-			style.bg_color = Color(0.1, 0.1, 0.1, 0.8)
-			style.corner_radius_top_left = 8
-			style.corner_radius_top_right = 8
-			style.corner_radius_bottom_left = 8
-			style.corner_radius_bottom_right = 8
-			style.content_margin_left = 15
-			style.content_margin_right = 15
+			style.bg_color = Color(0.1, 0.1, 0.1, 0.85)
+			style.corner_radius_top_left = 12
+			style.corner_radius_top_right = 12
+			style.corner_radius_bottom_left = 12
+			style.corner_radius_bottom_right = 12
+			style.content_margin_left = 20
+			style.content_margin_right = 20
 			style.content_margin_top = 15
 			style.content_margin_bottom = 15
 			right_panel.add_theme_stylebox_override("panel", style)
+			
+		stats_wrapper = spacer
+		stats_wrapper.hide()
 	
 	if item_get_popup:
 		item_get_popup.hide()
@@ -224,9 +242,11 @@ func show_level_up(options: Array) -> void:
 			buttons[i].hide()
 			
 	if has_node("%LevelUpScreen"): %LevelUpScreen.visible = true
+	if stats_wrapper: stats_wrapper.show()
 
 func _on_upgrade_pressed(index: int) -> void:
 	if has_node("%LevelUpScreen"): %LevelUpScreen.visible = false
+	if stats_wrapper: stats_wrapper.hide()
 	get_tree().paused = false
 	upgrade_selected.emit(current_options[index])
 
@@ -251,6 +271,7 @@ func _toggle_pause() -> void:
 	var is_paused = get_tree().paused
 	get_tree().paused = !is_paused
 	if has_node("%PauseOverlay"): %PauseOverlay.visible = !is_paused
+	if stats_wrapper: stats_wrapper.visible = !is_paused
 
 func _on_pause_start_pressed() -> void:
 	_toggle_pause()
@@ -390,7 +411,7 @@ func update_player_stats(player: Node2D) -> void:
 		stats_grid.add_child(lbl_name)
 		stats_grid.add_child(lbl_val)
 
-	add_header.call("PLAYER STATS       ")
+	add_header.call("--- PLAYER STATS ---")
 	
 	add_stat.call("Max HP:", str(int(player.max_health)), Color("lightgreen"))
 	add_stat.call("Speed:", str(int(player.speed)), Color("cyan"))
@@ -400,6 +421,8 @@ func update_player_stats(player: Node2D) -> void:
 	add_stat.call("Area Size:", str(snapped(player.aoe_multiplier * 100.0, 1.0)) + "%", Color("lightgreen"))
 	add_stat.call("Cooldown:", str(snapped(player.fire_rate_multiplier * 100.0, 1.0)) + "%", Color("cyan"))
 	
+	if player.base_crit_chance > 0:
+		add_stat.call("Crit Chance:", str(snapped(player.base_crit_chance * 100.0, 1.0)) + "%", Color("magenta"))
 	if player.hp_regen_rate > 0:
 		add_stat.call("HP Regen:", str(snapped(player.hp_regen_rate, 0.1)) + "/s", Color("pink"))
 	if player.evasion_chance > 0:
@@ -411,7 +434,7 @@ func update_player_stats(player: Node2D) -> void:
 	if player.greed_multiplier > 0:
 		add_stat.call("Greed Bonus:", "+" + str(snapped(player.greed_multiplier * 100.0, 1.0)) + "%", Color("gold"))
 		
-	add_header.call("WEAPON BUFFS      ")
+	add_header.call("--- WEAPON BUFFS ---")
 	
 	if player.owned_weapons.size() > 0:
 		var w_id = player.owned_weapons.keys()[0]

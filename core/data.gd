@@ -17,11 +17,11 @@ const RARITY = {
 }
 
 const BIOME_COLORS = {
-	1: {"grass": Color(1.0, 1.0, 1.0), "water": Color(1.0, 1.0, 1.0), "soil": Color(1.0, 1.0, 1.0)}, 
-	2: {"grass": Color(0.8, 0.5, 0.8), "water": Color(0.9, 0.2, 0.5), "soil": Color(0.5, 0.3, 0.5)}, 
-	3: {"grass": Color(0.5, 0.8, 1.0), "water": Color(0.2, 0.5, 1.0), "soil": Color(0.3, 0.5, 0.8)}, 
-	4: {"grass": Color(0.9, 0.8, 0.4), "water": Color(0.9, 0.5, 0.2), "soil": Color(0.8, 0.6, 0.3)}, 
-	5: {"grass": Color(0.4, 0.4, 0.4), "water": Color(0.8, 0.1, 0.1), "soil": Color(0.2, 0.2, 0.2)}  
+	1: {"grass": Color(1.0, 1.0, 1.0), "water": Color(1.0, 1.0, 1.0), "soil": Color(1.0, 1.0, 1.0)},
+	2: {"grass": Color(0.8, 0.5, 0.8), "water": Color(0.9, 0.2, 0.5), "soil": Color(0.5, 0.3, 0.5)},
+	3: {"grass": Color(0.5, 0.8, 1.0), "water": Color(0.2, 0.5, 1.0), "soil": Color(0.3, 0.5, 0.8)},
+	4: {"grass": Color(0.9, 0.8, 0.4), "water": Color(0.9, 0.5, 0.2), "soil": Color(0.8, 0.6, 0.3)},
+	5: {"grass": Color(0.4, 0.4, 0.4), "water": Color(0.8, 0.1, 0.1), "soil": Color(0.2, 0.2, 0.2)}
 }
 
 const MUSIC = {
@@ -34,7 +34,7 @@ const WEAPONS = {
 	"poison_aura": {
 		"display_name": "Poison Aura",
 		"scene_path": "res://weapons/poison/poison.tscn",
-		"icon": "res://weapons/poison/poison.png", 
+		"icon": "res://weapons/poison/poison.png",
 		"max_level": 3,
 		"levels": {
 			1: {"base_damage": 15, "wait_time": 1.0, "scale": 1.0},
@@ -45,7 +45,7 @@ const WEAPONS = {
 	"wand": {
 		"display_name": "Wand",
 		"scene_path": "res://weapons/wand/wand.tscn",
-		"icon": "res://weapons/wand/wand.png", 
+		"icon": "res://weapons/wand/wand.png",
 		"max_level": 3,
 		"levels": {
 			1: {"base_damage": 20, "projectiles": 1, "speed": 400.0, "wait_time": 1.0},
@@ -88,6 +88,12 @@ const UPGRADES = [
 	{"id": "regeneration", "base_text": "+%s HP Regen", "base_val": 2.0},
 	{"id": "thorns", "base_text": "Reflect %s%% Damage", "base_val": 50},
 	{"id": "evasion", "base_text": "+%s%% Dodge", "base_val": 5},
+	{"id": "crit_chance", "base_text": "+%s%% Crit Chance", "base_val": 5},
+	
+	{"id": "glass_cannon", "base_text": "Glass Cannon: +40% Dmg, -20% HP", "base_val": 40},
+	{"id": "heavy_armor", "base_text": "Heavy Armor: +50% Thorns, -15% Speed", "base_val": 50},
+	{"id": "berserker", "base_text": "Berserker: +30% Fire Rate, -10% Evasion", "base_val": 30},
+	
 	{"id": "exp_boost", "base_text": "+%s%% EXP", "base_val": 20},
 	{"id": "multi_attack", "base_text": "+%s Attack Strike", "base_val": 1},
 	{"id": "fire_imbue", "base_text": "Add Fire Damage (Burn)", "base_val": 0},
@@ -105,7 +111,11 @@ var permanent_upgrades = {
 	"max_hp": {"level": 0, "max_level": 5, "base_cost": 100, "cost_mult": 1.5, "boost_per_level": 10.0, "name": "Base Health"},
 	"damage": {"level": 0, "max_level": 5, "base_cost": 250, "cost_mult": 2.0, "boost_per_level": 0.05, "name": "Base Damage"},
 	"speed": {"level": 0, "max_level": 5, "base_cost": 150, "cost_mult": 1.5, "boost_per_level": 15.0, "name": "Movement Speed"},
-	"greed": {"level": 0, "max_level": 3, "base_cost": 500, "cost_mult": 3.0, "boost_per_level": 0.2, "name": "Coin Multiplier"}
+	"regeneration": {"level": 0, "max_level": 3, "base_cost": 300, "cost_mult": 2.5, "boost_per_level": 0.5, "name": "HP Regen"},
+	"armor": {"level": 0, "max_level": 3, "base_cost": 400, "cost_mult": 2.0, "boost_per_level": 0.1, "name": "Thorns Armor"},
+	"evasion": {"level": 0, "max_level": 3, "base_cost": 500, "cost_mult": 3.0, "boost_per_level": 0.02, "name": "Dodge Chance"},
+	"greed": {"level": 0, "max_level": 3, "base_cost": 500, "cost_mult": 3.0, "boost_per_level": 0.2, "name": "Coin Multiplier"},
+	"exp_gain": {"level": 0, "max_level": 5, "base_cost": 200, "cost_mult": 1.8, "boost_per_level": 0.10, "name": "EXP Gain %"}
 }
 
 func get_scaled_enemy_stats(enemy_id: String, time_minutes: int) -> Dictionary:

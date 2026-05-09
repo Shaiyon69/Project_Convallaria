@@ -1,18 +1,18 @@
 extends CharacterBody2D
 
-@export var speed: float = 150.0
-@export var max_health: float = 500
+@export var speed: float = 165.0
+@export var max_health: float = 250.0
 
 var is_invincible: bool = false
-var i_frame_duration: float = 0.2
+var i_frame_duration: float = 0.4
 
 var level: int = 1
 var current_exp: int = 0
-var exp_to_next_level: int = 15 
+var exp_to_next_level: int = 15
 
 var current_health: float
 var base_damage_multiplier: float = 1.0
-var damage_multiplier: float = 1.0 
+var damage_multiplier: float = 1.0
 var time_survived: float = 0.0
 var kill_count: int = 0
 var fire_rate_multiplier: float = 1.0
@@ -20,20 +20,21 @@ var fire_rate_multiplier: float = 1.0
 var aoe_multiplier: float = 1.0
 var imbue_fire: bool = false
 var imbue_frost: bool = false
+var exp_multiplier: float = 1.0
 
 var hp_regen_rate: float = 0.0
 var regen_accumulator: float = 0.0
 var thorns_multiplier: float = 0.0
 var evasion_chance: float = 0.0
 
-var magnet_scale: float = 1.0 
+var magnet_scale: float = 1.0
 var magnet_time_left: float = 0.0
 var speed_time_left: float = 0.0
 var is_speed_boosted: bool = false
 var base_speed_before_boost: float = 0.0
 
 var owned_weapons: Dictionary = {}
-var owned_items: Array = [] 
+var owned_items: Array = []
 
 var vampirism_rate: float = 0.0
 var greed_multiplier: float = 0.0
@@ -41,7 +42,7 @@ var _prev_greed_bonus: float = 0.0
 var has_goldfish: bool = false
 var goldfish_timer: float = 60.0
 
-var base_crit_chance: float = 0.0 
+var base_crit_chance: float = 0.0
 
 var has_shield: bool = false
 var shield_active: bool = false
@@ -52,10 +53,11 @@ var has_nova: bool = false
 var nova_timer: float = 0.0
 var nova_cooldown: float = 20.0
 
-var end_times_triggered: bool = false 
+var end_times_triggered: bool = false
 
 var sfx_pickup = preload("res://player/orb.mp3")
 var sfx_levelup = preload("res://assets/audio/levelup.wav")
+var sfx_hurt = preload("res://player/hurt.mp3")
 
 var last_sfx_time: int = 0
 
@@ -92,17 +94,19 @@ func _apply_permanent_upgrades() -> void:
 	if "permanent_upgrades" in Data:
 		var upgrades = Data.permanent_upgrades
 		if upgrades.has("max_hp"):
-			max_health += upgrades["max_hp"]["level"] * 10.0 
+			max_health += upgrades["max_hp"]["level"] * 10.0
 		if upgrades.has("damage"):
-			base_damage_multiplier += upgrades["damage"]["level"] * 0.05 
+			base_damage_multiplier += upgrades["damage"]["level"] * 0.05
 		if upgrades.has("speed"):
-			speed += upgrades["speed"]["level"] * 10.0 
+			speed += upgrades["speed"]["level"] * 10.0
 		if upgrades.has("regeneration"):
-			hp_regen_rate += upgrades["regeneration"]["level"] * 0.5 
+			hp_regen_rate += upgrades["regeneration"]["level"] * 0.5
 		if upgrades.has("armor"):
-			thorns_multiplier += upgrades["armor"]["level"] * 0.1 
+			thorns_multiplier += upgrades["armor"]["level"] * 0.1
 		if upgrades.has("evasion"):
-			evasion_chance += upgrades["evasion"]["level"] * 0.02 
+			evasion_chance += upgrades["evasion"]["level"] * 0.02
+		if upgrades.has("exp_gain"):
+			exp_multiplier += upgrades["exp_gain"]["level"] * 0.10
 
 func save_data() -> void:
 	Data.player_data = {
@@ -111,7 +115,9 @@ func save_data() -> void:
 		"base_damage_multiplier": base_damage_multiplier, "fire_rate_multiplier": fire_rate_multiplier,
 		"aoe_multiplier": aoe_multiplier, "imbue_fire": imbue_fire, "imbue_frost": imbue_frost,
 		"hp_regen_rate": hp_regen_rate, "thorns_multiplier": thorns_multiplier,
-		"evasion_chance": evasion_chance, "kill_count": kill_count, "time_survived": time_survived,
+		"evasion_chance": evasion_chance, "base_crit_chance": base_crit_chance,
+		"exp_multiplier": exp_multiplier,
+		"kill_count": kill_count, "time_survived": time_survived,
 		"owned_weapons": owned_weapons, "owned_items": owned_items, "magnet_scale": magnet_scale
 	}
 
@@ -131,13 +137,15 @@ func _load_data() -> void:
 	hp_regen_rate = pd["hp_regen_rate"]
 	thorns_multiplier = pd["thorns_multiplier"]
 	evasion_chance = pd["evasion_chance"]
+	base_crit_chance = pd.get("base_crit_chance", 0.0)
+	exp_multiplier = pd.get("exp_multiplier", 1.0)
 	kill_count = pd["kill_count"]
 	time_survived = pd["time_survived"]
 	
 	if pd.has("owned_items"):
 		owned_items = pd["owned_items"]
 		for item in owned_items:
-			_apply_relic_stats(item, false) 
+			_apply_relic_stats(item, false)
 	
 	if pd.has("magnet_scale"):
 		magnet_scale = pd["magnet_scale"]
@@ -210,7 +218,8 @@ func get_level_up_options() -> Array:
 		if item["type"] == "stat":
 			var final_val = item["data"]["base_val"] * r_data["mult"]
 			var display_text = item["data"]["base_text"]
-			if item["data"]["base_val"] > 0:
+			
+			if "%s" in display_text:
 				if "%%" in display_text or final_val != int(final_val):
 					display_text = display_text % str(snapped(final_val, 0.1))
 				else:
@@ -244,7 +253,7 @@ func get_level_up_options() -> Array:
 			options.append({
 				"id": item["id"], "type": "weapon_buff", "buff_type": buff_data["type"],
 				"text": w_data["display_name"] + " Lv." + str(current_level) + "\n" + buff_text,
-				"color": rarity_color, 
+				"color": rarity_color,
 				"value": final_val, "rarity": rarity
 			})
 			
@@ -265,7 +274,7 @@ func _physics_process(delta: float) -> void:
 	_handle_damage(delta)
 	_handle_regeneration(delta)
 	_handle_powerups(delta)
-	_handle_relics(delta) 
+	_handle_relics(delta)
 
 func _movement_handle():
 	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
@@ -315,8 +324,13 @@ func _handle_damage(_delta: float) -> void:
 				_trigger_beanie_shockwave()
 				trigger_iframes()
 				return
-			var damage_taken = body.attack_damage if "attack_damage" in body else 10
+
+			var damage_taken = 10
+			if "attack_damage" in body:
+				damage_taken = body.attack_damage
+			
 			current_health -= damage_taken
+			_play_hurt_sfx()
 			hud.update_health(current_health, max_health)
 			
 			if thorns_multiplier > 0.0 and body.has_method("take_damage"):
@@ -341,6 +355,7 @@ func take_damage(damage_amount: int) -> void:
 		trigger_iframes()
 		return
 	current_health -= damage_amount
+	_play_hurt_sfx()
 	hud.update_health(current_health, max_health)
 	if current_health <= 0.0:
 		get_tree().paused = true
@@ -381,17 +396,27 @@ func _play_pickup_sfx(pitch: float, volume: float = -10.0, throttle: bool = fals
 	player_audio.play()
 	player_audio.finished.connect(player_audio.queue_free)
 
+func _play_hurt_sfx() -> void:
+	var player_audio = AudioStreamPlayer.new()
+	player_audio.stream = sfx_hurt
+	player_audio.pitch_scale = randf_range(1.4, 1.8)
+	player_audio.volume_db = -5.0
+	add_child(player_audio)
+	player_audio.play()
+	player_audio.finished.connect(player_audio.queue_free)
+
 func gain_experience(amount: int) -> void:
-	current_exp += amount 
-	_play_pickup_sfx(randf_range(1.4, 1.7), -12.0, true) 
+	var final_amount = int(amount * exp_multiplier)
+	current_exp += final_amount
+	_play_pickup_sfx(randf_range(1.4, 1.7), -12.0, true)
 	var leveled_up = false
 	
 	while current_exp >= exp_to_next_level:
 		current_exp -= exp_to_next_level
 		level += 1
 		exp_to_next_level = int(15 + (level * 10) * (level * 0.4))
-		max_health += 5.0
-		base_damage_multiplier += 0.02
+		max_health += 10.0
+		base_damage_multiplier += 0.05
 		current_health = max_health
 		leveled_up = true
 		
@@ -457,6 +482,27 @@ func _apply_upgrade(upgrade: Dictionary) -> void:
 			thorns_multiplier += (val / 100.0)
 		elif id == "evasion":
 			evasion_chance += (val / 100.0)
+		elif id == "crit_chance":
+			base_crit_chance += (val / 100.0)
+		elif id == "exp_boost":
+			exp_multiplier += (val / 100.0)
+		elif id == "multi_attack":
+			for w_id in owned_weapons:
+				owned_weapons[w_id]["projectile"] += int(val)
+				if has_node("WeaponManager") and $WeaponManager.has_method("update_weapon_stats"):
+					$WeaponManager.update_weapon_stats(w_id, owned_weapons[w_id])
+		elif id == "glass_cannon":
+			base_damage_multiplier += (val / 100.0)
+			max_health -= (max_health * 0.20)
+			current_health = min(current_health, max_health)
+		elif id == "heavy_armor":
+			thorns_multiplier += (val / 100.0)
+			speed -= (speed * 0.15)
+			max_health += (max_health * 0.10)
+			current_health += (max_health * 0.10)
+		elif id == "berserker":
+			fire_rate_multiplier = max(0.2, fire_rate_multiplier - (val / 100.0))
+			evasion_chance = max(0.0, evasion_chance - 0.10)
 			
 	hud.update_health(current_health, max_health)
 	
@@ -466,7 +512,7 @@ func _apply_upgrade(upgrade: Dictionary) -> void:
 func _acquire_weapon(weapon_id: String) -> void:
 	if owned_weapons.size() < 1:
 		owned_weapons[weapon_id] = {
-			"level": 1, "damage": 1.0, "size": 1.0, 
+			"level": 1, "damage": 1.0, "size": 1.0,
 			"fire_rate": 1.0, "pierce": 0, "ricochet": 0, "projectile": 0
 		}
 		if has_node("WeaponManager"):
@@ -525,7 +571,7 @@ func _handle_relics(delta: float) -> void:
 				_prev_greed_bonus += greed_multiplier
 				base_damage_multiplier += greed_multiplier
 				if hud and hud.has_method("update_coins"):
-					hud.update_coins() 
+					hud.update_coins()
 			else:
 				base_damage_multiplier -= _prev_greed_bonus
 				_prev_greed_bonus = 0.0
@@ -533,7 +579,7 @@ func _handle_relics(delta: float) -> void:
 func _trigger_beanie_shockwave() -> void:
 	var radius = 200.0 * aoe_multiplier
 	var blast_dmg = 50 + (thorns_multiplier * 500)
-	_play_pickup_sfx(0.4, 2.0) 
+	_play_pickup_sfx(0.4, 2.0)
 	var enemies = get_tree().get_nodes_in_group("enemy")
 	for e in enemies:
 		if global_position.distance_to(e.global_position) <= radius:
@@ -546,7 +592,7 @@ func _trigger_sprinkler_nova() -> void:
 	var radius = 350.0 * aoe_multiplier
 	var base_dmg = 200 + (level * 20)
 	var final_dmg = int(base_dmg * damage_multiplier)
-	_play_pickup_sfx(0.6, 5.0) 
+	_play_pickup_sfx(0.6, 5.0)
 	var enemies = get_tree().get_nodes_in_group("enemy")
 	for e in enemies:
 		if global_position.distance_to(e.global_position) <= radius:
@@ -595,11 +641,11 @@ func _handle_powerups(delta: float) -> void:
 			%AnimatedSprite2D.modulate = Color(1.0, 1.0, 1.0)
 
 func activate_magnet_powerup() -> void:
-	_play_pickup_sfx(1.3, -5.0) 
+	_play_pickup_sfx(1.3, -5.0)
 	magnet_time_left = 5.0
 
 func activate_speed_powerup() -> void:
-	_play_pickup_sfx(1.3, -5.0) 
+	_play_pickup_sfx(1.3, -5.0)
 	if not is_speed_boosted:
 		base_speed_before_boost = speed
 		speed += speed * 0.5
@@ -608,7 +654,7 @@ func activate_speed_powerup() -> void:
 	speed_time_left = 5.0
 
 func activate_bomb_powerup(bomb_pos: Vector2) -> void:
-	_play_pickup_sfx(1.3, -5.0) 
+	_play_pickup_sfx(1.3, -5.0)
 	var explosion_radius: float = 600.0
 	var bomb_damage: int = 150
 	var all_enemies = get_tree().get_nodes_in_group("enemy")

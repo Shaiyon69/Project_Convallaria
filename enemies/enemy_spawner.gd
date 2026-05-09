@@ -1,7 +1,7 @@
 extends Node2D
 
 @export var slime_scene: PackedScene = preload("res://enemies/slime.tscn")
-@export var ratman_scene: PackedScene = preload("res://enemies/ratman/ratman.tscn") 
+@export var ratman_scene: PackedScene = preload("res://enemies/ratman/ratman.tscn")
 @export var portal_scene: PackedScene
 @export var spawn_radius: float = 800.0
 
@@ -15,7 +15,7 @@ var boss_defeated: bool = false
 var max_enemies: int = 300
 var last_processed_second: int = -1
 var is_end_times: bool = false
-var level_duration: int = 600 
+var level_duration: int = 600
 
 var horde_events: Dictionary = {
 	60: {"type": "swarm", "amount": 30},
@@ -34,7 +34,7 @@ func _ready() -> void:
 		if has_node("DifficultyTimer"):
 			$DifficultyTimer.stop()
 
-		set_process(false) 
+		set_process(false)
 		call_deferred("_spawn_final_boss")
 
 func _process(_delta: float) -> void:
@@ -123,7 +123,7 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 		var map_coords = grass_layer.local_to_map(raw_pos)
 
 		if _is_safe_spawn_area(map_coords):
-			spawn_pos = raw_pos 
+			spawn_pos = raw_pos
 			valid_spawn = true
 		
 		attempts += 1
@@ -145,7 +145,7 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 		get_parent().add_child(new_enemy)
 		
 		var final_stats: Dictionary
-		var floor_mult = 1.0 + ((Data.current_floor - 1) * 0.3) 
+		var floor_mult = 1.0 + ((Data.current_floor - 1) * 0.3)
 		
 		var spawn_death_slime = (player.time_survived >= level_duration) or boss_defeated or specific_type == "death_slime"
 		
@@ -166,11 +166,16 @@ func _spawn_single_enemy(specific_type: String = "") -> void:
 			final_stats["color"] = Color(color_intensity, 0.0, color_intensity)
 			final_stats["base_pitch"] = max(0.2, 1.0 - (over_time_sec * 0.01))
 		else:
-			final_stats = Data.get_scaled_enemy_stats(enemy_type, int(player.time_survived) / 60)
-			final_stats["health"] = int(final_stats["health"] * floor_mult)
-			final_stats["damage"] = int(final_stats["damage"] * floor_mult)
+			var base_enemy_data = Data.ENEMIES[enemy_type].duplicate()
+			var scaled_math = get_scaled_enemy_stats(base_enemy_data.get("health", 10), base_enemy_data.get("speed", 50.0), base_enemy_data.get("damage", 5))
+
+			final_stats = base_enemy_data
+			final_stats["health"] = scaled_math["health"]
+			final_stats["speed"] = scaled_math["speed"]
+			final_stats["damage"] = scaled_math["damage"]
+
 			if final_stats.has("exp"):
-				final_stats["exp"] = int(final_stats["exp"] * floor_mult) 
+				final_stats["exp"] = int(final_stats["exp"] * floor_mult)
 			
 			if enemy_type == "ratman":
 				var variation_roll = randf()
@@ -215,7 +220,7 @@ func _spawn_portal() -> void:
 		
 		var map_coords = grass_layer.local_to_map(raw_pos)
 		if _has_enough_space(map_coords, 3):
-			spawn_pos = raw_pos 
+			spawn_pos = raw_pos
 			valid_spawn = true
 	
 	var portal = portal_scene.instantiate()
@@ -249,10 +254,10 @@ func _get_weighted_enemy(time: float) -> String:
 		if roll <= accumulator:
 			return enemy_id
 			
-	return "basic" 
+	return "basic"
 
 func _spawn_final_boss() -> void:
-	if not player: 
+	if not player:
 		return
 	
 	await get_tree().create_timer(2.5).timeout
@@ -268,17 +273,16 @@ func _spawn_final_boss() -> void:
 	var minutes_survived = int(player.time_survived) / 60
 	var boss_multiplier = 1.0 + (minutes_survived * 0.5) + (Data.current_floor * 0.5)
 
-	final_stats["health"] = int(final_stats["health"] * boss_multiplier * 5.0) 
+	final_stats["health"] = int(final_stats["health"] * boss_multiplier * 5.0)
 	final_stats["damage"] = int(final_stats["damage"] * boss_multiplier * 2.0)
 	final_stats["speed"] = final_stats.get("speed", 100) * 1.5
-	final_stats["scale"] = 4.5 
+	final_stats["scale"] = 4.5
 	final_stats["color"] = Color(0.8, 0.05, 0.1, 1.0)
 	final_stats["base_pitch"] = 0.5
 	
 	boss.apply_stats(final_stats)
 
 func _on_final_boss_died() -> void:
-
 	if not is_inside_tree() or get_tree() == null:
 		return
 		
@@ -292,3 +296,25 @@ func _on_final_boss_died() -> void:
 		
 	if TransitionManager and TransitionManager.has_method("change_scene"):
 		TransitionManager.change_scene("res://ui/victory_screen.tscn")
+		
+func get_scaled_enemy_stats(base_hp: int, base_speed: float, base_dmg: int) -> Dictionary:
+	var minutes_survived = 0.0
+
+	if player and "time_survived" in player:
+		minutes_survived = player.time_survived / 60.0
+		
+	var current_floor = Data.current_floor if "current_floor" in Data else 1
+	var floor_mult = 1.0 + ((current_floor - 1) * 0.5)
+	
+	var time_hp_mult = 1.0 + (minutes_survived * 0.30)
+	var time_dmg_mult = 1.0 + (minutes_survived * 0.15)
+	
+	var final_hp = int(base_hp * floor_mult * time_hp_mult)
+	var final_dmg = int(base_dmg * floor_mult * time_dmg_mult)
+	var final_speed = (base_speed + (minutes_survived * 3.0)) + ((current_floor - 1) * 10.0)
+	
+	return {
+		"health": final_hp,
+		"speed": final_speed,
+		"damage": final_dmg
+	}

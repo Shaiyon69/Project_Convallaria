@@ -15,7 +15,10 @@ var imbue_frost: bool = false
 
 var player_ref: Node2D = null
 
+var sfx_shoot = preload("res://weapons/wand/shooting.mp3")
+
 func _ready() -> void:
+	_play_shoot_sound()
 	body_entered.connect(_on_body_entered)
 	if has_node("VisibleOnScreenNotifier2D"):
 		$VisibleOnScreenNotifier2D.screen_exited.connect(queue_free)
@@ -94,3 +97,17 @@ func _trigger_explosion() -> void:
 				target.apply_burn(damage * 0.2)
 			if imbue_frost and target.has_method("apply_slow"):
 				target.apply_slow(0.5)
+
+func _play_shoot_sound() -> void:
+	var audio_player = AudioStreamPlayer2D.new()
+	audio_player.stream = sfx_shoot
+	audio_player.volume_db = -10.0
+	audio_player.global_position = global_position
+
+	get_tree().current_scene.call_deferred("add_child", audio_player)
+
+	audio_player.call_deferred("play", 0.52)
+
+	await get_tree().create_timer(0.1).timeout
+	if is_instance_valid(audio_player):
+		audio_player.queue_free()
