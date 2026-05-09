@@ -174,18 +174,133 @@ horizontal_alignment = 1
 unique_name_in_owner = true
 layout_mode = 2
 
+[node name="LowHPWarning" type="ColorRect" parent="." unique_id=770817335]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.2784314, 0, 0, 0.20392157)
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=465582200]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 5.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1115494520]
+layout_mode = 2
+
+[node name="TopBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=344503951]
+layout_mode = 2
+alignment = 1
+
+[node name="TimeLabel" type="Label" parent="MarginContainer/VBoxContainer/TopBar" unique_id=583385076]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_5ysmq")
+text = "00:00"
+horizontal_alignment = 1
+
+[node name="MainScreen" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=771597232]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LeftPanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=2123972293]
+layout_mode = 2
+
+[node name="WeaponSlots" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel" unique_id=792417207]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Slot1" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=988337026]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot1" unique_id=607021210]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 59.31639
+offset_bottom = 59.316387
+scale = Vector2(0.9753098, 0.9753098)
+expand_mode = 1
+
+[node name="Slot2" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=62602873]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot2" unique_id=491211465]
+layout_mode = 0
+offset_left = 6.0000024
+offset_top = 6.000001
+offset_right = 38.75056
+offset_bottom = 38.750557
+scale = Vector2(1.5877593, 1.5877593)
+expand_mode = 1
+
+[node name="Slot3" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=1835694436]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot3" unique_id=1448096445]
+layout_mode = 0
+offset_left = 6.0000057
+offset_top = 6.0
+offset_right = 38.67679
+offset_bottom = 38.676777
+scale = Vector2(1.5913442, 1.5913442)
+expand_mode = 1
+
+[node name="ItemGrid" type="GridContainer" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel" unique_id=1404504256]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="CenterSpacer" type="Control" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=1485654620]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RightPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=1297550362]
+layout_mode = 2
+size_flags_horizontal = 8
+
+[node name="StatList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen/RightPanel" unique_id=809911478]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Stats" type="GridContainer" parent="MarginContainer/VBoxContainer/MainScreen/RightPanel/StatList" unique_id=1745760830]
+unique_name_in_owner = true
+layout_mode = 2
+
 [node name="PauseBox" type="HBoxContainer" parent="." unique_id=1151391846]
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -109.0
-offset_top = 30.0
-offset_right = 19.0
-offset_bottom = 78.0
+offset_left = -114.765015
+offset_top = 4.185
+offset_right = 13.234985
+offset_bottom = 52.185
 grow_horizontal = 0
-scale = Vector2(0.71430814, 0.71430814)
+scale = Vector2(0.8464269, 0.8464269)
 
 [node name="PauseButton" type="TextureButton" parent="PauseBox" unique_id=1271179517]
+unique_name_in_owner = true
 layout_mode = 2
 texture_normal = ExtResource("4_6fi6k")
 
@@ -206,16 +321,6 @@ scale = Vector2(0.26932493, 0.26932493)
 theme_override_fonts/font = ExtResource("3_5ysmq")
 theme_override_font_sizes/font_size = 64
 text = "PAUSE"
-
-[node name="LowHPWarning" type="ColorRect" parent="." unique_id=770817335]
-unique_name_in_owner = true
-visible = false
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.2784314, 0, 0, 0.20392157)
 
 [node name="PauseOverlay" type="ColorRect" parent="." unique_id=1873636406]
 unique_name_in_owner = true
@@ -354,112 +459,9 @@ theme_override_fonts/font = ExtResource("3_5ysmq")
 theme_override_font_sizes/font_size = 64
 text = "RESTART"
 
-[node name="MarginContainer" type="MarginContainer" parent="." unique_id=465582200]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 5.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1115494520]
-layout_mode = 2
-
-[node name="TopBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=344503951]
-layout_mode = 2
-alignment = 1
-
-[node name="TimeLabel" type="Label" parent="MarginContainer/VBoxContainer/TopBar" unique_id=583385076]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_fonts/font = SubResource("FontVariation_5ysmq")
-text = "00:00"
-horizontal_alignment = 1
-
-[node name="MainScreen" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=771597232]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="LeftPanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=2123972293]
-layout_mode = 2
-
-[node name="WeaponSlots" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel" unique_id=792417207]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="Slot1" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=988337026]
-unique_name_in_owner = true
-self_modulate = Color(1, 1, 1, 0.7647059)
-custom_minimum_size = Vector2(64, 64)
-layout_mode = 2
-texture = ExtResource("2_oo0fn")
-expand_mode = 1
-
-[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot1" unique_id=607021210]
-layout_mode = 0
-offset_left = 6.0
-offset_top = 6.0
-offset_right = 59.31639
-offset_bottom = 59.316387
-scale = Vector2(0.9753098, 0.9753098)
-expand_mode = 1
-
-[node name="Slot2" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=62602873]
-unique_name_in_owner = true
-self_modulate = Color(1, 1, 1, 0.7647059)
-custom_minimum_size = Vector2(64, 64)
-layout_mode = 2
-texture = ExtResource("2_oo0fn")
-expand_mode = 1
-
-[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot2" unique_id=491211465]
-layout_mode = 0
-offset_left = 6.0000024
-offset_top = 6.000001
-offset_right = 38.75056
-offset_bottom = 38.750557
-scale = Vector2(1.5877593, 1.5877593)
-expand_mode = 1
-
-[node name="Slot3" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=1835694436]
-unique_name_in_owner = true
-self_modulate = Color(1, 1, 1, 0.7647059)
-custom_minimum_size = Vector2(64, 64)
-layout_mode = 2
-texture = ExtResource("2_oo0fn")
-expand_mode = 1
-
-[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot3" unique_id=1448096445]
-layout_mode = 0
-offset_left = 6.0000057
-offset_top = 6.0
-offset_right = 38.67679
-offset_bottom = 38.676777
-scale = Vector2(1.5913442, 1.5913442)
-expand_mode = 1
-
-[node name="ItemGrid" type="GridContainer" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel" unique_id=1404504256]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="CenterSpacer" type="Control" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=1485654620]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="RightPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=1297550362]
-layout_mode = 2
-size_flags_horizontal = 8
-
-[node name="StatList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen/RightPanel" unique_id=809911478]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="Stats" type="GridContainer" parent="MarginContainer/VBoxContainer/MainScreen/RightPanel/StatList" unique_id=1745760830]
-unique_name_in_owner = true
-layout_mode = 2
-
 [node name="GameOverScreen" type="ColorRect" parent="." unique_id=1544222425]
 unique_name_in_owner = true
+visible = false
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
