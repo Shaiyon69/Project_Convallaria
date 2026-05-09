@@ -1,0 +1,79 @@
+[gd_scene format=3 uid="uid://b68jnuy46k1uu"]
+
+[ext_resource type="Script" uid="uid://b31vwn0c440ik" path="res://ui/victory_screen.gd" id="1_csba1"]
+[ext_resource type="Texture2D" uid="uid://lwwm2a61mps8" path="res://ui/title_background.png" id="1_oh8u7"]
+[ext_resource type="Texture2D" uid="uid://c0byx34hgmu55" path="res://ui/menu_buttons.png" id="2_i2vuy"]
+[ext_resource type="FontFile" uid="uid://cr50vmsbetxqf" path="res://ui/fonts/PixelifySans-VariableFont_wght.ttf" id="3_csba1"]
+
+[node name="VictoryScreen" type="CanvasLayer" unique_id=1775479805]
+script = ExtResource("1_csba1")
+
+[node name="Parallax2D" type="Parallax2D" parent="." unique_id=572060555]
+repeat_size = Vector2(288, 288)
+repeat_times = 20
+
+[node name="Sprite2D" type="Sprite2D" parent="Parallax2D" unique_id=1296657883]
+texture = ExtResource("1_oh8u7")
+centered = false
+
+[node name="Victory" type="Label" parent="." unique_id=802796024]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -144.0
+offset_top = -185.57
+offset_right = 144.0
+offset_bottom = -108.569916
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = ExtResource("3_csba1")
+theme_override_font_sizes/font_size = 64
+text = "VICTORY!!!"
+horizontal_alignment = 1
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=478908900]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -144.0
+offset_top = -66.5
+offset_right = 144.0
+offset_bottom = 66.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="StatsContainer" type="GridContainer" parent="VBoxContainer" unique_id=768139601]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 2
+
+[node name="ReturnButton" type="TextureButton" parent="VBoxContainer" unique_id=10820886]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 8
+texture_normal = ExtResource("2_i2vuy")
+stretch_mode = 5
+
+[node name="Return" type="Label" parent="VBoxContainer/ReturnButton" unique_id=258715793]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -323.0
+offset_top = -18.0
+offset_right = 323.0
+offset_bottom = 59.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = ExtResource("3_csba1")
+theme_override_font_sizes/font_size = 24
+text = "Return"
+horizontal_alignment = 1
+
+[connection signal="pressed" from="VBoxContainer/ReturnButton" to="." method="_on_return_button_pressed"]

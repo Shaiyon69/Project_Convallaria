@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://deb2jncfuclbw"]
+
+[ext_resource type="Script" uid="uid://bm58meo4lq4mb" path="res://weapons/wand/wand_projectile.gd" id="1_dr55p"]
+[ext_resource type="Texture2D" uid="uid://bt1pcsug7ey17" path="res://weapons/wand/projectile.png" id="2_w8psd"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_b8hep"]
+radius = 6.0
+
+[node name="Wand_Projectile" type="Area2D" unique_id=1294160118]
+collision_layer = 8
+collision_mask = 6
+script = ExtResource("1_dr55p")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1013566283]
+texture = ExtResource("2_w8psd")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=810944193]
+shape = SubResource("CircleShape2D_b8hep")
+
+[node name="VisibleOnScreenNotifier2D" type="VisibleOnScreenNotifier2D" parent="." unique_id=1479821775]

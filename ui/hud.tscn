@@ -1,0 +1,589 @@
+[gd_scene format=3 uid="uid://bm7urj6mv8o2s"]
+
+[ext_resource type="Script" uid="uid://d1f6l21e0ex1c" path="res://ui/hud.gd" id="1_ahhtf"]
+[ext_resource type="Texture2D" uid="uid://da4uwfn16jc71" path="res://weapons/weaponslot.png" id="2_oo0fn"]
+[ext_resource type="FontFile" uid="uid://cr50vmsbetxqf" path="res://ui/fonts/PixelifySans-VariableFont_wght.ttf" id="3_5ysmq"]
+[ext_resource type="Texture2D" uid="uid://c0byx34hgmu55" path="res://ui/menu_buttons.png" id="4_6fi6k"]
+[ext_resource type="Texture2D" uid="uid://bg4j68b2c6d8" path="res://ui/title.png" id="5_uo2fv"]
+[ext_resource type="PackedScene" uid="uid://b2s06ii5t8m1l" path="res://ui/options.tscn" id="6_047uy"]
+
+[sub_resource type="FontVariation" id="FontVariation_6fi6k"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_uo2fv"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_1v5rv"]
+
+[sub_resource type="FontVariation" id="FontVariation_1v5rv"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_5ysmq"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_q43x7"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_srpbi"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_5pdws"]
+base_font = ExtResource("3_5ysmq")
+
+[sub_resource type="FontVariation" id="FontVariation_hd3ao"]
+base_font = ExtResource("3_5ysmq")
+
+[node name="HUD" type="CanvasLayer" unique_id=273270594]
+process_mode = 3
+script = ExtResource("1_ahhtf")
+
+[node name="KillLabel" type="Label" parent="." unique_id=1244180256]
+unique_name_in_owner = true
+anchors_preset = -1
+anchor_left = 0.24300002
+anchor_top = 0.014
+anchor_right = 0.24300002
+anchor_bottom = 0.014
+offset_left = -24.62503
+offset_top = -10.334997
+offset_right = 24.959991
+offset_bottom = 9.665003
+theme_override_colors/font_color = Color(1, 0.3977014, 0.3292555, 1)
+theme_override_fonts/font = SubResource("FontVariation_6fi6k")
+text = "Kills: 0"
+
+[node name="GoldLabel" type="Label" parent="." unique_id=1483863681]
+unique_name_in_owner = true
+anchors_preset = -1
+anchor_left = 0.24300002
+anchor_top = 0.014
+anchor_right = 0.24300002
+anchor_bottom = 0.014
+offset_left = 50.539978
+offset_top = -10.335
+offset_right = 100.125
+offset_bottom = 9.665001
+theme_override_colors/font_color = Color(1, 1, 0, 1)
+theme_override_fonts/font = SubResource("FontVariation_6fi6k")
+text = "Gold: 0"
+
+[node name="SilverLabel" type="Label" parent="." unique_id=2111450936]
+unique_name_in_owner = true
+visible = false
+anchors_preset = -1
+anchor_left = 0.24300002
+anchor_top = 0.014
+anchor_right = 0.24300002
+anchor_bottom = 0.014
+offset_left = 108.435
+offset_top = -10.335
+offset_right = 158.02002
+offset_bottom = 9.665001
+theme_override_colors/font_color = Color(0.7204674, 0.7204675, 0.7204674, 1)
+theme_override_fonts/font = SubResource("FontVariation_6fi6k")
+text = "Silver: 0"
+
+[node name="HealthBar" type="ProgressBar" parent="." unique_id=475658255]
+unique_name_in_owner = true
+modulate = Color(0.99999994, 0.22953579, 0.17418489, 1)
+self_modulate = Color(1, 0.32410008, 0.25894472, 1)
+offset_left = 6.0
+offset_top = 1.0
+offset_right = 205.0
+offset_bottom = 21.0
+show_percentage = false
+
+[node name="HealthLabel" type="Label" parent="HealthBar" unique_id=1734609799]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = SubResource("FontVariation_uo2fv")
+text = "0/0"
+horizontal_alignment = 1
+
+[node name="ExpBar" type="ProgressBar" parent="." unique_id=866767853]
+unique_name_in_owner = true
+modulate = Color(0, 0.2627451, 1, 1)
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -640.0
+offset_top = -19.0
+offset_right = 640.0
+grow_horizontal = 2
+grow_vertical = 0
+show_percentage = false
+
+[node name="ExpLabel" type="Label" parent="ExpBar" unique_id=1384305215]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = SubResource("FontVariation_6fi6k")
+text = "0/0"
+horizontal_alignment = 1
+
+[node name="ItemGetPopup" type="PanelContainer" parent="." unique_id=486649317]
+unique_name_in_owner = true
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -141.0
+offset_top = -118.0
+offset_right = 145.0
+offset_bottom = 111.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxEmpty_1v5rv")
+
+[node name="ItemIconDisplay" type="TextureRect" parent="ItemGetPopup" unique_id=579484712]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 128)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ItemNameLabel" type="Label" parent="ItemGetPopup" unique_id=822859601]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_fonts/font = SubResource("FontVariation_1v5rv")
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+
+[node name="ItemDescLabel" type="Label" parent="ItemGetPopup" unique_id=2129467799]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_fonts/font = SubResource("FontVariation_1v5rv")
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+
+[node name="ContinueButton" type="Button" parent="ItemGetPopup" unique_id=78342957]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="PauseBox" type="HBoxContainer" parent="." unique_id=1151391846]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -109.0
+offset_top = 30.0
+offset_right = 19.0
+offset_bottom = 78.0
+grow_horizontal = 0
+scale = Vector2(0.71430814, 0.71430814)
+
+[node name="PauseButton" type="TextureButton" parent="PauseBox" unique_id=1271179517]
+layout_mode = 2
+texture_normal = ExtResource("4_6fi6k")
+
+[node name="Pause" type="Label" parent="PauseBox/PauseButton" unique_id=453883481]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -26.0
+offset_top = -11.0
+offset_right = 160.0
+offset_bottom = 66.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.26932493, 0.26932493)
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_font_sizes/font_size = 64
+text = "PAUSE"
+
+[node name="LowHPWarning" type="ColorRect" parent="." unique_id=770817335]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.2784314, 0, 0, 0.20392157)
+
+[node name="PauseOverlay" type="ColorRect" parent="." unique_id=1873636406]
+unique_name_in_owner = true
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.7058824)
+
+[node name="VBoxContainer" type="HBoxContainer" parent="PauseOverlay" unique_id=1851297045]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -306.0
+offset_top = -229.12479
+offset_right = 86.0
+offset_bottom = -181.0
+grow_horizontal = 2
+grow_vertical = 0
+scale = Vector2(1.5737541, 1.5737541)
+
+[node name="ResumeButton" type="TextureButton" parent="PauseOverlay/VBoxContainer" unique_id=2082664776]
+layout_mode = 2
+texture_normal = ExtResource("4_6fi6k")
+
+[node name="Resume" type="Label" parent="PauseOverlay/VBoxContainer/ResumeButton" unique_id=1964264815]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -36.656403
+offset_top = -12.994324
+offset_right = 198.3436
+offset_bottom = 64.00568
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.3167791, 0.3167791)
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_font_sizes/font_size = 64
+text = "RESUME"
+
+[node name="OptionsButton" type="TextureButton" parent="PauseOverlay/VBoxContainer" unique_id=410579918]
+layout_mode = 2
+texture_normal = ExtResource("4_6fi6k")
+
+[node name="Options" type="Label" parent="PauseOverlay/VBoxContainer/OptionsButton" unique_id=590037830]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -35.21971
+offset_top = -11.353699
+offset_right = 214.7803
+offset_bottom = 65.6463
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.28708458, 0.28951013)
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_font_sizes/font_size = 64
+text = "OPTIONS"
+
+[node name="QuitButton" type="TextureButton" parent="PauseOverlay/VBoxContainer" unique_id=2069687444]
+layout_mode = 2
+texture_normal = ExtResource("4_6fi6k")
+
+[node name="Quit" type="Label" parent="PauseOverlay/VBoxContainer/QuitButton" unique_id=1580603849]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -18.125366
+offset_top = -10.289673
+offset_right = 119.87463
+offset_bottom = 66.71033
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.26932493, 0.26932493)
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_font_sizes/font_size = 64
+text = "QUIT"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PauseOverlay" unique_id=2132683395]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Convallaria" type="Sprite2D" parent="PauseOverlay/HBoxContainer" unique_id=58073189]
+position = Vector2(-7.999995, -160.00002)
+scale = Vector2(2.2543993, 2.2543993)
+texture = ExtResource("5_uo2fv")
+
+[node name="RestartButton" type="TextureButton" parent="PauseOverlay" unique_id=294239520]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.883
+anchor_right = 0.5
+anchor_bottom = 0.883
+offset_left = -63.0
+offset_top = -23.76001
+offset_right = 65.0
+offset_bottom = 24.23999
+texture_normal = ExtResource("4_6fi6k")
+
+[node name="Restart" type="Label" parent="PauseOverlay/RestartButton" unique_id=1001451408]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -41.00003
+offset_top = -12.0
+offset_right = 217.99997
+offset_bottom = 65.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.3167791, 0.3167791)
+theme_override_fonts/font = ExtResource("3_5ysmq")
+theme_override_font_sizes/font_size = 64
+text = "RESTART"
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=465582200]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 5.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1115494520]
+layout_mode = 2
+
+[node name="TopBar" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=344503951]
+layout_mode = 2
+alignment = 1
+
+[node name="TimeLabel" type="Label" parent="MarginContainer/VBoxContainer/TopBar" unique_id=583385076]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_5ysmq")
+text = "00:00"
+horizontal_alignment = 1
+
+[node name="MainScreen" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=771597232]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LeftPanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=2123972293]
+layout_mode = 2
+
+[node name="WeaponSlots" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel" unique_id=792417207]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Slot1" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=988337026]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot1" unique_id=607021210]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 59.31639
+offset_bottom = 59.316387
+scale = Vector2(0.9753098, 0.9753098)
+expand_mode = 1
+
+[node name="Slot2" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=62602873]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot2" unique_id=491211465]
+layout_mode = 0
+offset_left = 6.0000024
+offset_top = 6.000001
+offset_right = 38.75056
+offset_bottom = 38.750557
+scale = Vector2(1.5877593, 1.5877593)
+expand_mode = 1
+
+[node name="Slot3" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots" unique_id=1835694436]
+unique_name_in_owner = true
+self_modulate = Color(1, 1, 1, 0.7647059)
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture = ExtResource("2_oo0fn")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel/WeaponSlots/Slot3" unique_id=1448096445]
+layout_mode = 0
+offset_left = 6.0000057
+offset_top = 6.0
+offset_right = 38.67679
+offset_bottom = 38.676777
+scale = Vector2(1.5913442, 1.5913442)
+expand_mode = 1
+
+[node name="ItemGrid" type="GridContainer" parent="MarginContainer/VBoxContainer/MainScreen/LeftPanel" unique_id=1404504256]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="CenterSpacer" type="Control" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=1485654620]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RightPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainScreen" unique_id=1297550362]
+layout_mode = 2
+size_flags_horizontal = 8
+
+[node name="StatList" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainScreen/RightPanel" unique_id=809911478]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Stats" type="GridContainer" parent="MarginContainer/VBoxContainer/MainScreen/RightPanel/StatList" unique_id=1745760830]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="GameOverScreen" type="ColorRect" parent="." unique_id=1544222425]
+unique_name_in_owner = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.3137255, 0, 0, 0.75686276)
+
+[node name="Label" type="Label" parent="GameOverScreen" unique_id=1957431972]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.45200002
+anchor_right = 0.5
+anchor_bottom = 0.45200002
+offset_left = -321.0
+offset_top = -99.44
+offset_right = 228.5
+offset_bottom = 128.06
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1.1568017, 1.1568017)
+theme_override_colors/font_color = Color(1, 0, 0, 1)
+theme_override_fonts/font = SubResource("FontVariation_q43x7")
+theme_override_font_sizes/font_size = 64
+text = "GAME OVER"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TryAgain" type="Button" parent="GameOverScreen" unique_id=1271404246]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -136.0
+offset_top = 76.0
+offset_right = -25.0
+offset_bottom = 116.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = SubResource("FontVariation_srpbi")
+text = "Try Again"
+
+[node name="Exit" type="Button" parent="GameOverScreen" unique_id=715657455]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 24.0
+offset_top = 76.0
+offset_right = 136.0
+offset_bottom = 116.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = SubResource("FontVariation_srpbi")
+text = "Exit"
+
+[node name="LevelUpScreen" type="ColorRect" parent="." unique_id=2047133053]
+unique_name_in_owner = true
+process_mode = 3
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.49019608)
+
+[node name="Label" type="Label" parent="LevelUpScreen" unique_id=435336704]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -122.0
+offset_top = -11.5
+offset_right = 122.0
+offset_bottom = 11.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = SubResource("FontVariation_5pdws")
+theme_override_font_sizes/font_size = 64
+text = "BLOSSOM UP!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="LevelUpScreen" unique_id=297044147]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -128.0
+offset_top = 60.0
+offset_right = 128.0
+offset_bottom = 124.0
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="Upgrade1" type="Button" parent="LevelUpScreen/HBoxContainer" unique_id=829077401]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_hd3ao")
+
+[node name="Upgrade2" type="Button" parent="LevelUpScreen/HBoxContainer" unique_id=1917876674]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_hd3ao")
+
+[node name="Upgrade3" type="Button" parent="LevelUpScreen/HBoxContainer" unique_id=1905439209]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 50)
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVariation_hd3ao")
+
+[node name="Options" parent="." unique_id=1342148050 instance=ExtResource("6_047uy")]
+visible = false
