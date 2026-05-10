@@ -1,12 +1,12 @@
 [gd_scene format=3 uid="uid://cunwoj2qfpdwp"]
 
-[ext_resource type="Texture2D" uid="uid://il2c1wfke87u" path="res://mobile/JoystickSplitted.png" id="1_xfqx5"]
-[ext_resource type="Script" uid="uid://gi1hksrbwgs4" path="res://mobile/mobile_controls.gd" id="1_ythhp"]
-[ext_resource type="Script" uid="uid://ch74xaboq72uu" path="res://mobile/joystick.gd" id="2_g1d33"]
-[ext_resource type="Texture2D" uid="uid://dlhksmn5ftjmn" path="res://mobile/SmallHandleFilled.png" id="2_ythhp"]
-[ext_resource type="Script" uid="uid://bt24u88bpqqqe" path="res://mobile/interact.gd" id="4_8asj2"]
-[ext_resource type="Texture2D" uid="uid://c0byx34hgmu55" path="res://menu_buttons.png" id="4_jnhep"]
-[ext_resource type="FontFile" uid="uid://cr50vmsbetxqf" path="res://fonts/PixelifySans-VariableFont_wght.ttf" id="5_8asj2"]
+[ext_resource type="Texture2D" uid="uid://il2c1wfke87u" path="res://player/JoystickSplitted.png" id="1_xfqx5"]
+[ext_resource type="Script" uid="uid://gi1hksrbwgs4" path="res://player/mobile_controls.gd" id="1_ythhp"]
+[ext_resource type="Script" uid="uid://ch74xaboq72uu" path="res://player/joystick.gd" id="2_g1d33"]
+[ext_resource type="Texture2D" uid="uid://dlhksmn5ftjmn" path="res://player/SmallHandleFilled.png" id="2_ythhp"]
+[ext_resource type="Script" uid="uid://bt24u88bpqqqe" path="res://player/interact.gd" id="4_8asj2"]
+[ext_resource type="Texture2D" uid="uid://c0byx34hgmu55" path="res://ui/menu_buttons.png" id="4_jnhep"]
+[ext_resource type="FontFile" uid="uid://cr50vmsbetxqf" path="res://ui/fonts/PixelifySans-VariableFont_wght.ttf" id="5_8asj2"]
 
 [node name="MobileControls" type="CanvasLayer" unique_id=1098429242 groups=["mobile_ui"]]
 layer = 0

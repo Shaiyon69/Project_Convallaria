@@ -30,8 +30,10 @@ var facing: String = "down"
 
 var direction: Vector2 = Vector2.ZERO
 var push_vector: Vector2 = Vector2.ZERO
+var current_steer: Vector2 = Vector2.ZERO # OPTIMIZATION: Cached steering
 var logic_timer: float = 0.0
 var sfx_timer: float = 0.0
+var cached_distance: float = 1000.0 # OPTIMIZATION: Cached distance
 
 var is_shooter: bool = false
 var stop_distance: float = 350.0
@@ -48,7 +50,6 @@ func _ready() -> void:
 	player = get_tree().get_first_node_in_group("player")
 	logic_timer = randf_range(0.0, 0.2)
 	sfx_timer = randf_range(0.0, 2.0)
-
 	shoot_timer = randf_range(2.0, 4.0) 
 
 func apply_stats(stats: Dictionary) -> void:
@@ -72,8 +73,9 @@ func apply_stats(stats: Dictionary) -> void:
 		if base_pitch <= 0.2:
 			is_boss = true
 			var boss_track = load(Data.MUSIC["boss"])
-			AudioManager.play_music(boss_track, -10.0)
-			AudioManager.set_music_speed(1.0)
+			if AudioManager.has_method("play_music") and boss_track:
+				AudioManager.play_music(boss_track, -10.0)
+				AudioManager.set_music_speed(1.0)
 
 	if stats.has("is_shooter") and stats["is_shooter"]:
 		is_shooter = true
@@ -99,6 +101,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	if player:
+		# OPTIMIZATION: Throttle expensive math to 5 times a second
 		logic_timer -= delta
 		if logic_timer <= 0.0:
 			logic_timer = 0.2 + randf_range(-0.05, 0.05)
@@ -107,25 +110,22 @@ func _physics_process(delta: float) -> void:
 		if is_hurt:
 			velocity = velocity * 0.95
 		else:
-			var distance = global_position.distance_to(player.global_position)
-			
-			if distance > active_radius:
+			if cached_distance > active_radius:
 				set_collision_mask_value(2, false)
 				velocity = direction * speed
 			else:
 				set_collision_mask_value(2, true)
-				
 				var desired_velocity = Vector2.ZERO
 				
-				if is_shooter and distance <= stop_distance:
+				if is_shooter and cached_distance <= stop_distance:
 					shoot_timer -= delta
 					if shoot_timer <= 0.0:
 						_shoot()
 						shoot_timer = randf_range(shoot_cooldown_min, shoot_cooldown_max)
 				else:
-					var steer_direction = _get_whisker_steering()
-					if steer_direction != Vector2.ZERO:
-						desired_velocity = (steer_direction * speed) + (push_vector * 15.0)
+					# OPTIMIZATION: Use cached steer instead of casting rays every frame
+					if current_steer != Vector2.ZERO:
+						desired_velocity = (current_steer * speed) + (push_vector * 15.0)
 					else:
 						desired_velocity = (direction * speed) + (push_vector * 20.0)
 
@@ -138,7 +138,7 @@ func _physics_process(delta: float) -> void:
 			sfx_timer -= delta
 			if sfx_timer <= 0.0:
 				sfx_timer = randf_range(1.5, 3.0)
-				if slime_sfx:
+				if slime_sfx and AudioManager.has_method("play_sfx_2d"):
 					AudioManager.play_sfx_2d(slime_sfx, global_position, -20.0, base_pitch, "move")
 
 		move_and_slide()
@@ -159,16 +159,21 @@ func _shoot() -> void:
 	tween.tween_property($AnimatedSprite2D, "scale", scale, 0.1)
 
 func _update_expensive_logic() -> void:
-	var distance = global_position.distance_to(player.global_position)
-	if distance > despawn_distance:
+	cached_distance = global_position.distance_to(player.global_position)
+	
+	if cached_distance > despawn_distance:
 		queue_free()
 		return
 
 	direction = global_position.direction_to(player.global_position)
-
 	push_vector = Vector2.ZERO
+	current_steer = Vector2.ZERO
 
-	if distance <= active_radius:
+	if cached_distance <= active_radius:
+		# Only cast rays 5 times a second
+		if not is_shooter:
+			current_steer = _get_whisker_steering()
+			
 		if soft_collision.has_overlapping_areas():
 			var areas = soft_collision.get_overlapping_areas()
 			var max_checks = min(areas.size(), 3)
@@ -256,7 +261,7 @@ func take_damage(amount: int) -> void:
 	health -= amount
 	health_bar.value = health
 
-	if is_boss:
+	if is_boss and AudioManager.has_method("set_music_speed"):
 		var hp_percent = float(health) / float(max_health)
 		var dynamic_bpm = 1.0 + ((1.0 - hp_percent) * 0.5)
 		AudioManager.set_music_speed(dynamic_bpm)
@@ -276,7 +281,7 @@ func _play_hurt() -> void:
 		return
 
 	is_hurt = true
-	if slime_sfx:
+	if slime_sfx and AudioManager.has_method("play_sfx_2d"):
 		AudioManager.play_sfx_2d(slime_sfx, global_position, -5.0, base_pitch, "hit")
 
 	$AnimatedSprite2D.play("hurt_" + facing)
@@ -287,11 +292,11 @@ func _die() -> void:
 	is_dying = true
 	health_bar.hide()
 
-	if is_boss:
+	if is_boss and AudioManager.has_method("stop_music"):
 		AudioManager.stop_music()
 		AudioManager.set_music_speed(1.0)
 
-	if slime_sfx:
+	if slime_sfx and AudioManager.has_method("play_sfx_2d"):
 		AudioManager.play_sfx_2d(slime_sfx, global_position, -10.0, base_pitch, "death")
 
 	$AnimatedSprite2D.play("death")
@@ -304,19 +309,15 @@ func _die() -> void:
 	new_seed.global_position = global_position
 	var roll = randf()
 
-	var active_powerups = 0
-	for node in get_tree().get_nodes_in_group("exp_seed"):
-		if node.get("seed_type") in [1, 2, 3]:
-			active_powerups += 1
-
+	# OPTIMIZATION: Removed the massive get_nodes_in_group check here!
 	var p_chance = 0.01 * drop_tier
 	var c_chance = 0.05 * drop_tier
 
-	if active_powerups < 3 and roll <= p_chance:
+	if roll <= p_chance:
 		new_seed.seed_type = 1
-	elif active_powerups < 3 and roll <= p_chance * 2:
+	elif roll <= p_chance * 2:
 		new_seed.seed_type = 2
-	elif active_powerups < 3 and roll <= p_chance * 3:
+	elif roll <= p_chance * 3:
 		new_seed.seed_type = 3
 	elif roll <= (p_chance * 3) + c_chance:
 		new_seed.seed_type = 4

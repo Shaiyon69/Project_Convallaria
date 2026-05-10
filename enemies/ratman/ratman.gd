@@ -21,6 +21,11 @@ var is_casting: bool = false
 var is_enraged: bool = false
 var phase: int = 1
 
+# OPTIMIZATION VARIABLES
+var logic_timer: float = 0.0
+var current_direction: Vector2 = Vector2.ZERO
+var cached_distance: float = 1000.0
+
 var shoot_timer: float = 0.0
 var special_timer: Timer
 
@@ -38,7 +43,6 @@ uniform bool hit_flash = false;
 
 void fragment() {
 	vec4 tex_color = texture(TEXTURE, UV);
-	
 	if (hit_flash && tex_color.a > 0.0) {
 		COLOR = vec4(1.0, 1.0, 1.0, tex_color.a);
 	} else if (enraged && tex_color.a > 0.0) {
@@ -64,6 +68,7 @@ func _ready() -> void:
 	add_to_group("enemy")
 	sfx_timer = randf_range(0.0, 2.0)
 	shoot_timer = randf_range(2.0, 3.5)
+	logic_timer = randf_range(0.0, 0.2) # Stagger pathfinding starts
 	
 	audio_player = AudioStreamPlayer2D.new()
 	audio_player.stream = sfx_stream
@@ -123,7 +128,6 @@ func _setup_as_boss() -> void:
 	var hp_mult = 1.0 + (minutes_survived * 0.40)
 	var dmg_mult = 1.0 + (minutes_survived * 0.15)
 	
-	# Lower base stats, but heavily scaled by time survived
 	max_health = int((max_health * 0.35) * hp_mult)
 	current_health = max_health
 	attack_damage = int((attack_damage * 0.40) * dmg_mult)
@@ -153,28 +157,33 @@ func _physics_process(delta: float) -> void:
 				audio_player.stop()
 		return
 		
-	var direction = global_position.direction_to(player.global_position)
+	# OPTIMIZATION: Throttle math
+	logic_timer -= delta
+	if logic_timer <= 0.0:
+		logic_timer = 0.2 + randf_range(-0.05, 0.05)
+		current_direction = global_position.direction_to(player.global_position)
+		cached_distance = global_position.distance_to(player.global_position)
+
 	var current_speed = movement_speed
-	
 	var missing_hp = 0.0
+	
 	if is_boss:
 		missing_hp = 1.0 - (float(current_health) / float(max_health))
-		current_speed += (missing_hp * 80.0) # Moves faster as he loses HP
+		current_speed += (missing_hp * 80.0)
 		
-	velocity = direction * current_speed
+	velocity = current_direction * current_speed
 	
-	# Shooting logic
-	if is_shooter and global_position.distance_to(player.global_position) <= 400.0 + (missing_hp * 200.0):
+	if is_shooter and cached_distance <= 400.0 + (missing_hp * 200.0):
 		shoot_timer -= delta
 		if shoot_timer <= 0.0:
-			var p_scale = 1.0 + (missing_hp * 0.8) # Passive bullets get up to 80% bigger
-			_shoot_projectile(direction, p_scale)
+			var p_scale = 1.0 + (missing_hp * 0.8) 
+			_shoot_projectile(current_direction, p_scale)
 			
-			var next_shot = randf_range(2.0, 3.5) - (missing_hp * 2.0) # Shoots much faster as HP drops
+			var next_shot = randf_range(2.0, 3.5) - (missing_hp * 2.0) 
 			if is_enraged: next_shot *= 0.5
 			shoot_timer = max(0.3, next_shot)
 	
-	_update_animation(direction)
+	_update_animation(current_direction)
 	move_and_slide()
 	
 	if velocity.length() > 0:
@@ -182,7 +191,7 @@ func _physics_process(delta: float) -> void:
 		if sfx_timer <= 0.0:
 			sfx_timer = randf_range(2.0, 4.0) 
 			
-			if AudioManager._can_play_sfx("ratman_move", AudioManager.MOVE_COOLDOWN):
+			if AudioManager.has_method("_can_play_sfx") and AudioManager._can_play_sfx("ratman_move", AudioManager.MOVE_COOLDOWN):
 				audio_player.pitch_scale = base_pitch * randf_range(0.9, 1.1)
 				audio_player.play(0.0)
 				
@@ -259,15 +268,13 @@ func _on_special_attack() -> void:
 	else:
 		anim.modulate = base_color
 	
-	# Massive Dynamic Special Attack based on Missing HP
 	var missing_hp = 1.0 - (float(current_health) / float(max_health))
 	
 	var base_dir = global_position.direction_to(player.global_position)
 	var spread = deg_to_rad(15 + (missing_hp * 25))
-	var proj_count = 5 + int(missing_hp * 12) # Up to 17 projectiles!
-	if is_enraged: proj_count += 4 # Up to 21 projectiles!
-	
-	var p_scale = 1.0 + (missing_hp * 1.5) # Up to 2.5x bigger
+	var proj_count = 5 + int(missing_hp * 12) 
+	if is_enraged: proj_count += 4 
+	var p_scale = 1.0 + (missing_hp * 1.5) 
 	if is_enraged: p_scale *= 1.2
 	
 	for i in range(proj_count):
@@ -276,9 +283,8 @@ func _on_special_attack() -> void:
 		
 	var minion_scene = load("res://enemies/ratman/ratman.tscn")
 	if minion_scene:
-		var minion_count = 3 + int(missing_hp * 6) # Up to 9 minions!
-		if is_enraged: minion_count += 3 # Up to 12 minions!
-		
+		var minion_count = 3 + int(missing_hp * 6) 
+		if is_enraged: minion_count += 3 
 		for i in range(minion_count):
 			var minion = minion_scene.instantiate()
 			var spawn_offset = Vector2(randf_range(-200, 200), randf_range(-200, 200))
@@ -316,7 +322,6 @@ func take_damage(amount: int) -> void:
 		_transform_phase_two()
 		
 	if is_boss and special_timer:
-		# Cooldown drastically drops as his HP lowers (From 7s down to 1.5s)
 		special_timer.wait_time = max(1.5, 7.0 - ((1.0 - hp_percent) * 5.5))
 		
 	if is_boss and AudioManager.has_method("set_music_speed"):
@@ -414,7 +419,7 @@ func die() -> void:
 		if spawner and spawner.has_method("notify_boss_defeated"):
 			spawner.notify_boss_defeated()
 	
-	if audio_player and AudioManager._can_play_sfx("ratman_death", AudioManager.DEATH_COOLDOWN):
+	if audio_player and AudioManager.has_method("_can_play_sfx") and AudioManager._can_play_sfx("ratman_death", AudioManager.DEATH_COOLDOWN):
 		audio_player.volume_db = -10.0 if is_boss else -15.0
 		audio_player.pitch_scale = base_pitch * randf_range(0.9, 1.1)
 		audio_player.play(0.70)
