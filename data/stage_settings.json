@@ -1,0 +1,8 @@
+{
+	"stage_duration": 600,
+	"death_slime_base_interval": 5.0,
+	"death_slime_min_interval": 0.1,
+	"death_slime_interval_multiplier": 0.9,
+	"death_slime_spawn_growth_seconds": 10.0,
+	"final_boss_uses_stage_timer": false
+}

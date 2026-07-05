@@ -17,6 +17,7 @@ extends Node2D
 @onready var soil_layer: TileMapLayer = $SoilLayer
 
 var noise: FastNoiseLite = FastNoiseLite.new()
+var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var valid_spawn_tiles: Array[Vector2i] = []
 var occupied_cells: Dictionary = {}
 
@@ -56,6 +57,7 @@ func _generate_terrain() -> void:
 	var soil_cells: Array[Vector2i] = []
 	
 	var water_bounds = map_radius + 15
+	var map_radius_sq = map_radius * map_radius
 	for x in range(-water_bounds, water_bounds):
 		for y in range(-water_bounds, water_bounds):
 			water_layer.set_cell(Vector2i(x, y), water_source_id, water_atlas_coords)
@@ -63,12 +65,12 @@ func _generate_terrain() -> void:
 	for x in range(-map_radius, map_radius):
 		for y in range(-map_radius, map_radius):
 			var cell_pos = Vector2i(x, y)
+			var dist_sq = (x * x) + (y * y)
 			
-			var dist = Vector2(x, y).length()
-			var normalized_dist = dist / float(map_radius)
-			
-			if normalized_dist > 1.0:
+			if dist_sq > map_radius_sq:
 				continue
+
+			var normalized_dist = sqrt(float(dist_sq)) / float(map_radius)
 				
 			var noise_val = noise.get_noise_2d(x * 2.0, y * 2.0)
 			var falloff = 1.0 - pow(normalized_dist, 2.5)
@@ -102,9 +104,9 @@ func _is_space_free(center_cell: Vector2i, tile_radius: int) -> bool:
 	for x in range(-tile_radius, tile_radius + 1):
 		for y in range(-tile_radius, tile_radius + 1):
 			var check_pos = center_cell + Vector2i(x, y)
-			if grass_layer.get_cell_source_id(check_pos) == -1:
-				return false
 			if occupied_cells.has(check_pos):
+				return false
+			if grass_layer.get_cell_source_id(check_pos) == -1:
 				return false
 	return true
 
@@ -135,15 +137,13 @@ func _spawn_boss_portal() -> void:
 	if not boss_portal_scene or valid_spawn_tiles.is_empty():
 		return
 		
-	var rng = RandomNumberGenerator.new()
 	rng.seed = map_seed + 1 
 	
 	var portal_placed = false
 	var attempts = 0
 	
 	while not portal_placed and attempts < 200:
-		var random_index = rng.randi_range(0, valid_spawn_tiles.size() - 1)
-		var cell_coords = valid_spawn_tiles[random_index]
+		var cell_coords = _get_random_spawn_cell()
 		
 		if _is_space_free(cell_coords, 3):
 			_reserve_space(cell_coords, 3)
@@ -155,7 +155,6 @@ func _spawn_boss_portal() -> void:
 		attempts += 1
 
 func _spawn_objects() -> void:
-	var rng = RandomNumberGenerator.new()
 	rng.seed = map_seed
 	
 	_place_entities(chest_scene, 15, rng, 1, false)
@@ -169,8 +168,7 @@ func _place_entities(scene: PackedScene, count: int, rng: RandomNumberGenerator,
 	var attempts = 0
 	
 	while placed < count and attempts < count * 20:
-		var random_index = rng.randi_range(0, valid_spawn_tiles.size() - 1)
-		var cell_coords = valid_spawn_tiles[random_index]
+		var cell_coords = _get_random_spawn_cell()
 		
 		if _is_space_free(cell_coords, radius):
 			_reserve_space(cell_coords, radius)
@@ -189,7 +187,6 @@ func _spawn_trees() -> void:
 	if not tree_scene or valid_spawn_tiles.is_empty():
 		return
 
-	var rng = RandomNumberGenerator.new()
 	rng.seed = map_seed + 2 
 	
 	var target_tree_count = int(valid_spawn_tiles.size() * 0.015) 
@@ -197,8 +194,7 @@ func _spawn_trees() -> void:
 	var attempts = 0
 	
 	while placed_trees < target_tree_count and attempts < target_tree_count * 4:
-		var random_index = rng.randi_range(0, valid_spawn_tiles.size() - 1)
-		var cell_coords = valid_spawn_tiles[random_index]
+		var cell_coords = _get_random_spawn_cell()
 		
 		if _is_space_free(cell_coords, 1):
 			_reserve_space(cell_coords, 1)
@@ -214,3 +210,6 @@ func _spawn_trees() -> void:
 			placed_trees += 1
 			
 		attempts += 1
+
+func _get_random_spawn_cell() -> Vector2i:
+	return valid_spawn_tiles[rng.randi_range(0, valid_spawn_tiles.size() - 1)]

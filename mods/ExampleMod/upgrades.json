@@ -1,0 +1,11 @@
+[
+	{
+		"id": "example_mod_focus",
+		"base_text": "Example Focus: +%s%% Damage",
+		"base_val": 18,
+		"unique": true,
+		"effects": [
+			{"stat": "damage", "op": "add_percent"}
+		]
+	}
+]

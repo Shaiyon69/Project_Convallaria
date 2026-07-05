@@ -1,0 +1,9 @@
+{
+	"id": "example_mod",
+	"name": "Example Mod",
+	"version": "1.0.0",
+	"author": "Convallaria Team",
+	"supported_game_version": "1.0.0",
+	"enabled": false,
+	"dependencies": []
+}

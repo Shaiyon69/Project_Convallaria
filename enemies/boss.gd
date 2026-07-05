@@ -88,9 +88,10 @@ func apply_stats(stats: Dictionary) -> void:
 func _setup_as_boss() -> void:
 	is_boss = true
 	
-	var current_floor = Data.current_floor if "current_floor" in Data else 1
-	var hp_multiplier = 1.0 + ((current_floor - 1) * 1.5)
-	var dmg_multiplier = 1.0 + ((current_floor - 1) * 0.3)
+	var current_floor = Data.current_floor
+	var run_minutes = Data.get_run_minutes()
+	var hp_multiplier = 1.0 + ((current_floor - 1) * 1.5) + (run_minutes * 0.25)
+	var dmg_multiplier = 1.0 + ((current_floor - 1) * 0.3) + (run_minutes * 0.10)
 	
 	max_health = int(max_health * hp_multiplier)
 	health = max_health
@@ -184,6 +185,9 @@ func _update_animations() -> void:
 		active_sprite.play(facing)
 	else:
 		active_sprite.stop()
+
+func _on_path_timer_timeout() -> void:
+	pass
 
 func _on_special_attack() -> void:
 	if is_dying or not player or is_hurt:
@@ -347,7 +351,7 @@ func _transform_phase_two() -> void:
 	
 	active_sprite.scale = default_sprite_scale
 	
-	var current_floor = Data.current_floor if "current_floor" in Data else 1
+	var current_floor = Data.current_floor
 	var new_color = base_color
 	var glow_color = Color(1.0, 0.0, 0.0)
 

@@ -57,7 +57,7 @@ func apply_stats(stats: Dictionary) -> void:
 	max_health = health
 	speed = stats["speed"]
 	original_speed = speed
-	exp_value = stats.get("exp_value", 1)
+	exp_value = stats.get("exp", stats.get("exp_value", 1))
 	attack_damage = stats["damage"]
 	scale = Vector2(stats["scale"], stats["scale"])
 	base_color = stats["color"]
@@ -81,20 +81,19 @@ func apply_stats(stats: Dictionary) -> void:
 		is_shooter = true
 
 	if stats.has("is_death_slime") and stats["is_death_slime"]:
-		if player and player.time_survived > 600.0:
-			var extra_minutes = (player.time_survived - 600.0) / 60.0
-			var power_multiplier = 1.0 + (extra_minutes * 0.5)
-			var speed_multiplier = 1.0 + (extra_minutes * 0.2)
-			var size_multiplier = 1.0 + (extra_minutes * 0.1)
-			
-			health = int(health * power_multiplier)
-			max_health = health
-			attack_damage = int(attack_damage * power_multiplier)
-			
-			speed = speed * speed_multiplier
-			original_speed = speed
-			
-			scale *= size_multiplier
+		var overtime_minutes = 0.0
+		if player:
+			overtime_minutes = max(0.0, (player.time_survived - float(Data.STAGE_SETTINGS.get("stage_duration", 600))) / 60.0)
+		var power_multiplier = 1.0 + (overtime_minutes * 0.5)
+		var speed_multiplier = 1.0 + (overtime_minutes * 0.2)
+		var size_multiplier = 1.0 + (overtime_minutes * 0.1)
+
+		health = int(health * power_multiplier)
+		max_health = health
+		attack_damage = int(attack_damage * power_multiplier)
+		speed = speed * speed_multiplier
+		original_speed = speed
+		scale *= size_multiplier
 
 func _physics_process(delta: float) -> void:
 	if is_dying:
@@ -173,13 +172,16 @@ func _update_expensive_logic() -> void:
 		# Only cast rays 5 times a second
 		if not is_shooter:
 			current_steer = _get_whisker_steering()
-			
+
 		if soft_collision.has_overlapping_areas():
 			var areas = soft_collision.get_overlapping_areas()
 			var max_checks = min(areas.size(), 3)
 			for i in range(max_checks):
 				push_vector += areas[i].global_position.direction_to(global_position)
 			push_vector = push_vector.normalized()
+
+func _on_path_timer_timeout() -> void:
+	pass
 
 func _get_whisker_steering() -> Vector2:
 	var space_state = get_world_2d().direct_space_state
@@ -312,6 +314,7 @@ func _die() -> void:
 	# OPTIMIZATION: Removed the massive get_nodes_in_group check here!
 	var p_chance = 0.01 * drop_tier
 	var c_chance = 0.05 * drop_tier
+	var heal_chance = float(Data.PICKUP_SETTINGS.get("heal_drop_chance", 0.025)) * drop_tier
 
 	if roll <= p_chance:
 		new_seed.seed_type = 1
@@ -325,6 +328,9 @@ func _die() -> void:
 	elif roll <= (p_chance * 3) + (c_chance * 2):
 		new_seed.seed_type = 5
 		new_seed.exp_amount = 1 * drop_tier
+	elif roll <= (p_chance * 3) + (c_chance * 2) + heal_chance:
+		new_seed.seed_type = 6
+		new_seed.exp_amount = int(Data.PICKUP_SETTINGS.get("heal_amount", 35))
 	else:
 		new_seed.seed_type = 0
 		new_seed.exp_amount = exp_value

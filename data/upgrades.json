@@ -1,0 +1,23 @@
+[
+	{"id": "max_hp", "base_text": "+%s%% Max HP", "base_val": 15},
+	{"id": "speed", "base_text": "+%s%% Speed", "base_val": 8},
+	{"id": "damage", "base_text": "+%s%% Damage", "base_val": 15},
+	{"id": "fire_rate", "base_text": "+%s%% Fire Rate", "base_val": 10},
+	{"id": "aoe_size", "base_text": "+%s%% Weapon Area", "base_val": 15},
+	{"id": "regeneration", "base_text": "+%s HP Regen", "base_val": 2.0},
+	{"id": "thorns", "base_text": "Reflect %s%% Damage", "base_val": 50},
+	{"id": "evasion", "base_text": "+%s%% Dodge", "base_val": 5},
+	{"id": "crit_chance", "base_text": "+%s%% Crit Chance", "base_val": 5},
+	{"id": "glass_cannon", "base_text": "Glass Cannon: +40% Dmg, -20% HP", "base_val": 40, "unique": true},
+	{"id": "heavy_armor", "base_text": "Heavy Armor: +50% Thorns, -15% Speed", "base_val": 50, "unique": true},
+	{"id": "berserker", "base_text": "Berserker: +30% Fire Rate, -10% Evasion", "base_val": 30, "unique": true},
+	{"id": "vampiric_edge", "base_text": "Vampiric Edge: +%s%% Kill Leech", "base_val": 3, "unique": true},
+	{"id": "magnet_training", "base_text": "+%s%% Pickup Range", "base_val": 25, "unique": true},
+	{"id": "precision", "base_text": "Precision: +%s%% Crit and Damage", "base_val": 8, "unique": true},
+	{"id": "momentum", "base_text": "Momentum: +%s%% Speed and Fire Rate", "base_val": 6, "unique": true},
+	{"id": "soul_harvest", "base_text": "Soul Harvest: +%s%% EXP and +1 Regen", "base_val": 15, "unique": true},
+	{"id": "exp_boost", "base_text": "+%s%% EXP", "base_val": 20},
+	{"id": "multi_attack", "base_text": "+%s Attack Strike", "base_val": 1},
+	{"id": "fire_imbue", "base_text": "Add Fire Damage (Burn)", "base_val": 0, "unique": true},
+	{"id": "frost_imbue", "base_text": "Add Frost Damage (Slow)", "base_val": 0, "unique": true}
+]

@@ -35,14 +35,14 @@ texture = ExtResource("2_ythhp")
 
 [node name="Interact" type="Control" parent="." unique_id=1669760785]
 layout_mode = 3
-anchor_left = 0.69375
-anchor_top = 0.54444444
-anchor_right = 0.78125
-anchor_bottom = 0.6111111
-offset_left = 56.0
-offset_top = 88.0
-offset_right = 56.0
-offset_bottom = 88.0
+anchor_left = 0.73700005
+anchor_top = 0.66700006
+anchor_right = 0.86853135
+anchor_bottom = 0.73994446
+offset_left = 0.6399536
+offset_top = -0.24005127
+offset_right = -30.720093
+offset_bottom = 0.23999023
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("4_8asj2")
@@ -50,15 +50,9 @@ metadata/_edit_use_anchors_ = true
 
 [node name="HBoxContainer" type="HBoxContainer" parent="Interact" unique_id=2018559954]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -64.0
-offset_top = -24.000015
-offset_right = 64.0
-offset_bottom = 24.000015
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(1.2702333, 1.2702333)
@@ -68,6 +62,7 @@ size_flags_vertical = 8
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
+action_mode = 0
 texture_normal = ExtResource("4_jnhep")
 
 [node name="Interact" type="Label" parent="Interact/HBoxContainer/InteractButton" unique_id=1607731663]

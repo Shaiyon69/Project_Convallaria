@@ -106,6 +106,27 @@ func _on_main_menu_start_pressed() -> void:
 		
 	_refresh_shop_ui()
 
+func _on_start_button_mouse_entered() -> void:
+	pass
+
+func _on_start_button_mouse_exited() -> void:
+	pass
+
+func _on_start_button_pressed() -> void:
+	pass
+
+func _on_options_button_mouse_entered() -> void:
+	pass
+
+func _on_options_button_mouse_exited() -> void:
+	pass
+
+func _on_quit_button_mouse_entered() -> void:
+	pass
+
+func _on_quit_button_mouse_exited() -> void:
+	pass
+
 func _on_options_button_pressed() -> void:
 	if options_menu: options_menu.show()
 
@@ -119,6 +140,7 @@ func _on_shop_closed() -> void:
 		AudioManager.play_music(load(Data.MUSIC["menu"]))
 
 func _on_start_run_pressed() -> void:
+	Data.start_new_run()
 	Data.starting_weapon = selected_weapon
 	TransitionManager.change_scene("res://world/world.tscn")
 
