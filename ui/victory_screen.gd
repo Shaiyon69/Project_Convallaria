@@ -32,7 +32,7 @@ func _ready() -> void:
 	Data.coins += victory_bonus
 	
 	var kills = Data.player_data.get("kill_count", 0)
-	var time = Data.player_data.get("time_survived", 0.0)
+	var time = Data.player_data.get("run_time", Data.run_time)
 	
 	var mins = int(time) / 60
 	var secs = int(time) % 60
@@ -139,8 +139,6 @@ func _play_sfx(stream: AudioStream, start_offset: float = 0.62) -> void:
 	sfx_player.finished.connect(sfx_player.queue_free)
 
 func _on_return_button_pressed() -> void:
-	Data.player_data.clear()
-	Data.silver = 0
-	Data.current_floor = 1
+	Data.start_new_run()
 	
 	TransitionManager.change_scene("res://ui/gui.tscn")

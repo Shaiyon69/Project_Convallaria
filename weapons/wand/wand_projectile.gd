@@ -9,6 +9,7 @@ var size_multiplier: float = 1.0
 var pierce_count: int = 0
 var ricochet_count: int = 0
 var hit_enemies: Array = []
+var hit_enemy_lookup: Dictionary = {}
 
 var imbue_fire: bool = false
 var imbue_frost: bool = false
@@ -16,23 +17,27 @@ var imbue_frost: bool = false
 var player_ref: Node2D = null
 
 var sfx_shoot = preload("res://weapons/wand/shooting.mp3")
+var explosion_query := PhysicsShapeQueryParameters2D.new()
+var explosion_shape := CircleShape2D.new()
+
+@onready var screen_notifier: VisibleOnScreenNotifier2D = $VisibleOnScreenNotifier2D
 
 func _ready() -> void:
 	_play_shoot_sound()
+	rotation = direction.angle()
 	body_entered.connect(_on_body_entered)
-	if has_node("VisibleOnScreenNotifier2D"):
-		$VisibleOnScreenNotifier2D.screen_exited.connect(queue_free)
+	screen_notifier.screen_exited.connect(queue_free)
 
 func _physics_process(delta: float) -> void:
 	global_position += direction * speed * delta
-	rotation = direction.angle()
 
 func _on_body_entered(body: Node2D) -> void:
-	if hit_enemies.has(body):
+	if hit_enemy_lookup.has(body):
 		return
 		
 	if body.is_in_group("enemy"):
 		hit_enemies.append(body)
+		hit_enemy_lookup[body] = true
 		_trigger_explosion()
 
 		if pierce_count > 0:
@@ -50,15 +55,16 @@ func _on_body_entered(body: Node2D) -> void:
 func _bounce_to_next_target(exclude_target: Node2D) -> void:
 	var enemies = get_tree().get_nodes_in_group("enemy")
 	var nearest = null
-	var min_dist = 400.0 * size_multiplier
+	var max_dist = 400.0 * size_multiplier
+	var min_dist_sq = max_dist * max_dist
 	
 	for enemy in enemies:
-		if enemy == exclude_target or enemy.get("is_dying") == true or hit_enemies.has(enemy):
+		if enemy == exclude_target or enemy.get("is_dying") == true or hit_enemy_lookup.has(enemy):
 			continue
 			
-		var dist = global_position.distance_to(enemy.global_position)
-		if dist < min_dist:
-			min_dist = dist
+		var dist_sq = global_position.distance_squared_to(enemy.global_position)
+		if dist_sq < min_dist_sq:
+			min_dist_sq = dist_sq
 			nearest = enemy
 
 	if nearest:
@@ -69,15 +75,11 @@ func _bounce_to_next_target(exclude_target: Node2D) -> void:
 
 func _trigger_explosion() -> void:
 	var space_state = get_world_2d().direct_space_state
-	var query = PhysicsShapeQueryParameters2D.new()
+	explosion_shape.radius = explosion_radius * size_multiplier
+	explosion_query.shape = explosion_shape
+	explosion_query.transform = Transform2D(0, global_position)
 	
-	var circle_shape = CircleShape2D.new()
-	circle_shape.radius = explosion_radius * size_multiplier 
-	
-	query.shape = circle_shape
-	query.transform = Transform2D(0, global_position)
-	
-	var results = space_state.intersect_shape(query)
+	var results = space_state.intersect_shape(explosion_query)
 	
 	for result in results:
 		var target = result.collider

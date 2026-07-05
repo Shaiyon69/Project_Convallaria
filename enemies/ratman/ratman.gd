@@ -39,13 +39,10 @@ shader_type canvas_item;
 uniform bool enraged = false;
 uniform vec4 enraged_color : source_color = vec4(1.0, 0.0, 0.0, 1.0);
 uniform float pulse_speed = 5.0;
-uniform bool hit_flash = false;
 
 void fragment() {
 	vec4 tex_color = texture(TEXTURE, UV);
-	if (hit_flash && tex_color.a > 0.0) {
-		COLOR = vec4(1.0, 1.0, 1.0, tex_color.a);
-	} else if (enraged && tex_color.a > 0.0) {
+	if (enraged && tex_color.a > 0.0) {
 		float pulse = (sin(TIME * pulse_speed) + 1.0) * 0.5;
 		vec4 glow = mix(tex_color, enraged_color, pulse * 0.55);
 		COLOR = glow;
@@ -121,9 +118,7 @@ func _setup_as_boss() -> void:
 	is_boss = true
 	is_shooter = true 
 	
-	var minutes_survived = 0.0
-	if player and "time_survived" in player:
-		minutes_survived = player.time_survived / 60.0
+	var minutes_survived = Data.get_run_minutes()
 
 	var hp_mult = 1.0 + (minutes_survived * 0.40)
 	var dmg_mult = 1.0 + (minutes_survived * 0.15)
@@ -212,6 +207,9 @@ func _update_animation(dir: Vector2) -> void:
 			anim.play("walk_down")
 		else:
 			anim.play("walk_up")
+
+func _on_path_timer_timeout() -> void:
+	pass
 
 func _shoot_projectile(dir: Vector2, scale_mult: float = 1.0) -> void:
 	if not projectile_scene or is_dying: return
@@ -377,17 +375,18 @@ func _transform_phase_two() -> void:
 func _play_hurt() -> void:
 	if is_dying: return
 	
-	anim.material.set_shader_parameter("hit_flash", true)
-	
 	if pulse_tween and pulse_tween.is_valid():
 		pulse_tween.pause()
 		
-	anim.modulate = Color(3.0, 3.0, 3.0)
+	var hurt_scale = default_sprite_scale * 0.92
+	anim.modulate = base_color.darkened(0.35)
+	var tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(anim, "scale", hurt_scale, 0.05)
+	tween.tween_property(anim, "scale", default_sprite_scale, 0.10)
 	
 	await get_tree().create_timer(0.15).timeout
 	
 	if is_inside_tree() and anim and anim.material and not is_dying:
-		anim.material.set_shader_parameter("hit_flash", false)
 		if pulse_tween and pulse_tween.is_valid():
 			pulse_tween.play()
 		else:
@@ -403,7 +402,6 @@ func die() -> void:
 		pulse_tween.kill()
 		
 	if anim and anim.material:
-		anim.material.set_shader_parameter("hit_flash", false)
 		anim.material.set_shader_parameter("enraged", false)
 		anim.modulate = base_color
 		
@@ -439,6 +437,9 @@ func die() -> void:
 			else:
 				seed_inst.global_position = global_position
 			seed_inst.exp_amount = exp_value
+			if not is_boss and randf() <= float(Data.PICKUP_SETTINGS.get("heal_drop_chance", 0.025)):
+				seed_inst.seed_type = 6
+				seed_inst.exp_amount = int(Data.PICKUP_SETTINGS.get("heal_amount", 35))
 			get_tree().current_scene.call_deferred("add_child", seed_inst)
 			
 	queue_free()

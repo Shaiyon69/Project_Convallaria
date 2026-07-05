@@ -62,7 +62,12 @@ func _summon_boss() -> void:
 		boss.global_position = _calculate_spawn_position()
 		
 		if boss.has_method("apply_stats"):
-			boss.apply_stats(Data.ENEMIES["boss"])
+			var boss_stats = Data.ENEMIES["boss"].duplicate()
+			var run_minutes = Data.get_run_minutes()
+			var run_multiplier = 1.0 + (run_minutes * 0.20)
+			boss_stats["health"] = int(boss_stats["health"] * run_multiplier)
+			boss_stats["damage"] = int(boss_stats["damage"] * (1.0 + run_minutes * 0.08))
+			boss.apply_stats(boss_stats)
 		
 		boss.tree_exited.connect(_on_boss_defeated)
 	else:

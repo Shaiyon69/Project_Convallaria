@@ -1,0 +1,13 @@
+{
+	"example_mod_lily": {
+		"name": "Practice Lily",
+		"icon": "assets/example_lily.svg",
+		"type": "example_focus",
+		"value": 4.0,
+		"rarity": "green",
+		"desc": "A data-only relic that increases damage through item effects.",
+		"effects": [
+			{"stat": "damage", "op": "add_percent", "value": 4.0}
+		]
+	}
+}

@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://b2s06ii5t8m1l"]
 
-[ext_resource type="Script" uid="uid://cwg8kal7flaf5" path="res://core/options.gd" id="1_2iy26"]
-[ext_resource type="FontFile" uid="uid://cr50vmsbetxqf" path="res://fonts/PixelifySans-VariableFont_wght.ttf" id="1_yjkok"]
-[ext_resource type="Texture2D" uid="uid://c0byx34hgmu55" path="res://menu_buttons.png" id="2_2iy26"]
-[ext_resource type="Texture2D" uid="uid://lwwm2a61mps8" path="res://title_background.png" id="2_kv8mn"]
+[ext_resource type="Script" uid="uid://cwg8kal7flaf5" path="res://ui/options.gd" id="1_2iy26"]
+[ext_resource type="FontFile" uid="uid://cr50vmsbetxqf" path="res://ui/fonts/PixelifySans-VariableFont_wght.ttf" id="1_yjkok"]
+[ext_resource type="Texture2D" uid="uid://c0byx34hgmu55" path="res://ui/menu_buttons.png" id="2_2iy26"]
+[ext_resource type="Texture2D" uid="uid://lwwm2a61mps8" path="res://ui/title_background.png" id="2_kv8mn"]
 
 [sub_resource type="FontVariation" id="FontVariation_kv8mn"]
 base_font = ExtResource("1_yjkok")

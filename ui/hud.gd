@@ -6,16 +6,29 @@ var current_options: Array = []
 
 var _current_level: int = 1
 var _exp_display_timer: float = 0.0
+var _last_time_text: String = ""
+var _last_time_danger: bool = false
 
 var stats_wrapper: Control = null
+var upgrade_buttons: Array[BaseButton] = []
+var _texture_cache: Dictionary = {}
 
 @onready var gold_label = %GoldLabel if has_node("%GoldLabel") else null
 @onready var silver_label = %SilverLabel if has_node("%SilverLabel") else null
 @onready var kill_label = %KillLabel if has_node("%KillLabel") else null
 @onready var health_bar = %HealthBar if has_node("%HealthBar") else null
+@onready var health_label = %HealthLabel if has_node("%HealthLabel") else null
 @onready var boss_health_bar = %BossHealthBar if has_node("%BossHealthBar") else null
+@onready var exp_bar = %ExpBar if has_node("%ExpBar") else null
+@onready var exp_label = %ExpLabel if has_node("%ExpLabel") else null
+@onready var time_label = %TimeLabel if has_node("%TimeLabel") else null
+@onready var low_hp_warning = $PauseBox/LowHPWarning if has_node("PauseBox/LowHPWarning") else null
+@onready var pause_overlay = %PauseOverlay if has_node("%PauseOverlay") else null
+@onready var game_over_screen = %GameOverScreen if has_node("%GameOverScreen") else null
+@onready var level_up_screen = %LevelUpScreen if has_node("%LevelUpScreen") else null
 
 @onready var stat_list = $MarginContainer/VBoxContainer/MainScreen/RightPanel/StatList if has_node("MarginContainer/VBoxContainer/MainScreen/RightPanel/StatList") else find_child("StatList", true, false)
+@onready var stats_grid = find_child("Stats", true, false)
 
 @onready var item_get_popup = %ItemGetPopup if has_node("%ItemGetPopup") else null
 @onready var item_name_label = %ItemNameLabel if has_node("%ItemNameLabel") else null
@@ -39,6 +52,7 @@ var stats_wrapper: Control = null
 
 @onready var sfx_hover = preload("res://ui/menu_hover.mp3")
 @onready var sfx_click = preload("res://ui/menu_click.mp3")
+@onready var custom_font = preload("res://ui/fonts/PixelifySans-VariableFont_wght.ttf")
 
 var _base_button_scales: Dictionary = {}
 var _target_button_scales: Dictionary = {}
@@ -48,9 +62,9 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	
 	get_tree().paused = false
-	if has_node("%PauseOverlay"): %PauseOverlay.hide()
-	if has_node("%GameOverScreen"): %GameOverScreen.hide()
-	if has_node("%LevelUpScreen"): %LevelUpScreen.hide()
+	if pause_overlay: pause_overlay.hide()
+	if game_over_screen: game_over_screen.hide()
+	if level_up_screen: level_up_screen.hide()
 	if boss_health_bar: boss_health_bar.hide()
 	
 	var right_panel = find_child("RightPanel", true, false)
@@ -95,9 +109,11 @@ func _ready() -> void:
 	if has_node("%TryAgain"): %TryAgain.pressed.connect(_on_try_again_pressed)
 	if has_node("%Exit"): %Exit.pressed.connect(_on_exit_pressed)
 	
-	if has_node("%Upgrade1"): %Upgrade1.pressed.connect(_on_upgrade_pressed.bind(0))
-	if has_node("%Upgrade2"): %Upgrade2.pressed.connect(_on_upgrade_pressed.bind(1))
-	if has_node("%Upgrade3"): %Upgrade3.pressed.connect(_on_upgrade_pressed.bind(2))
+	if has_node("%Upgrade1"): upgrade_buttons.append(%Upgrade1)
+	if has_node("%Upgrade2"): upgrade_buttons.append(%Upgrade2)
+	if has_node("%Upgrade3"): upgrade_buttons.append(%Upgrade3)
+	for i in range(upgrade_buttons.size()):
+		upgrade_buttons[i].pressed.connect(_on_upgrade_pressed.bind(i))
 	
 	if pause_resume_btn: pause_resume_btn.pressed.connect(_on_pause_start_pressed)
 	if pause_options_btn: pause_options_btn.pressed.connect(_on_pause_options_pressed)
@@ -117,24 +133,24 @@ func _process(delta: float) -> void:
 	if _exp_display_timer > 0:
 		_exp_display_timer -= delta
 		if _exp_display_timer <= 0:
-			if has_node("%ExpLabel"):
-				%ExpLabel.text = "LVL " + str(_current_level)
+			if exp_label:
+				exp_label.text = "LVL " + str(_current_level)
 
 func update_exp(current: int, maximum: int) -> void:
-	if has_node("%ExpBar"):
-		%ExpBar.max_value = maximum
-		%ExpBar.value = current
+	if exp_bar:
+		exp_bar.max_value = maximum
+		exp_bar.value = current
 		
-	if has_node("%ExpLabel"):
-		%ExpLabel.text = str(current) + " / " + str(maximum)
+	if exp_label:
+		exp_label.text = str(current) + " / " + str(maximum)
 		_exp_display_timer = 2.0
 
 func update_level(level: int) -> void:
 	_current_level = level
 	
-	if has_node("%ExpLabel"):
+	if exp_label:
 		if _exp_display_timer <= 0:
-			%ExpLabel.text = "LVL " + str(_current_level)
+			exp_label.text = "LVL " + str(_current_level)
 
 func update_coins(gold_amount: int = 0, silver_amount: int = 0) -> void:
 	if gold_label:
@@ -153,7 +169,7 @@ func show_item_get(item_id: String) -> void:
 	var item_data = Data.ITEMS[item_id]
 	
 	item_name_label.text = item_data["name"]
-	item_icon_display.texture = load(item_data["icon"])
+	item_icon_display.texture = _get_cached_texture(item_data["icon"])
 	item_desc_label.text = item_data["desc"]
 	
 	if Data.RARITY.has(item_data["rarity"]):
@@ -180,7 +196,7 @@ func update_inventory_display(owned_items: Array) -> void:
 	for item_id in item_counts:
 		var count = item_counts[item_id]
 		var tex_rect = TextureRect.new()
-		tex_rect.texture = load(Data.ITEMS[item_id]["icon"])
+		tex_rect.texture = _get_cached_texture(Data.ITEMS[item_id]["icon"])
 		tex_rect.custom_minimum_size = Vector2(32, 32)
 		tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		
@@ -205,7 +221,7 @@ func update_weapon_slots(weapon_ids: Array) -> void:
 	if weapon_ids.size() > 0:
 		var w_id = weapon_ids[0]
 		var icon_path = Data.WEAPONS[w_id]["icon"]
-		icon.texture = load(icon_path)
+		icon.texture = _get_cached_texture(icon_path)
 	else:
 		icon.texture = null
 		
@@ -216,51 +232,50 @@ func update_health(current: float, maximum: float) -> void:
 	if health_bar:
 		health_bar.max_value = maximum
 		health_bar.value = current
-	if has_node("%HealthLabel"):
-		%HealthLabel.text = str(int(current), "/", int(maximum))
+	if health_label:
+		health_label.text = str(int(current), "/", int(maximum))
 	
-	if current / maximum <= 0.3:
-		if has_node("PauseBox/LowHPWarning"): $PauseBox/LowHPWarning.visible = true
-	else:
-		if has_node("PauseBox/LowHPWarning"): $PauseBox/LowHPWarning.visible = false
+	if low_hp_warning:
+		low_hp_warning.visible = current / maximum <= 0.3
 
 func update_time(minutes: int, seconds: int) -> void:
-	if has_node("%TimeLabel"):
-		%TimeLabel.text = "%02d:%02d" % [minutes, seconds]
-		if minutes >= 10:
-			%TimeLabel.add_theme_color_override("font_color", Color(1, 0.2, 0.2))
-		else:
-			%TimeLabel.add_theme_color_override("font_color", Color(1, 1, 1))
+	if not time_label:
+		return
+	var next_time_text = "%02d:%02d" % [minutes, seconds]
+	if next_time_text != _last_time_text:
+		_last_time_text = next_time_text
+		time_label.text = next_time_text
+	var is_danger = minutes >= 10
+	if is_danger != _last_time_danger:
+		_last_time_danger = is_danger
+		time_label.add_theme_color_override("font_color", Color(1, 0.2, 0.2) if is_danger else Color(1, 1, 1))
 
 func show_level_up(options: Array) -> void:
 	current_options = options
-	var buttons = []
-	if has_node("%Upgrade1"): buttons.append(%Upgrade1)
-	if has_node("%Upgrade2"): buttons.append(%Upgrade2)
-	if has_node("%Upgrade3"): buttons.append(%Upgrade3)
 	
-	for i in range(buttons.size()):
+	for i in range(upgrade_buttons.size()):
 		if i < options.size():
-			buttons[i].text = options[i]["text"]
-			buttons[i].add_theme_color_override("font_color", options[i]["color"])
-			buttons[i].show()
+			upgrade_buttons[i].text = options[i]["text"]
+			upgrade_buttons[i].add_theme_color_override("font_color", options[i]["color"])
+			upgrade_buttons[i].show()
 		else:
-			buttons[i].hide()
+			upgrade_buttons[i].hide()
 			
-	if has_node("%LevelUpScreen"): %LevelUpScreen.visible = true
+	if level_up_screen: level_up_screen.visible = true
 	if stats_wrapper: stats_wrapper.show()
 
 func _on_upgrade_pressed(index: int) -> void:
-	if has_node("%LevelUpScreen"): %LevelUpScreen.visible = false
+	if level_up_screen: level_up_screen.visible = false
 	if stats_wrapper: stats_wrapper.hide()
 	get_tree().paused = false
 	upgrade_selected.emit(current_options[index])
 
 func show_game_over() -> void:
-	if has_node("%GameOverScreen"): %GameOverScreen.visible = true
+	if game_over_screen: game_over_screen.visible = true
 
 func _on_try_again_pressed() -> void:
 	get_tree().paused = false
+	Data.start_new_run()
 	TransitionManager.change_scene("res://world/world.tscn")
 
 func _on_exit_pressed() -> void:
@@ -269,14 +284,14 @@ func _on_exit_pressed() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		if (has_node("%GameOverScreen") and %GameOverScreen.visible) or (has_node("%LevelUpScreen") and %LevelUpScreen.visible) or (item_get_popup and item_get_popup.visible):
+		if (game_over_screen and game_over_screen.visible) or (level_up_screen and level_up_screen.visible) or (item_get_popup and item_get_popup.visible):
 			return
 		_toggle_pause()
 
 func _toggle_pause() -> void:
 	var is_paused = get_tree().paused
 	get_tree().paused = !is_paused
-	if has_node("%PauseOverlay"): %PauseOverlay.visible = !is_paused
+	if pause_overlay: pause_overlay.visible = !is_paused
 	if stats_wrapper: stats_wrapper.visible = !is_paused
 
 func _on_pause_start_pressed() -> void:
@@ -287,6 +302,7 @@ func _on_pause_options_pressed() -> void:
 
 func _on_pause_restart_pressed() -> void:
 	get_tree().paused = false
+	Data.start_new_run()
 	TransitionManager.change_scene("res://world/world.tscn")
 
 func _on_pause_quit_pressed() -> void:
@@ -314,11 +330,9 @@ func _setup_button_animations() -> void:
 		pause_resume_btn, pause_options_btn, pause_quit_btn, pause_restart_btn, mobile_pause_btn,
 		%TryAgain if has_node("%TryAgain") else null,
 		%Exit if has_node("%Exit") else null,
-		%Upgrade1 if has_node("%Upgrade1") else null,
-		%Upgrade2 if has_node("%Upgrade2") else null,
-		%Upgrade3 if has_node("%Upgrade3") else null,
 		continue_btn
 	]
+	animated_buttons.append_array(upgrade_buttons)
 	
 	for button in animated_buttons:
 		if not button: continue
@@ -383,8 +397,6 @@ func hide_boss_health() -> void:
 		boss_health_bar.hide()
 
 func update_player_stats(player: Node2D) -> void:
-	var stats_grid = find_child("Stats", true, false)
-	
 	if not stats_grid:
 		return
 		
@@ -394,8 +406,6 @@ func update_player_stats(player: Node2D) -> void:
 	for child in stats_grid.get_children():
 		child.queue_free()
 		
-	var custom_font = load("res://ui/fonts/PixelifySans-VariableFont_wght.ttf")
-	
 	var add_header = func(text: String):
 		var lbl1 = Label.new()
 		lbl1.text = text
@@ -466,3 +476,8 @@ func update_player_stats(player: Node2D) -> void:
 			add_stat.call("Projectiles:", "+" + str(w_data["projectile"]), Color("yellow"))
 	else:
 		add_header.call("No Weapon Equipped")
+
+func _get_cached_texture(path: String):
+	if not _texture_cache.has(path):
+		_texture_cache[path] = load(path)
+	return _texture_cache[path]

@@ -1,0 +1,6 @@
+{
+	"despawn_time": 25.0,
+	"warning_time": 5.0,
+	"heal_amount": 35,
+	"heal_drop_chance": 0.025
+}

@@ -1,0 +1,13 @@
+{
+	"default": {
+		"duration": 600,
+		"spawn_interval": 1.0,
+		"difficulty_interval": 5.0,
+		"min_spawn_interval": 0.5,
+		"spawn_count": 1,
+		"enemy_spawn_chances": {
+			"basic": {"base": 100.0, "growth": 0.0},
+			"ratman": {"base": 5.0, "growth": 10.0}
+		}
+	}
+}

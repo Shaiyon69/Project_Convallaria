@@ -35,6 +35,7 @@ var base_speed_before_boost: float = 0.0
 
 var owned_weapons: Dictionary = {}
 var owned_items: Array = []
+var acquired_unique_upgrades: Array[String] = []
 
 var vampirism_rate: float = 0.0
 var greed_multiplier: float = 0.0
@@ -54,6 +55,8 @@ var nova_timer: float = 0.0
 var nova_cooldown: float = 20.0
 
 var end_times_triggered: bool = false
+var magnet_scan_interval: float = 0.2
+var magnet_scan_timer: float = 0.0
 
 var sfx_pickup = preload("res://player/orb.mp3")
 var sfx_levelup = preload("res://assets/audio/levelup.wav")
@@ -63,6 +66,10 @@ var last_sfx_time: int = 0
 
 @onready var hud = $HUD
 @onready var step_sound = $StepSound
+@onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
+@onready var hurt_box: Area2D = $HurtBox
+@onready var magnet_zone: Area2D = $MagnetZone
+@onready var weapon_manager: Node2D = $WeaponManager
 
 func _ready() -> void:
 	if Data.player_data.is_empty():
@@ -85,24 +92,23 @@ func _ready() -> void:
 		hud.update_coins()
 	
 	hud.upgrade_selected.connect(_apply_upgrade)
-	%MagnetZone.area_entered.connect(_on_magnet_zone_area_entered)
+	magnet_zone.area_entered.connect(_on_magnet_zone_area_entered)
 	
 	if hud.has_method("update_player_stats"):
 		hud.update_player_stats(self)
 
 func _apply_permanent_upgrades() -> void:
-	if "permanent_upgrades" in Data:
-		var upgrades = Data.permanent_upgrades
-		if upgrades.has("max_hp"):
-			max_health += upgrades["max_hp"]["level"] * 10.0
-		if upgrades.has("damage"):
-			base_damage_multiplier += upgrades["damage"]["level"] * 0.05
-		if upgrades.has("speed"):
-			speed += upgrades["speed"]["level"] * 10.0
-		if upgrades.has("regeneration"):
-			hp_regen_rate += upgrades["regeneration"]["level"] * 0.5
-		if upgrades.has("armor"):
-			thorns_multiplier += upgrades["armor"]["level"] * 0.1
+	var upgrades = Data.permanent_upgrades
+	if upgrades.has("max_hp"):
+		max_health += upgrades["max_hp"]["level"] * 10.0
+	if upgrades.has("damage"):
+		base_damage_multiplier += upgrades["damage"]["level"] * 0.05
+	if upgrades.has("speed"):
+		speed += upgrades["speed"]["level"] * 10.0
+	if upgrades.has("regeneration"):
+		hp_regen_rate += upgrades["regeneration"]["level"] * 0.5
+	if upgrades.has("armor"):
+		thorns_multiplier += upgrades["armor"]["level"] * 0.1
 		if upgrades.has("evasion"):
 			evasion_chance += upgrades["evasion"]["level"] * 0.02
 		if upgrades.has("exp_gain"):
@@ -117,8 +123,9 @@ func save_data() -> void:
 		"hp_regen_rate": hp_regen_rate, "thorns_multiplier": thorns_multiplier,
 		"evasion_chance": evasion_chance, "base_crit_chance": base_crit_chance,
 		"exp_multiplier": exp_multiplier,
-		"kill_count": kill_count, "time_survived": time_survived,
-		"owned_weapons": owned_weapons, "owned_items": owned_items, "magnet_scale": magnet_scale
+		"kill_count": kill_count, "time_survived": time_survived, "run_time": Data.run_time,
+		"owned_weapons": owned_weapons, "owned_items": owned_items, "magnet_scale": magnet_scale,
+		"acquired_unique_upgrades": acquired_unique_upgrades
 	}
 
 func _load_data() -> void:
@@ -140,16 +147,25 @@ func _load_data() -> void:
 	base_crit_chance = pd.get("base_crit_chance", 0.0)
 	exp_multiplier = pd.get("exp_multiplier", 1.0)
 	kill_count = pd["kill_count"]
-	time_survived = pd["time_survived"]
+	time_survived = 0.0
+	Data.run_time = pd.get("run_time", Data.run_time)
+	acquired_unique_upgrades.clear()
+	for upgrade_id in pd.get("acquired_unique_upgrades", []):
+		acquired_unique_upgrades.append(str(upgrade_id))
 	
 	if pd.has("owned_items"):
-		owned_items = pd["owned_items"]
-		for item in owned_items:
-			_apply_relic_stats(item, false)
+		owned_items = []
+		for item in pd["owned_items"]:
+			var item_id := str(item)
+			if not Data.ITEMS.has(item_id):
+				push_warning("[DataEffects] Saved item '%s' is not available; skipping" % item_id)
+				continue
+			owned_items.append(item_id)
+			_apply_relic_stats(item_id, false)
 	
 	if pd.has("magnet_scale"):
 		magnet_scale = pd["magnet_scale"]
-		%MagnetZone.scale = Vector2(magnet_scale, magnet_scale)
+		magnet_zone.scale = Vector2(magnet_scale, magnet_scale)
 	
 	owned_weapons.clear()
 	var saved_weapons = pd["owned_weapons"]
@@ -159,8 +175,7 @@ func _load_data() -> void:
 			owned_weapons[w_id] = {"level": w_data, "damage": 1.0, "size": 1.0, "fire_rate": 1.0, "pierce": 0, "ricochet": 0, "projectile": 0}
 		else:
 			owned_weapons[w_id] = w_data
-		if has_node("WeaponManager"):
-			$WeaponManager.add_weapon(Data.WEAPONS[w_id]["scene_path"])
+		weapon_manager.add_weapon(Data.WEAPONS[w_id]["scene_path"], w_id)
 		
 	hud.update_weapon_slots(owned_weapons.keys())
 	if hud.has_method("update_inventory_display"):
@@ -170,6 +185,15 @@ func get_level_up_options() -> Array:
 	var valid_pool = []
 	
 	for upgrade in Data.UPGRADES:
+		if typeof(upgrade) != TYPE_DICTIONARY:
+			push_warning("[DataEffects] Upgrade entry must be an object")
+			continue
+		var upgrade_id := str(upgrade.get("id", ""))
+		if upgrade_id == "":
+			push_warning("[DataEffects] Upgrade entry is missing an id")
+			continue
+		if upgrade.get("unique", false) and acquired_unique_upgrades.has(upgrade_id):
+			continue
 		valid_pool.append({"type": "stat", "data": upgrade})
 		
 	if owned_weapons.size() < 1:
@@ -205,19 +229,38 @@ func get_level_up_options() -> Array:
 				var r_buff = possible_buffs.pick_random()
 				valid_pool.append({"type": "weapon_buff", "id": active_weapon, "buff": r_buff})
 
+	var options = []
+	var used_ids: Dictionary = {}
+	var attempts := 0
 	valid_pool.shuffle()
 	
-	var options = []
-	for i in range(min(3, valid_pool.size())):
-		var item = valid_pool[i]
+	while options.size() < 3 and valid_pool.size() > 0 and attempts < 24:
+		attempts += 1
+		var item: Dictionary = valid_pool.pop_front() as Dictionary
+		var option_id: String = str(item.get("id", ""))
+
+		if option_id == "" and item.has("data"):
+			option_id = str(item["data"].get("id", ""))
+		var unique_key = option_id + ":" + item.get("type", "")
+		if item.get("type", "") == "weapon_buff":
+			unique_key = option_id + ":" + item["buff"]["type"]
+		if used_ids.has(unique_key):
+			continue
+		used_ids[unique_key] = true
 		
 		var rarity = _roll_rarity()
 		var r_data = Data.RARITY[rarity]
 		var rarity_color = r_data["color"]
 		
 		if item["type"] == "stat":
-			var final_val = item["data"]["base_val"] * r_data["mult"]
-			var display_text = item["data"]["base_text"]
+			var upgrade_data: Dictionary = item["data"]
+			var option_source := "upgrade:" + str(upgrade_data.get("id", ""))
+			var base_value_result := _get_optional_data_number(upgrade_data, "base_val", 0.0, option_source)
+			if not base_value_result["ok"]:
+				continue
+
+			var final_val: float = base_value_result["value"] * float(r_data["mult"])
+			var display_text := str(upgrade_data.get("base_text", upgrade_data.get("id", "Upgrade")))
 			
 			if "%s" in display_text:
 				if "%%" in display_text or final_val != int(final_val):
@@ -226,8 +269,10 @@ func get_level_up_options() -> Array:
 					display_text = display_text % str(int(final_val))
 				
 			options.append({
-				"id": item["data"]["id"], "type": "stat", "text": display_text,
-				"color": rarity_color, "value": final_val, "rarity": rarity
+				"id": str(upgrade_data.get("id", "")), "type": "stat", "text": display_text,
+				"color": rarity_color, "value": final_val, "rarity": rarity,
+				"unique": upgrade_data.get("unique", false),
+				"effects": upgrade_data.get("effects", [])
 			})
 			
 		elif item["type"] == "weapon_unlock":
@@ -283,12 +328,14 @@ func _movement_handle():
 		if not step_sound.playing:
 			step_sound.play()
 	else:
-		step_sound.stop()
+		if step_sound.playing:
+			step_sound.stop()
 	_update_animations(direction)
 	move_and_slide()
 
 func _timer_calc(delta: float):
 	time_survived += delta
+	Data.advance_run_time(delta)
 	var minutes = int(time_survived) / 60
 	var seconds = int(time_survived) % 60
 	hud.update_time(minutes, seconds)
@@ -313,7 +360,7 @@ func add_kill() -> void:
 func _handle_damage(_delta: float) -> void:
 	if is_invincible:
 		return
-	var overlapping_mobs = %HurtBox.get_overlapping_bodies()
+	var overlapping_mobs = hurt_box.get_overlapping_bodies()
 	for body in overlapping_mobs:
 		if body.is_in_group("enemy"):
 			if randf() < evasion_chance:
@@ -366,21 +413,21 @@ func take_damage(damage_amount: int) -> void:
 func trigger_iframes() -> void:
 	is_invincible = true
 	var tween = create_tween()
-	tween.tween_property($AnimatedSprite2D, "modulate:a", 0.3, 0.1)
-	tween.tween_property($AnimatedSprite2D, "modulate:a", 1.0, 0.1)
+	tween.tween_property(animated_sprite, "modulate:a", 0.3, 0.1)
+	tween.tween_property(animated_sprite, "modulate:a", 1.0, 0.1)
 	tween.set_loops(int(i_frame_duration / 0.2))
 	await get_tree().create_timer(i_frame_duration).timeout
 	is_invincible = false
-	$AnimatedSprite2D.modulate.a = 1.0
+	animated_sprite.modulate.a = 1.0
 
 func _update_animations(dir: Vector2) -> void:
 	if dir.length() > 0:
 		if abs(dir.x) > abs(dir.y):
-			%AnimatedSprite2D.play("right" if dir.x > 0 else "left")
+			animated_sprite.play("right" if dir.x > 0 else "left")
 		else:
-			%AnimatedSprite2D.play("down" if dir.y > 0 else "up")
+			animated_sprite.play("down" if dir.y > 0 else "up")
 	else:
-		%AnimatedSprite2D.stop()
+		animated_sprite.stop()
 
 func _play_pickup_sfx(pitch: float, volume: float = -10.0, throttle: bool = false) -> void:
 	if throttle:
@@ -417,7 +464,6 @@ func gain_experience(amount: int) -> void:
 		exp_to_next_level = int(15 + (level * 10) * (level * 0.4))
 		max_health += 10.0
 		base_damage_multiplier += 0.05
-		current_health = max_health
 		leveled_up = true
 		
 	if leveled_up:
@@ -489,8 +535,8 @@ func _apply_upgrade(upgrade: Dictionary) -> void:
 		elif id == "multi_attack":
 			for w_id in owned_weapons:
 				owned_weapons[w_id]["projectile"] += int(val)
-				if has_node("WeaponManager") and $WeaponManager.has_method("update_weapon_stats"):
-					$WeaponManager.update_weapon_stats(w_id, owned_weapons[w_id])
+				if weapon_manager.has_method("update_weapon_stats"):
+					weapon_manager.update_weapon_stats(w_id, owned_weapons[w_id])
 		elif id == "glass_cannon":
 			base_damage_multiplier += (val / 100.0)
 			max_health -= (max_health * 0.20)
@@ -503,6 +549,27 @@ func _apply_upgrade(upgrade: Dictionary) -> void:
 		elif id == "berserker":
 			fire_rate_multiplier = max(0.2, fire_rate_multiplier - (val / 100.0))
 			evasion_chance = max(0.0, evasion_chance - 0.10)
+		elif id == "vampiric_edge":
+			vampirism_rate += val / 100.0
+		elif id == "magnet_training":
+			magnet_scale += val / 100.0
+			magnet_zone.scale = Vector2(magnet_scale, magnet_scale)
+		elif id == "precision":
+			base_crit_chance += val / 100.0
+			base_damage_multiplier += val / 100.0
+		elif id == "momentum":
+			speed += speed * (val / 100.0)
+			fire_rate_multiplier = max(0.2, fire_rate_multiplier - (val / 100.0))
+		elif id == "soul_harvest":
+			exp_multiplier += val / 100.0
+			hp_regen_rate += 1.0
+		elif upgrade.has("effects"):
+			_apply_data_effects(upgrade["effects"], val, "upgrade:" + id)
+		else:
+			push_warning("[DataEffects] Unsupported upgrade id '%s' and no effects provided" % id)
+
+		if upgrade.get("unique", false) and not acquired_unique_upgrades.has(id):
+			acquired_unique_upgrades.append(id)
 			
 	hud.update_health(current_health, max_health)
 	
@@ -515,8 +582,7 @@ func _acquire_weapon(weapon_id: String) -> void:
 			"level": 1, "damage": 1.0, "size": 1.0,
 			"fire_rate": 1.0, "pierce": 0, "ricochet": 0, "projectile": 0
 		}
-		if has_node("WeaponManager"):
-			$WeaponManager.add_weapon(Data.WEAPONS[weapon_id]["scene_path"])
+		weapon_manager.add_weapon(Data.WEAPONS[weapon_id]["scene_path"], weapon_id)
 			
 	hud.update_weapon_slots(owned_weapons.keys())
 
@@ -540,8 +606,8 @@ func _apply_weapon_buff(weapon_id: String, buff_type: String, val: float) -> voi
 	elif buff_type == "projectile":
 		w_data["projectile"] += int(val)
 	
-	if has_node("WeaponManager") and $WeaponManager.has_method("update_weapon_stats"):
-		$WeaponManager.update_weapon_stats(weapon_id, w_data)
+	if weapon_manager.has_method("update_weapon_stats"):
+		weapon_manager.update_weapon_stats(weapon_id, w_data)
 		
 	if hud.has_method("update_player_stats"):
 		hud.update_player_stats(self)
@@ -578,11 +644,12 @@ func _handle_relics(delta: float) -> void:
 
 func _trigger_beanie_shockwave() -> void:
 	var radius = 200.0 * aoe_multiplier
+	var radius_sq = radius * radius
 	var blast_dmg = 50 + (thorns_multiplier * 500)
 	_play_pickup_sfx(0.4, 2.0)
 	var enemies = get_tree().get_nodes_in_group("enemy")
 	for e in enemies:
-		if global_position.distance_to(e.global_position) <= radius:
+		if global_position.distance_squared_to(e.global_position) <= radius_sq:
 			if e.has_method("take_damage"):
 				e.take_damage(int(blast_dmg))
 			if e.has_method("apply_slow"):
@@ -590,12 +657,13 @@ func _trigger_beanie_shockwave() -> void:
 
 func _trigger_sprinkler_nova() -> void:
 	var radius = 350.0 * aoe_multiplier
+	var radius_sq = radius * radius
 	var base_dmg = 200 + (level * 20)
 	var final_dmg = int(base_dmg * damage_multiplier)
 	_play_pickup_sfx(0.6, 5.0)
 	var enemies = get_tree().get_nodes_in_group("enemy")
 	for e in enemies:
-		if global_position.distance_to(e.global_position) <= radius:
+		if global_position.distance_squared_to(e.global_position) <= radius_sq:
 			if e.has_method("take_damage"):
 				e.take_damage(final_dmg)
 			if e.has_method("apply_slow"):
@@ -610,39 +678,189 @@ func add_relic_item(item_id: String) -> void:
 		hud.update_inventory_display(owned_items)
 
 func _apply_relic_stats(item_id: String, _is_new: bool) -> void:
-	var item_data = Data.ITEMS[item_id]
-	match item_data["type"]:
+	var source := "item:" + item_id
+	var item_data = Data.ITEMS.get(item_id, null)
+	if typeof(item_data) != TYPE_DICTIONARY:
+		push_warning("[DataEffects] %s is not available; skipping relic stats" % source)
+		return
+
+	var item_value_result := _get_optional_data_number(item_data, "value", 0.0, source)
+	if not item_value_result["ok"]:
+		return
+	var item_value: float = item_value_result["value"]
+
+	if item_data.has("effects"):
+		_apply_data_effects(item_data["effects"], item_value, source)
+		return
+
+	var item_type := str(item_data.get("type", ""))
+	match item_type:
 		"vampirism":
-			vampirism_rate += item_data["value"]
+			vampirism_rate += item_value
 		"nova":
 			has_nova = true
-			nova_cooldown = item_data["value"]
+			nova_cooldown = item_value
 		"shield":
 			has_shield = true
 			shield_active = true
-			shield_cooldown = item_data["value"]
+			shield_cooldown = item_value
 		"greed":
 			has_goldfish = true
-			greed_multiplier += item_data["value"]
+			greed_multiplier += item_value
+		_:
+			push_warning("[DataEffects] Unsupported item type '%s' for '%s' and no effects provided" % [item_type, item_id])
+
+func _apply_data_effects(effects, scaled_value: float, source: String) -> void:
+	if typeof(effects) != TYPE_ARRAY:
+		push_warning("[DataEffects] %s effects must be an array" % source)
+		return
+
+	for effect in effects:
+		if typeof(effect) != TYPE_DICTIONARY:
+			push_warning("[DataEffects] %s has a non-object effect" % source)
+			continue
+
+		var stat := str(effect.get("stat", ""))
+		var op := str(effect.get("op", "add_percent"))
+		var amount_result := _get_data_effect_amount(effect, scaled_value, source)
+		if not amount_result["ok"]:
+			continue
+		var amount: float = amount_result["value"]
+		_apply_data_effect(stat, op, amount, source)
+
+func _get_data_effect_amount(effect: Dictionary, scaled_value: float, source: String) -> Dictionary:
+	if effect.has("value"):
+		return _get_data_number(effect["value"], source, "value")
+	if effect.has("scale"):
+		var scale_result := _get_data_number(effect["scale"], source, "scale")
+		if not scale_result["ok"]:
+			return scale_result
+		return {"ok": true, "value": scaled_value * scale_result["value"]}
+	return {"ok": true, "value": scaled_value}
+
+func _get_optional_data_number(data: Dictionary, field: String, default_value: float, source: String) -> Dictionary:
+	if not data.has(field):
+		return {"ok": true, "value": default_value}
+	return _get_data_number(data[field], source, field)
+
+func _get_data_number(value, source: String, field: String) -> Dictionary:
+	match typeof(value):
+		TYPE_INT, TYPE_FLOAT:
+			return {"ok": true, "value": float(value)}
+		_:
+			push_warning("[DataEffects] %s field '%s' must be a number" % [source, field])
+			return {"ok": false, "value": 0.0}
+
+func _apply_data_effect(stat: String, op: String, amount: float, source: String) -> void:
+	match stat:
+		"max_hp":
+			var hp_before := max_health
+			max_health = _apply_numeric_effect(max_health, op, amount, source, stat)
+			current_health += max(0.0, max_health - hp_before)
+		"speed":
+			speed = _apply_numeric_effect(speed, op, amount, source, stat)
+		"damage":
+			base_damage_multiplier = _apply_numeric_effect(base_damage_multiplier, op, amount, source, stat)
+		"fire_rate":
+			fire_rate_multiplier = max(0.2, _apply_numeric_effect(fire_rate_multiplier, op, amount, source, stat, true))
+		"aoe_size":
+			aoe_multiplier = _apply_numeric_effect(aoe_multiplier, op, amount, source, stat)
+		"regeneration":
+			hp_regen_rate = _apply_numeric_effect(hp_regen_rate, op, amount, source, stat)
+		"thorns":
+			thorns_multiplier = _apply_numeric_effect(thorns_multiplier, op, amount, source, stat)
+		"evasion":
+			evasion_chance = _apply_numeric_effect(evasion_chance, op, amount, source, stat)
+		"crit_chance":
+			base_crit_chance = _apply_numeric_effect(base_crit_chance, op, amount, source, stat)
+		"exp_gain":
+			exp_multiplier = _apply_numeric_effect(exp_multiplier, op, amount, source, stat)
+		"pickup_range":
+			magnet_scale = _apply_numeric_effect(magnet_scale, op, amount, source, stat)
+			magnet_zone.scale = Vector2(magnet_scale, magnet_scale)
+		"vampirism":
+			vampirism_rate = _apply_numeric_effect(vampirism_rate, op, amount, source, stat)
+		"nova_cooldown":
+			has_nova = true
+			nova_cooldown = _apply_numeric_effect(nova_cooldown, op, amount, source, stat)
+		"shield_cooldown":
+			has_shield = true
+			shield_active = true
+			shield_cooldown = _apply_numeric_effect(shield_cooldown, op, amount, source, stat)
+		"greed":
+			has_goldfish = true
+			greed_multiplier = _apply_numeric_effect(greed_multiplier, op, amount, source, stat)
+		"imbue_fire":
+			imbue_fire = _apply_bool_effect(imbue_fire, op, amount, source, stat)
+		"imbue_frost":
+			imbue_frost = _apply_bool_effect(imbue_frost, op, amount, source, stat)
+		"multi_attack":
+			_apply_all_weapon_stat_effect("projectile", op, amount, source)
+		"weapon_damage":
+			_apply_all_weapon_stat_effect("damage", op, amount, source)
+		"weapon_size":
+			_apply_all_weapon_stat_effect("size", op, amount, source)
+		"weapon_fire_rate":
+			_apply_all_weapon_stat_effect("fire_rate", op, amount, source)
+		_:
+			push_warning("[DataEffects] %s has unsupported stat '%s'" % [source, stat])
+
+func _apply_numeric_effect(current: float, op: String, amount: float, source: String, stat: String, invert_percent: bool = false) -> float:
+	match op:
+		"add":
+			return current + amount
+		"add_percent":
+			var delta := amount / 100.0
+			if invert_percent:
+				return current - delta
+			return current + delta
+		"multiply":
+			return current * amount
+		"set":
+			return amount
+		_:
+			push_warning("[DataEffects] %s has unsupported op '%s' for '%s'" % [source, op, stat])
+			return current
+
+func _apply_bool_effect(current: bool, op: String, amount: float, source: String, stat: String) -> bool:
+	match op:
+		"set", "enable", "set_true":
+			return amount != 0.0
+		_:
+			push_warning("[DataEffects] %s has unsupported op '%s' for '%s'" % [source, op, stat])
+			return current
+
+func _apply_all_weapon_stat_effect(stat: String, op: String, amount: float, source: String) -> void:
+	for w_id in owned_weapons:
+		var current := float(owned_weapons[w_id].get(stat, 0.0))
+		owned_weapons[w_id][stat] = _apply_numeric_effect(current, op, amount, source, "weapon." + stat)
+		if stat in ["pierce", "ricochet", "projectile"]:
+			owned_weapons[w_id][stat] = int(owned_weapons[w_id][stat])
+		if weapon_manager.has_method("update_weapon_stats"):
+			weapon_manager.update_weapon_stats(w_id, owned_weapons[w_id])
 
 func _handle_powerups(delta: float) -> void:
 	if magnet_time_left > 0.0:
 		magnet_time_left -= delta
-		var all_seeds = get_tree().get_nodes_in_group("exp_seed")
-		for exp_seed in all_seeds:
-			if exp_seed.has_method("pull_to_player"):
-				exp_seed.pull_to_player(self)
+		magnet_scan_timer -= delta
+		if magnet_scan_timer <= 0.0:
+			magnet_scan_timer = magnet_scan_interval
+			var all_seeds = get_tree().get_nodes_in_group("exp_seed")
+			for exp_seed in all_seeds:
+				if exp_seed.has_method("pull_to_player"):
+					exp_seed.pull_to_player(self)
 				
 	if speed_time_left > 0.0:
 		speed_time_left -= delta
 		if speed_time_left <= 0.0:
 			speed = base_speed_before_boost
 			is_speed_boosted = false
-			%AnimatedSprite2D.modulate = Color(1.0, 1.0, 1.0)
+			animated_sprite.modulate = Color(1.0, 1.0, 1.0)
 
 func activate_magnet_powerup() -> void:
 	_play_pickup_sfx(1.3, -5.0)
 	magnet_time_left = 5.0
+	magnet_scan_timer = 0.0
 
 func activate_speed_powerup() -> void:
 	_play_pickup_sfx(1.3, -5.0)
@@ -650,15 +868,23 @@ func activate_speed_powerup() -> void:
 		base_speed_before_boost = speed
 		speed += speed * 0.5
 		is_speed_boosted = true
-		%AnimatedSprite2D.modulate = Color(0.5, 0.8, 1.0)
+		animated_sprite.modulate = Color(0.5, 0.8, 1.0)
 	speed_time_left = 5.0
 
 func activate_bomb_powerup(bomb_pos: Vector2) -> void:
 	_play_pickup_sfx(1.3, -5.0)
 	var explosion_radius: float = 600.0
+	var explosion_radius_sq: float = explosion_radius * explosion_radius
 	var bomb_damage: int = 150
 	var all_enemies = get_tree().get_nodes_in_group("enemy")
 	for enemy in all_enemies:
-		if enemy.global_position.distance_to(bomb_pos) <= explosion_radius:
+		if enemy.global_position.distance_squared_to(bomb_pos) <= explosion_radius_sq:
 			if enemy.has_method("take_damage"):
 				enemy.take_damage(bomb_damage)
+
+func heal_from_pickup(amount: int) -> void:
+	if current_health >= max_health:
+		return
+	current_health = min(current_health + amount, max_health)
+	hud.update_health(current_health, max_health)
+	_play_pickup_sfx(1.8, -6.0, true)
