@@ -13,6 +13,7 @@ Convallaria is a top-down survival action game written in C++ with [raylib](http
 - Survive enemy waves that grow stronger over time.
 - Collect experience seeds to level up, then pick one of three upgrades: health, speed, damage, fire rate, area size, regeneration, thorns, dodge, crits, fire and frost effects, and more.
 - Grab power-ups: magnet, speed boost, bomb, healing, silver and gold.
+- Each floor rolls a different island: Meadow, Marsh, Atoll or Highlands, each with its own shape and enemy mix.
 - Find the corrupted portal on each island and summon its guardian. Defeat it to purify the portal and travel to the next floor.
 - Reach the final island and defeat the Rat King.
 

@@ -2,6 +2,8 @@
 #pragma once
 #include <raylib.h>
 
+#include <span>
+
 constexpr unsigned char ch(float v) { return (unsigned char)((v > 1.f ? 1.f : v) * 255.f); }
 constexpr Color rgb(float r, float g, float b) { return Color{ch(r), ch(g), ch(b), 255}; }
 
@@ -30,9 +32,18 @@ constexpr EnemyDef ENEMIES[ENEMY_TYPE_COUNT] = {
 };
 
 struct SpawnChance { EnemyType type; float base, growth; };
-constexpr SpawnChance SPAWN_CHANCES[] = {
+constexpr SpawnChance MEADOW_SPAWNS[] = {
     {BASIC, 100, 0}, {RATMAN, 10, 15}, {RUNNER, 0, 25}, {SHOOTER, 0, 20},
     {SWARM, 0, 15}, {BRUTE, 0, 10}, {DASHER, 0, 8}, {TANK, 0, 3},
+};
+constexpr SpawnChance MARSH_SPAWNS[] = {
+    {BASIC, 100, 0}, {SWARM, 20, 30}, {RUNNER, 10, 30}, {RATMAN, 10, 10}, {DASHER, 0, 10}, {BRUTE, 0, 5},
+};
+constexpr SpawnChance ATOLL_SPAWNS[] = {
+    {BASIC, 100, 0}, {SHOOTER, 5, 25}, {RUNNER, 0, 20}, {DASHER, 5, 12}, {RATMAN, 10, 10}, {TANK, 0, 3},
+};
+constexpr SpawnChance HIGHLAND_SPAWNS[] = {
+    {BASIC, 100, 0}, {RATMAN, 10, 15}, {BRUTE, 10, 20}, {SHOOTER, 0, 15}, {DASHER, 0, 8}, {TANK, 0, 6},
 };
 
 struct HordeEvent { int second; EnemyType type; int amount; };
@@ -102,6 +113,23 @@ constexpr Biome BIOMES[] = {
     {rgb(0.9f, 0.8f, 0.4f), rgb(0.9f, 0.5f, 0.2f), rgb(0.8f, 0.6f, 0.3f)},
     {rgb(0.4f, 0.4f, 0.4f), rgb(0.8f, 0.1f, 0.1f), rgb(0.2f, 0.2f, 0.2f)},
 };
+
+// Island recipes. Fbm noise times a falloff that peaks at `ring` (0 = disc,
+// 0.6 = atoll with a lagoon); noise above `cut` is land.
+struct MapConfig {
+    const char* name;
+    int radius;
+    float noiseScale, cut, ring;
+    int biome;
+    std::span<const SpawnChance> spawns;
+};
+constexpr MapConfig MAPS[] = {  // floor 1 is always the first; later floors pick from the rest
+    {"Meadow", 100, 0.04f, 0.2f, 0, 0, MEADOW_SPAWNS},
+    {"Marsh", 100, 0.07f, 0.26f, 0, 1, MARSH_SPAWNS},
+    {"Atoll", 110, 0.05f, 0.15f, 0.6f, 2, ATOLL_SPAWNS},
+    {"Highlands", 120, 0.03f, 0.15f, 0, 4, HIGHLAND_SPAWNS},
+};
+constexpr MapConfig FINAL_MAP = {"Rat King's Isle", 60, 0.04f, 0.2f, 0, 3, MEADOW_SPAWNS};
 
 // Per-floor guardian look and phase-two buffs (enemies/boss.gd).
 struct FloorBoss { const char* music; Color color, enragedColor, glow; float speedMult, damageMult, specialWait; };

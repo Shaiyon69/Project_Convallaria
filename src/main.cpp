@@ -20,7 +20,7 @@ namespace {
 
 constexpr int SCREEN_W = 1280, SCREEN_H = 720;
 constexpr float ZOOM = 2.f;
-constexpr int TILE = 16, MAP_R = 100, FINAL_MAP_R = 60, BOUND = MAP_R + 15, MAP_N = BOUND * 2;
+constexpr int TILE = 16, MAP_R = 120, BOUND = MAP_R + 15, MAP_N = BOUND * 2;  // MAP_R: largest MapConfig radius
 constexpr float SPAWN_RADIUS = 800, ACTIVE_RADIUS = 1000, DESPAWN_RADIUS = 3000;
 constexpr int MAX_ENEMIES = 300, END_TIMES_EXTRA_CAP = 50;
 constexpr float PLAYER_RADIUS = 9, MAGNET_RADIUS = 60, PICKUP_RADIUS = 15, PORTAL_RANGE = 30;
@@ -218,6 +218,7 @@ float permBoost(const Profile& pr, PermId id) { return pr.levels[id] * PERM_UPGR
 // ---------------------------------------------------------------- map
 
 struct Map {
+    const MapConfig* cfg = &MAPS[0];
     std::vector<uint8_t> tiles;  // 0 water, 1 grass, 2 soil
     Texture2D tex{};
     Vector2 spawn{}, portal{};
@@ -240,35 +241,67 @@ struct Map {
 
 const Color WATER = {58, 110, 165, 255}, GRASS = {98, 160, 72, 255}, SOIL = {139, 108, 66, 255};
 
+// Tile indices 4-connected to `start` over land (movement is per axis, so
+// diagonal-only contacts can't be walked). Land never touches the array edge.
+std::vector<int> landmass(const std::vector<uint8_t>& tiles, int start, std::vector<bool>& seen) {
+    std::vector<int> out, stack = {start};
+    seen[start] = true;
+    while (!stack.empty()) {
+        int c = stack.back();
+        stack.pop_back();
+        out.push_back(c);
+        for (int n : {c - 1, c + 1, c - MAP_N, c + MAP_N})
+            if (tiles[n] && !seen[n]) seen[n] = true, stack.push_back(n);
+    }
+    return out;
+}
+
 // Same island recipe as the Godot map: fbm Perlin noise with a radial falloff.
-Map genMap(int floor) {
+// Only the biggest landmass is kept so the portal is always reachable.
+Map genMap(const MapConfig& cfg) {
     Map m;
-    const Biome& biome = BIOMES[(floor - 1) % std::size(BIOMES)];
-    int radius = floor == MAX_FLOORS ? FINAL_MAP_R : MAP_R;
+    m.cfg = &cfg;
+    const Biome& biome = BIOMES[cfg.biome];
+    int radius = cfg.radius;
     m.water = ColorTint(WATER, biome.water);
-    m.tiles.assign(MAP_N * MAP_N, 0);
-    Image noise = GenImagePerlinNoise(MAP_N, MAP_N, rndi(100000), rndi(100000), 0.04f * MAP_N);
+    std::vector<uint8_t> raw(MAP_N * MAP_N, 0);
+    Image noise = GenImagePerlinNoise(MAP_N, MAP_N, rndi(100000), rndi(100000), cfg.noiseScale * MAP_N);
     Color* px = LoadImageColors(noise);
-    Image img = GenImageColor(MAP_N, MAP_N, BLANK);
-    std::vector<Vector2> land;
-    float best = 1e9f;
     for (int y = -radius; y < radius; y++)
         for (int x = -radius; x < radius; x++) {
             float d2 = float(x * x + y * y);
             if (d2 > radius * radius) continue;
             int i = (y + BOUND) * MAP_N + (x + BOUND);
-            float v = px[i].r / 255.f * (1.f - powf(sqrtf(d2) / radius, 2.5f));
-            if (v <= 0.2f) continue;
-            m.tiles[i] = v > 0.6f ? 2 : 1;
-            Color c = m.tiles[i] == 2 ? ColorTint(SOIL, biome.soil) : ColorTint(GRASS, biome.grass);
-            ImageDrawPixel(&img, x + BOUND, y + BOUND, ColorBrightness(c, rndr(-0.05f, 0.05f)));
-            Vector2 center = {(x + 0.5f) * TILE, (y + 0.5f) * TILE};
-            land.push_back(center);
-            if (d2 < best) best = d2, m.spawn = center;
+            float falloff = 1.f - powf(fabsf(sqrtf(d2) / radius - cfg.ring) / (1.f - cfg.ring), 2.5f);
+            float v = px[i].r / 255.f * falloff;
+            if (v > cfg.cut) raw[i] = v > 0.6f ? 2 : 1;
         }
     UnloadImageColors(px);
     UnloadImage(noise);
-    m.tex = LoadTextureFromImage(img);
+
+    std::vector<bool> seen(raw.size());
+    std::vector<int> biggest;
+    for (int i = 0; i < int(raw.size()); i++)
+        if (raw[i] && !seen[i]) {
+            std::vector<int> part = landmass(raw, i, seen);
+            if (part.size() > biggest.size()) biggest.swap(part);
+        }
+
+    m.tiles.assign(raw.size(), 0);
+    Image img = GenImageColor(MAP_N, MAP_N, BLANK);
+    std::vector<Vector2> land;
+    float best = 1e9f;
+    for (int i : biggest) {
+        m.tiles[i] = raw[i];
+        int x = i % MAP_N - BOUND, y = i / MAP_N - BOUND;
+        Color c = raw[i] == 2 ? ColorTint(SOIL, biome.soil) : ColorTint(GRASS, biome.grass);
+        ImageDrawPixel(&img, i % MAP_N, i / MAP_N, ColorBrightness(c, rndr(-0.05f, 0.05f)));
+        Vector2 center = {(x + 0.5f) * TILE, (y + 0.5f) * TILE};
+        land.push_back(center);
+        float d2 = float(x * x + y * y);
+        if (d2 < best) best = d2, m.spawn = center;
+    }
+    if (IsWindowReady()) m.tex = LoadTextureFromImage(img);  // the selftest runs without a window
     UnloadImage(img);
 
     m.portal = m.spawn;
@@ -394,13 +427,17 @@ struct Game {
 };
 
 void startFloor(Game& g, int floor, Player player, float runTime) {  // player by value: g is reset below
+    const MapConfig* prev = g.map.cfg;
     if (g.map.tex.id) UnloadTexture(g.map.tex);
     g = Game{};
     g.floor = floor;
     g.runTime = runTime;
     g.p = player;
     g.p.time = 0;
-    g.map = genMap(floor);
+    const MapConfig* cfg = &FINAL_MAP;
+    if (floor == 1) cfg = &MAPS[0];
+    else if (floor < MAX_FLOORS) do cfg = &MAPS[1 + rndi(int(std::size(MAPS)) - 1)]; while (cfg == prev);
+    g.map = genMap(*cfg);
     g.p.pos = g.map.spawn;
     if (floor < MAX_FLOORS) g.portals.push_back({g.map.portal});
     else g.finalBossT = 2.5f;
@@ -544,14 +581,14 @@ void dropSeed(Game& g, Vector2 pos, int exp) {
     g.seeds.push_back(s);
 }
 
-int weightedEnemy(float minutes) {
-    float weights[std::size(SPAWN_CHANCES)], total = 0;
-    for (size_t i = 0; i < std::size(SPAWN_CHANCES); i++)
-        total += weights[i] = std::max(0.f, SPAWN_CHANCES[i].base + SPAWN_CHANCES[i].growth * minutes);
+int weightedEnemy(std::span<const SpawnChance> table, float minutes) {
+    auto weight = [&](const SpawnChance& c) { return std::max(0.f, c.base + c.growth * minutes); };
+    float total = 0;
+    for (const SpawnChance& c : table) total += weight(c);
     if (total <= 0) return BASIC;
     float roll = rnd() * total, acc = 0;
-    for (size_t i = 0; i < std::size(SPAWN_CHANCES); i++)
-        if (roll <= (acc += weights[i])) return SPAWN_CHANCES[i].type;
+    for (const SpawnChance& c : table)
+        if (roll <= (acc += weight(c))) return c.type;
     return BASIC;
 }
 
@@ -574,7 +611,7 @@ bool spawnEnemy(Game& g, int type, int extraCap) {
         ok = g.map.landAround(pos, 1);
     }
     if (!ok) return false;
-    if (type < 0) type = weightedEnemy(runMinutes(g));
+    if (type < 0) type = weightedEnemy(g.map.cfg->spawns, runMinutes(g));
 
     const EnemyDef& d = ENEMIES[type];
     float floorMult = 1 + (g.floor - 1) * 0.3f;
@@ -1305,7 +1342,7 @@ void drawHud(const Game& g) {
     bar(20, 24, 260, 20, p.hp / p.maxHp, rgb(.85f, .2f, .25f));
     text(TextFormat("%d / %d", int(std::max(0.f, p.hp)), int(p.maxHp)), 30, 24, 20, WHITE);
     text(TextFormat("Lv %d", p.level), 20, 50, 24, WHITE);
-    text(g.floor == MAX_FLOORS ? "Final Floor" : TextFormat("Floor %d", g.floor), 20, 78, 22, rgb(.8f, .9f, .7f));
+    text(g.floor == MAX_FLOORS ? "Final Floor" : TextFormat("Floor %d  -  %s", g.floor, g.map.cfg->name), 20, 78, 22, rgb(.8f, .9f, .7f));
     int secs = int(p.time);
     text(TextFormat("%02d:%02d", secs / 60, secs % 60), sw / 2, 20, 36, g.endTimes ? rgb(1, .3f, .3f) : WHITE, true);
     text(TextFormat("Kills %d", p.kills), sw - 200, 20, 22, WHITE);
@@ -1538,7 +1575,17 @@ int selftest() {
     int found = 0;
     grid.query({0, 0}, 25, [&](int i) { found += i == 0 || i == 1; return i == 2; });
     CHECK(found == 2);
-    for (int i = 0; i < 1000; i++) { int t = weightedEnemy(0); CHECK(t == BASIC || t == RATMAN); }
+    for (int i = 0; i < 1000; i++) { int t = weightedEnemy(MEADOW_SPAWNS, 0); CHECK(t == BASIC || t == RATMAN); }
+
+    // Every island is one walkable landmass holding the spawn and portal.
+    for (const MapConfig& cfg : MAPS) {
+        Map m = genMap(cfg);
+        int land = int(std::count_if(m.tiles.begin(), m.tiles.end(), [](uint8_t t) { return t != 0; }));
+        std::vector<bool> seen(m.tiles.size());
+        int spawnTile = (int(floorf(m.spawn.y / TILE)) + BOUND) * MAP_N + int(floorf(m.spawn.x / TILE)) + BOUND;
+        CHECK(m.at(m.spawn) && int(landmass(m.tiles, spawnTile, seen).size()) == land);
+        CHECK(m.at(m.portal));
+    }
 
     // Guardian: enrages at half health, dies, purifies its portal and starts the end times.
     Game g;
@@ -1604,7 +1651,7 @@ int main(int argc, char** argv) {
     playMusic("ui/music.mp3", -8);
 
     Game g;
-    g.map = genMap(1);
+    g.map = genMap(MAPS[0]);
     g.p.pos = g.map.spawn;
 
     while (!WindowShouldClose() && !g.quit) {
