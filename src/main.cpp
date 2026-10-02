@@ -322,12 +322,12 @@ struct Weapon {
 struct Player {
     Vector2 pos{};
     float speed = 165, maxHp = 250, hp = 250;
-    int level = 1, exp = 0, expNext = 15, kills = 0, silver = 0;
+    int level = 1, exp = 0, expNext = 15, kills = 0, silver = 0, pendingLevels = 0;
     float dmgMul = 1, fireRateMul = 1, aoe = 1, expMul = 1, regen = 0, regenAcc = 0;
     float thorns = 0, evasion = 0, crit = 0, vampirism = 0, magnetScale = 1, coinMul = 1;
     float gold = 0;  // collected this run, banked into the profile when the run ends
-    bool imbueFire = false, imbueFrost = false, boosted = false, moving = false;
-    float magnetT = 0, magnetScan = 0, speedT = 0, boostBase = 0, iframes = 0, anim = 0;
+    bool imbueFire = false, imbueFrost = false, moving = false;
+    float magnetT = 0, magnetScan = 0, speedT = 0, iframes = 0, anim = 0;
     float time = 0;  // on this floor; the run total lives in Game::runTime
     int facing = DOWN;
     std::vector<std::string> uniques;
@@ -493,7 +493,7 @@ void applySlow(Enemy& e, float mult) {
 
 void hurtPlayer(Game& g, int damage, Enemy* source) {
     Player& p = g.p;
-    if (p.iframes > 0 || rnd() < p.evasion) return;
+    if (p.iframes > 0 || rnd() < std::min(p.evasion, 0.6f)) return;  // dodge caps at 60%
     p.hp -= damage;
     A.hurt.play(rndr(1.4f, 1.8f), -5);
     if (source && p.thorns > 0) hurtEnemy(g, *source, int(damage * p.thorns));
@@ -514,9 +514,10 @@ void gainExp(Game& g, int amount) {
         p.expNext = expForLevel(p.level);
         p.maxHp += 10;
         p.dmgMul += 0.05f;
+        p.pendingLevels++;  // one pick per level, even when several land at once
         leveled = true;
     }
-    if (leveled) {
+    if (leveled && g.mode == Mode::Play) {  // not over a death or an open pick
         A.levelup.play(1, -12);
         buildOptions(g);
         g.mode = Mode::LevelUp;
@@ -837,7 +838,7 @@ void applyOption(Game& g, const Option& o) {
     else if (id == "exp_boost") p.expMul += pct;
     else if (id == "multi_attack") p.weapon.projectile += int(v);
     else if (id == "glass_cannon") { p.dmgMul += pct; p.maxHp -= p.maxHp * 0.2f; p.hp = std::min(p.hp, p.maxHp); }
-    else if (id == "heavy_armor") { p.thorns += pct; p.speed -= p.speed * 0.15f; p.maxHp += p.maxHp * 0.1f; p.hp += p.maxHp * 0.1f; }
+    else if (id == "heavy_armor") { float inc = p.maxHp * 0.1f; p.thorns += pct; p.speed -= p.speed * 0.15f; p.maxHp += inc; p.hp += inc; }
     else if (id == "berserker") { fasterFire(pct); p.evasion = std::max(0.f, p.evasion - 0.1f); }
     else if (id == "vampiric_edge") p.vampirism += pct;
     else if (id == "magnet_training") p.magnetScale += pct;
@@ -866,9 +867,10 @@ void updatePlayer(Game& g, float dt) {
     if (p.moving) {
         p.facing = fabsf(in.x) > fabsf(in.y) ? (in.x > 0 ? RIGHT : LEFT) : (in.y > 0 ? DOWN : UP);
         p.anim += dt;
-        Vector2 nx = {p.pos.x + in.x * p.speed * dt, p.pos.y};
+        float speed = p.speed * (p.speedT > 0 ? 1.5f : 1);
+        Vector2 nx = {p.pos.x + in.x * speed * dt, p.pos.y};
         if (g.map.at(nx)) p.pos.x = nx.x;
-        Vector2 ny = {p.pos.x, p.pos.y + in.y * p.speed * dt};
+        Vector2 ny = {p.pos.x, p.pos.y + in.y * speed * dt};
         if (g.map.at(ny)) p.pos.y = ny.y;
     }
 
@@ -889,7 +891,7 @@ void updatePlayer(Game& g, float dt) {
                 if (s.type == SEED_EXP || s.type >= SEED_GOLD) s.magnetic = true;
         }
     }
-    if (p.speedT > 0 && (p.speedT -= dt) <= 0) p.speed = p.boostBase, p.boosted = false;
+    p.speedT = std::max(0.f, p.speedT - dt);
 
     if (p.iframes > 0) {
         p.iframes -= dt;
@@ -1156,7 +1158,6 @@ void collectSeed(Game& g, const Seed& s) {
         case SEED_MAGNET: A.orb.play(1.3f, -5); p.magnetT = 5, p.magnetScan = 0; break;
         case SEED_SPEED:
             A.orb.play(1.3f, -5);
-            if (!p.boosted) p.boostBase = p.speed, p.speed *= 1.5f, p.boosted = true;
             p.speedT = 5;
             break;
         case SEED_BOMB:
@@ -1266,7 +1267,7 @@ void drawWorld(const Game& g, Camera2D cam) {
 
     for (const Enemy& e : g.enemies) drawEnemy(e, t);
 
-    Color tint = p.boosted ? rgb(.5f, .8f, 1) : WHITE;
+    Color tint = p.speedT > 0 ? rgb(.5f, .8f, 1) : WHITE;
     if (p.iframes > 0) tint = Fade(tint, int(p.iframes * 10) % 2 ? 0.3f : 1.f);
     drawFrame(A.player, p.moving ? int(p.anim * 5) % 4 : 0, p.facing, p.pos, 1, tint);
 
@@ -1452,7 +1453,7 @@ void drawOverlay(const Game& g) {
     int secs = int(g.runTime);
     switch (g.mode) {
         case Mode::LevelUp: {
-            text("LEVEL UP!", sw / 2, sh / 2 - 150, 48, rgb(1, .8f, .1f), true);
+            text(g.p.pendingLevels > 1 ? TextFormat("LEVEL UP!  x%d", g.p.pendingLevels) : "LEVEL UP!", sw / 2, sh / 2 - 150, 48, rgb(1, .8f, .1f), true);
             for (int i = 0; i < int(g.options.size()); i++) {
                 Rectangle r = optionRect(i);
                 const Option& o = g.options[i];
@@ -1508,7 +1509,8 @@ void handleInput(Game& g) {
             for (int i = 0; i < int(g.options.size()); i++)
                 if (IsKeyPressed(KEY_ONE + i) || (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), optionRect(i)))) {
                     applyOption(g, g.options[i]);
-                    g.mode = Mode::Play;
+                    if (--g.p.pendingLevels > 0) buildOptions(g);
+                    else g.mode = Mode::Play;
                     break;
                 }
             break;
@@ -1553,6 +1555,16 @@ int selftest() {
     CHECK(g.enemies.empty() && g.portals[0].state == Portal::PURIFIED && g.bossDefeated && g.endTimes);
     CHECK(g.seeds.size() == 50);
     stopMusic();
+
+    // Several levels at once queue several picks; dodge past the cap still gets hit.
+    Game lv;
+    lv.mode = Mode::Play;
+    gainExp(lv, 500);
+    CHECK(lv.mode == Mode::LevelUp && lv.p.pendingLevels > 1 && lv.options.size() == 3);
+    lv.p.evasion = 5;
+    int hits = 0;
+    for (int i = 0; i < 200; i++) { lv.p.iframes = 0, lv.p.hp = 1e6f; hurtPlayer(lv, 1, nullptr); hits += lv.p.hp < 1e6f; }
+    CHECK(hits > 40);
 
     Profile pr;
     pr.coins = 1000;
