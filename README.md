@@ -13,6 +13,7 @@ Convallaria is a top-down survival action game written in C++ with [raylib](http
 - Survive enemy waves that grow stronger over time.
 - Collect experience seeds to level up, then pick one of three upgrades: health, speed, damage, fire rate, area size, regeneration, thorns, dodge, crits, fire and frost effects, and more.
 - Grab power-ups: magnet, speed boost, bomb, healing, silver and gold.
+- Spend silver on chests scattered across each island. Every chest holds a random item, and items stack without limit: attack speed, max HP, move speed, crit, regen, life on hit, burning hits, chain lightning, exploding kills, blocking, extra projectiles and executes. Defeating a guardian leaves a free chest.
 - Each floor rolls a different island: Meadow, Marsh, Atoll or Highlands, each with its own shape and enemy mix.
 - Find the corrupted portal on each island and summon its guardian. Defeat it to purify the portal and travel to the next floor.
 - Reach the final island and defeat the Rat King.
@@ -38,7 +39,7 @@ Enemy types include slimes, runners, shooters, brutes, swarms, dashers, tanks an
 ## Controls
 
 - `W` `A` `S` `D` or arrow keys: move
-- `E`: interact with portals
+- `E`: open chests and use portals
 - `1` `2` `3` or mouse: pick an upgrade
 - `Esc`: pause (then `Q` to end the run and bank your gold)
 
@@ -56,4 +57,4 @@ The executable loads its art and audio from `assets/` in this repository.
 
 ## Not Ported Yet
 
-The original Godot version (see git history before the C++ port) also had items such as Apple, Sprinkler, Beanie and Goldfish, chests and statues, an options menu, JSON mod support, and Android touch controls. These are next on the list.
+The original Godot version (see git history before the C++ port) also had statues, an options menu, JSON mod support, and Android touch controls. These are next on the list.

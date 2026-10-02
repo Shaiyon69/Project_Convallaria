@@ -99,6 +99,31 @@ constexpr WeaponLevel WEAPON_LEVELS[2][3] = {
     {{15, 1.0f, 0, 0, 1.0f}, {25, 0.8f, 0, 0, 1.25f}, {40, 0.5f, 0, 0, 1.6f}},
 };
 
+// Items: bought from chests with silver, stacked without limit (Risk of Rain style).
+enum ItemId { IT_QUILL, IT_BARK, IT_BOOTS, IT_CLOVER, IT_SPROUT, IT_LEECH,
+              IT_EMBER, IT_BELL, IT_SPORES, IT_CHARM, IT_CROWN, IT_SICKLE, ITEM_COUNT };
+struct ItemDef { const char* name; const char* desc; int tier; };
+constexpr ItemDef ITEMS[ITEM_COUNT] = {
+    {"Quick Quill", "+12% attack speed", 0},
+    {"Oak Bark", "+30 max HP", 0},
+    {"Fleet Boots", "+10% move speed", 0},
+    {"Four-Leaf Clover", "+8% crit chance", 0},
+    {"Green Sprout", "+1.5 HP regen", 0},
+    {"Leech Seed", "Hits heal 1 HP", 0},
+    {"Ember Stone", "15% chance on hit to burn", 1},
+    {"Storm Bell", "20% chance on hit to zap 3 enemies (+2 per stack)", 1},
+    {"Volatile Spores", "Kills explode (bigger per stack)", 1},
+    {"Ward Charm", "15% chance to block a hit (stacks with falloff)", 1},
+    {"Lily Crown", "+1 projectile", 2},
+    {"Reaper's Sickle", "Execute enemies under 13% HP (stacks with falloff)", 2},
+};
+struct ItemTier { const char* name; Color color; int weight; };
+constexpr ItemTier ITEM_TIERS[] = {
+    {"Common", rgb(1, 1, 1), 70},
+    {"Uncommon", rgb(0.2f, 0.8f, 0.2f), 25},
+    {"Legendary", rgb(1, 0.3f, 0.2f), 5},
+};
+
 constexpr int MAX_FLOORS = 4;
 
 // Floor boss base stats (the "boss" entry of data/enemies.json).
@@ -120,16 +145,16 @@ struct MapConfig {
     const char* name;
     int radius;
     float noiseScale, cut, ring;
-    int biome;
+    int chests, biome;
     std::span<const SpawnChance> spawns;
 };
 constexpr MapConfig MAPS[] = {  // floor 1 is always the first; later floors pick from the rest
-    {"Meadow", 100, 0.04f, 0.2f, 0, 0, MEADOW_SPAWNS},
-    {"Marsh", 100, 0.07f, 0.26f, 0, 1, MARSH_SPAWNS},
-    {"Atoll", 110, 0.05f, 0.15f, 0.6f, 2, ATOLL_SPAWNS},
-    {"Highlands", 120, 0.03f, 0.15f, 0, 4, HIGHLAND_SPAWNS},
+    {"Meadow", 100, 0.04f, 0.2f, 0, 10, 0, MEADOW_SPAWNS},
+    {"Marsh", 100, 0.07f, 0.26f, 0, 10, 1, MARSH_SPAWNS},
+    {"Atoll", 110, 0.05f, 0.15f, 0.6f, 10, 2, ATOLL_SPAWNS},
+    {"Highlands", 120, 0.03f, 0.15f, 0, 12, 4, HIGHLAND_SPAWNS},
 };
-constexpr MapConfig FINAL_MAP = {"Rat King's Isle", 60, 0.04f, 0.2f, 0, 3, MEADOW_SPAWNS};
+constexpr MapConfig FINAL_MAP = {"Rat King's Isle", 60, 0.04f, 0.2f, 0, 0, 3, MEADOW_SPAWNS};
 
 // Per-floor guardian look and phase-two buffs (enemies/boss.gd).
 struct FloorBoss { const char* music; Color color, enragedColor, glow; float speedMult, damageMult, specialWait; };

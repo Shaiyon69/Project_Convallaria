@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <numeric>
 #include <fstream>
 #include <random>
 #include <string>
@@ -222,6 +223,7 @@ struct Map {
     std::vector<uint8_t> tiles;  // 0 water, 1 grass, 2 soil
     Texture2D tex{};
     Vector2 spawn{}, portal{};
+    std::vector<Vector2> chests;
     Color water{};
 
     uint8_t at(int cx, int cy) const {
@@ -257,7 +259,7 @@ std::vector<int> landmass(const std::vector<uint8_t>& tiles, int start, std::vec
 }
 
 // Same island recipe as the Godot map: fbm Perlin noise with a radial falloff.
-// Only the biggest landmass is kept so the portal is always reachable.
+// Only the biggest landmass is kept so the portal and chests are always reachable.
 Map genMap(const MapConfig& cfg) {
     Map m;
     m.cfg = &cfg;
@@ -309,6 +311,11 @@ Map genMap(const MapConfig& cfg) {
         Vector2 c = land[rndi(int(land.size()))];
         if (m.landAround(c, 3) && Vector2Distance(c, m.spawn) > 9 * TILE) { m.portal = c; break; }
     }
+    for (int a = 0; a < cfg.chests * 20 && int(m.chests.size()) < cfg.chests && !land.empty(); a++) {
+        Vector2 c = land[rndi(int(land.size()))];
+        if (m.landAround(c, 1) && Vector2Distance(c, m.spawn) > 6 * TILE && Vector2Distance(c, m.portal) > 4 * TILE)
+            m.chests.push_back(c);
+    }
     return m;
 }
 
@@ -322,7 +329,7 @@ struct Enemy {
     Vector2 pos{}, vel{}, dashDir{};
     float hp = 1, maxHp = 1, speed = 0, slowMul = 1, scale = 1, pitch = 1;
     Color color = WHITE, glow = WHITE;
-    int damage = 0, exp = 0, phase = 1, portal = -1;
+    int damage = 0, exp = 0, phase = 1, portal = -1, lastHit = 0;
     bool shooter = false, ratman = false, dying = false, gone = false, enraged = false, fired = false;
     int facing = DOWN, burnTicks = 0;
     float anim = 0, hurtT = 0, deathT = 0, shootT = 0, burnT = 0, burnDamage = 0, slowT = 0;
@@ -343,6 +350,9 @@ struct EnemyShot { Vector2 pos, dir; int damage; float life, scale; Color color;
 enum SeedType { SEED_EXP, SEED_MAGNET, SEED_SPEED, SEED_BOMB, SEED_GOLD, SEED_SILVER, SEED_HEAL };
 struct Seed { Vector2 pos; int type, amount; float life, speed = 0, glimmer; bool magnetic = false; };
 struct DamageNumber { Vector2 pos; int value; float t; };
+struct Chest { Vector2 pos; int cost; };
+struct Blast { Vector2 pos; float radius; int damage; float t; };  // queued, lands next frame
+struct Bolt { Vector2 a, b; float t; };
 struct Portal { Vector2 pos; enum { CORRUPTED, COMBAT, PURIFIED } state = CORRUPTED; };
 
 struct Weapon {
@@ -365,6 +375,7 @@ struct Player {
     int facing = DOWN;
     std::vector<std::string> uniques;
     Weapon weapon;
+    int items[ITEM_COUNT]{};
 };
 
 // Counting-sort uniform grid over enemies, rebuilt every frame. Serves hits,
@@ -414,6 +425,12 @@ struct Game {
     std::vector<DamageNumber> numbers;
     std::vector<Option> options;
     std::vector<Portal> portals;
+    std::vector<Chest> chests;
+    std::vector<Blast> blasts;
+    std::vector<Bolt> bolts;
+    std::string toast;
+    Color toastColor = WHITE;
+    float toastT = 0;
     Grid grid;
     Mode mode = Mode::Title;
     uint32_t nextId = 1;
@@ -425,6 +442,8 @@ struct Game {
     float finalBossT = -1, victoryT = -1;
     int runGold = 0;
 };
+
+int chestCost(int floor) { return 10 + 8 * (floor - 1); }
 
 void startFloor(Game& g, int floor, Player player, float runTime) {  // player by value: g is reset below
     const MapConfig* prev = g.map.cfg;
@@ -439,6 +458,7 @@ void startFloor(Game& g, int floor, Player player, float runTime) {  // player b
     else if (floor < MAX_FLOORS) do cfg = &MAPS[1 + rndi(int(std::size(MAPS)) - 1)]; while (cfg == prev);
     g.map = genMap(*cfg);
     g.p.pos = g.map.spawn;
+    for (Vector2 c : g.map.chests) g.chests.push_back({c, chestCost(floor)});
     if (floor < MAX_FLOORS) g.portals.push_back({g.map.portal});
     else g.finalBossT = 2.5f;
     g.mode = Mode::Play;
@@ -500,6 +520,7 @@ void enrage(Game& g, Enemy& e) {
 void hurtEnemy(Game& g, Enemy& e, int amount) {
     if (e.dying) return;
     e.hp -= amount;
+    e.lastHit = amount;
     g.numbers.push_back({e.pos, amount, 0});
     if (e.boss()) {
         if (e.phase == 1 && e.hp <= e.maxHp / 2 && e.hp > 0) enrage(g, e);
@@ -528,9 +549,13 @@ void applySlow(Enemy& e, float mult) {
     e.slowT = 3, e.slowMul = mult;
 }
 
+// Chance that grows with stacks but never reaches 1 (Risk of Rain's hyperbolic stacking).
+float hyper(float per, int stacks) { return 1.f - 1.f / (1.f + per * stacks); }
+
 void hurtPlayer(Game& g, int damage, Enemy* source) {
     Player& p = g.p;
-    if (p.iframes > 0 || rnd() < std::min(p.evasion, 0.6f)) return;  // dodge caps at 60%
+    if (p.iframes > 0) return;
+    if (rnd() < std::min(p.evasion, 0.6f) || rnd() < hyper(0.15f, p.items[IT_CHARM])) return;  // dodge caps at 60%
     p.hp -= damage;
     A.hurt.play(rndr(1.4f, 1.8f), -5);
     if (source && p.thorns > 0) hurtEnemy(g, *source, int(damage * p.thorns));
@@ -562,6 +587,55 @@ void gainExp(Game& g, int amount) {
 }
 
 void heal(Player& p, float amount) { p.hp = std::min(p.hp + amount, p.maxHp); }
+
+void showToast(Game& g, std::string text, Color c) { g.toast = std::move(text), g.toastColor = c, g.toastT = 3; }
+
+int rollItem() {
+    int roll = rndi(100), tier = 0;
+    for (int acc = 0; tier < 2 && roll >= (acc += ITEM_TIERS[tier].weight); tier++) {}
+    std::vector<int> pool;
+    for (int i = 0; i < ITEM_COUNT; i++)
+        if (ITEMS[i].tier == tier) pool.push_back(i);
+    return pool[rndi(int(pool.size()))];
+}
+
+void grantItem(Game& g, int id) {
+    Player& p = g.p;
+    p.items[id]++;
+    if (id == IT_BARK) p.maxHp += 30, p.hp += 30;
+    const ItemDef& it = ITEMS[id];
+    showToast(g, TextFormat("%s  -  %s", it.name, it.desc), ITEM_TIERS[it.tier].color);
+    A.levelup.play(1.5f, -10);
+}
+
+// Storm Bell: arcs to the closest few enemies around `from`.
+void zap(Game& g, const Enemy& from, int damage, int targets) {
+    std::vector<std::pair<float, int>> near;
+    g.grid.query(from.pos, 150, [&](int i) {
+        const Enemy& e = g.enemies[i];
+        float d = Vector2Distance(e.pos, from.pos);
+        if (&e != &from && !e.dying && d <= 150) near.push_back({d, i});
+        return false;
+    });
+    std::sort(near.begin(), near.end());
+    for (int k = 0; k < std::min(targets, int(near.size())); k++) {
+        Enemy& e = g.enemies[near[k].second];
+        g.bolts.push_back({from.pos, e.pos, 0});
+        hurtEnemy(g, e, damage);
+    }
+}
+
+// A weapon hit: damage plus every on-hit effect. Effects call hurtEnemy
+// directly so they can't proc each other.
+void onHit(Game& g, Enemy& e, int damage, bool fire, bool frost) {
+    const Player& p = g.p;
+    hurtEnemy(g, e, damage);
+    if (fire || rnd() < 0.15f * p.items[IT_EMBER]) applyBurn(e, damage * 0.2f);
+    if (frost) applySlow(e, 0.5f);
+    if (p.items[IT_LEECH]) heal(g.p, float(p.items[IT_LEECH]));
+    if (!e.dying && !e.boss() && e.hp < e.maxHp * hyper(0.15f, p.items[IT_SICKLE])) hurtEnemy(g, e, int(ceilf(e.hp)));
+    if (p.items[IT_BELL] && rnd() < 0.2f) zap(g, e, std::max(1, int(damage * 0.6f)), 1 + 2 * p.items[IT_BELL]);
+}
 
 void addKill(Game& g) {
     g.p.kills++;
@@ -893,6 +967,23 @@ int nearPortal(const Game& g) {
     return -1;
 }
 
+int nearChest(const Game& g) {
+    for (int i = 0; i < int(g.chests.size()); i++)
+        if (Vector2Distance(g.chests[i].pos, g.p.pos) < PORTAL_RANGE) return i;
+    return -1;
+}
+
+void openChest(Game& g, int i) {
+    Chest c = g.chests[i];
+    if (g.p.silver < c.cost) {
+        showToast(g, TextFormat("Need %d silver", c.cost), GRAY);
+        return;
+    }
+    g.p.silver -= c.cost;
+    g.chests.erase(g.chests.begin() + i);
+    grantItem(g, rollItem());
+}
+
 void updatePlayer(Game& g, float dt) {
     Player& p = g.p;
     p.time += dt;
@@ -904,15 +995,16 @@ void updatePlayer(Game& g, float dt) {
     if (p.moving) {
         p.facing = fabsf(in.x) > fabsf(in.y) ? (in.x > 0 ? RIGHT : LEFT) : (in.y > 0 ? DOWN : UP);
         p.anim += dt;
-        float speed = p.speed * (p.speedT > 0 ? 1.5f : 1);
+        float speed = p.speed * (1 + 0.1f * p.items[IT_BOOTS]) * (p.speedT > 0 ? 1.5f : 1);
         Vector2 nx = {p.pos.x + in.x * speed * dt, p.pos.y};
         if (g.map.at(nx)) p.pos.x = nx.x;
         Vector2 ny = {p.pos.x, p.pos.y + in.y * speed * dt};
         if (g.map.at(ny)) p.pos.y = ny.y;
     }
 
-    if (p.regen > 0 && p.hp < p.maxHp) {
-        p.regenAcc += p.regen * dt;
+    float regen = p.regen + 1.5f * p.items[IT_SPROUT];
+    if (regen > 0 && p.hp < p.maxHp) {
+        p.regenAcc += regen * dt;
         if (p.regenAcc >= 1) {
             float whole = floorf(p.regenAcc);
             heal(p, whole);
@@ -996,7 +1088,7 @@ void updateWeapon(Game& g, float dt) {
     Weapon& w = p.weapon;
     const WeaponLevel& lv = w.stats();
     w.pulse = std::max(0.f, w.pulse - dt);
-    float wait = std::max(0.05f, lv.wait * p.fireRateMul / w.fireRate);
+    float wait = std::max(0.05f, lv.wait * p.fireRateMul / w.fireRate / (1 + 0.12f * p.items[IT_QUILL]));
     if ((w.timer += dt) < wait) return;
     w.timer = 0;
     int damage = int(roundf(lv.damage * p.dmgMul * w.damage));
@@ -1007,9 +1099,7 @@ void updateWeapon(Game& g, float dt) {
         g.grid.query(p.pos, radius + 120, [&](int i) {
             Enemy& e = g.enemies[i];
             if (e.dying || Vector2Distance(e.pos, p.pos) > radius + e.radius()) return false;
-            hurtEnemy(g, e, damage);
-            if (p.imbueFire) applyBurn(e, damage * 0.2f);
-            if (p.imbueFrost) applySlow(e, 0.5f);
+            onHit(g, e, damage, p.imbueFire, p.imbueFrost);
             return false;
         });
         return;
@@ -1023,10 +1113,10 @@ void updateWeapon(Game& g, float dt) {
     }
     if (!target) return;
     Vector2 dir = Vector2Normalize(Vector2Subtract(target->pos, p.pos));
-    int count = lv.projectiles + w.projectile;
+    int count = lv.projectiles + w.projectile + p.items[IT_CROWN];
     A.wandShot.play(1, -10, 0.05);
     for (int i = 0; i < count; i++) {
-        bool crit = rnd() <= 0.05f + p.crit;
+        bool crit = rnd() <= 0.05f + p.crit + 0.08f * p.items[IT_CLOVER];
         Vector2 d = Vector2Rotate(dir, (i - (count - 1) / 2.f) * 15 * DEG2RAD);
         g.shots.push_back({p.pos, d, lv.speed, crit ? 1.5f * w.size : w.size, 3, crit ? damage * 2 : damage,
                            w.pierce, w.ricochet, p.imbueFire, p.imbueFrost, crit, {}});
@@ -1039,10 +1129,8 @@ void explode(Game& g, const Shot& s) {
         Enemy& e = g.enemies[i];
         if (e.dying || Vector2Distance(e.pos, s.pos) > radius + e.radius()) return false;
         bool wasFull = e.hp >= e.maxHp;
-        hurtEnemy(g, e, s.damage);
+        onHit(g, e, s.damage, s.fire, s.frost);
         if (wasFull && e.hp <= 0) g.p.crit += 0.001f;  // one-shot kills sharpen your crits
-        if (s.fire) applyBurn(e, s.damage * 0.2f);
-        if (s.frost) applySlow(e, 0.5f);
         return false;
     });
 }
@@ -1087,10 +1175,24 @@ void updateShots(Game& g, float dt) {
         }
     }
     std::erase_if(g.enemyShots, [](const EnemyShot& s) { return s.life <= 0; });
+
+    for (Blast& b : g.blasts) {
+        if (b.t == 0)
+            g.grid.query(b.pos, b.radius + 120, [&](int i) {
+                Enemy& e = g.enemies[i];
+                if (Vector2Distance(e.pos, b.pos) <= b.radius + e.radius()) hurtEnemy(g, e, b.damage);
+                return false;
+            });
+        b.t += dt;
+    }
+    std::erase_if(g.blasts, [](const Blast& b) { return b.t > 0.25f; });
+    for (Bolt& b : g.bolts) b.t += dt;
+    std::erase_if(g.bolts, [](const Bolt& b) { return b.t > 0.15f; });
 }
 
 void onEnemyRemoved(Game& g, const Enemy& e) {
     addKill(g);
+    if (int n = g.p.items[IT_SPORES]) g.blasts.push_back({e.pos, 30.f + 12 * n, std::max(1, e.lastHit), 0});
     if (!e.boss()) {
         dropSeed(g, e.pos, e.exp);
         return;
@@ -1103,7 +1205,10 @@ void onEnemyRemoved(Game& g, const Enemy& e) {
         g.victoryT = 4;
         return;
     }
-    if (e.portal >= 0) g.portals[e.portal].state = Portal::PURIFIED;
+    if (e.portal >= 0) {
+        g.portals[e.portal].state = Portal::PURIFIED;
+        g.chests.push_back({Vector2Add(g.portals[e.portal].pos, {0, 28}), 0});  // the guardian's reward
+    }
     g.bossDefeated = true;
     if (!g.endTimes) startEndTimes(g);
 }
@@ -1289,6 +1394,13 @@ void drawWorld(const Game& g, Camera2D cam) {
         drawFrame(A.portal, col, 0, pt.pos, 1.5f, WHITE);
     }
 
+    for (const Chest& c : g.chests) {
+        Rectangle r = {c.pos.x - 8, c.pos.y - 6, 16, 12};
+        DrawRectangleRec(r, rgb(.55f, .36f, .18f));
+        DrawRectangleRec({r.x, r.y + 4, r.width, 2}, c.cost ? rgb(.75f, .75f, .8f) : rgb(1, .8f, .1f));
+        DrawRectangleLinesEx(r, 1, BLACK);
+    }
+
     static const Color SEED_TINT[] = {WHITE, rgb(1, .2f, .2f), rgb(.2f, .5f, 1), rgb(.1f, .1f, .1f), rgb(1, .8f, .1f), rgb(.8f, .8f, .85f), rgb(.7f, .25f, 1)};
     static const float SEED_SCALE[] = {1.2f, 1.8f, 1.6f, 1.7f, 1.5f, 1.4f, 1.6f};
     for (const Seed& s : g.seeds) {
@@ -1314,6 +1426,8 @@ void drawWorld(const Game& g, Camera2D cam) {
                        atan2f(s.dir.y, s.dir.x) * RAD2DEG, s.crit ? rgb(1, .8f, .1f) : WHITE);
     }
     for (const EnemyShot& s : g.enemyShots) DrawCircleV(s.pos, 4 * s.scale, s.color);
+    for (const Blast& b : g.blasts) DrawCircleV(b.pos, b.radius * (0.5f + b.t * 2), Fade(rgb(1, .6f, .2f), 0.5f * (1 - b.t / 0.25f)));
+    for (const Bolt& b : g.bolts) DrawLineEx(b.a, b.b, 1.5f, Fade(rgb(.6f, .85f, 1), 1 - b.t / 0.15f));
     for (const DamageNumber& n : g.numbers) {
         const char* txt = TextFormat("%d", n.value);
         Vector2 at = {n.pos.x - 4, n.pos.y - 14 - n.t * 30};
@@ -1321,11 +1435,17 @@ void drawWorld(const Game& g, Camera2D cam) {
         DrawTextEx(A.font, txt, at, 8, 0, Fade(WHITE, 1 - n.t / 0.6f));
     }
 
-    int near = nearPortal(g);
-    if (near >= 0 && g.mode == Mode::Play) {
-        const char* label = g.portals[near].state == Portal::PURIFIED ? "[E] Enter portal" : "[E] Summon guardian";
+    auto prompt = [&](const char* label, Vector2 at) {
         Vector2 size = MeasureTextEx(A.font, label, 10, 1);
-        DrawTextEx(A.font, label, {g.portals[near].pos.x - size.x / 2, g.portals[near].pos.y - 44}, 10, 1, WHITE);
+        DrawTextEx(A.font, label, {at.x - size.x / 2, at.y - size.y / 2}, 10, 1, WHITE);
+    };
+    int chest = nearChest(g), near = nearPortal(g);
+    if (g.mode == Mode::Play && chest >= 0) {
+        const Chest& c = g.chests[chest];
+        prompt(c.cost ? TextFormat("[E] Open chest - %d silver", c.cost) : "[E] Open chest", {c.pos.x, c.pos.y - 18});
+    } else if (g.mode == Mode::Play && near >= 0) {
+        const Portal& pt = g.portals[near];
+        prompt(pt.state == Portal::PURIFIED ? "[E] Enter portal" : "[E] Summon guardian", {pt.pos.x, pt.pos.y - 40});
     }
     EndMode2D();
 }
@@ -1349,6 +1469,15 @@ void drawHud(const Game& g) {
     text(TextFormat("Silver %d", p.silver), sw - 200, 44, 22, rgb(.8f, .8f, .85f));
     text(TextFormat("Gold %d", int(p.gold)), sw - 200, 68, 22, rgb(1, .8f, .1f));
     text(TextFormat("%s Lv.%d", WEAPON_NAMES[p.weapon.id], p.weapon.level), 20, sh - 34, 20, WHITE);
+    float iy = 100;
+    for (int i = 0; i < ITEM_COUNT; i++)
+        if (p.items[i]) {
+            const char* label = p.items[i] > 1 ? TextFormat("%s x%d", ITEMS[i].name, p.items[i]) : ITEMS[i].name;
+            text(label, sw - 200, iy, 18, ITEM_TIERS[ITEMS[i].tier].color);
+            iy += 20;
+        }
+    if (g.toastT > 0) text(g.toast.c_str(), sw / 2, sh - 120, 24, Fade(g.toastColor, std::min(1.f, g.toastT)), true);
+    text(TextFormat("%d FPS  %zu enemies", GetFPS(), g.enemies.size()), sw - 260, sh - 30, 18, Fade(WHITE, 0.6f));
     text(TextFormat("%d FPS  %zu enemies", GetFPS(), g.enemies.size()), sw - 260, sh - 30, 18, Fade(WHITE, 0.6f));
 
     for (const Enemy& e : g.enemies)
@@ -1533,8 +1662,9 @@ void handleInput(Game& g) {
         case Mode::Play:
             if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) g.mode = Mode::Paused;
             if (IsKeyPressed(KEY_E)) {
-                int i = nearPortal(g);
-                if (i >= 0 && g.portals[i].state == Portal::CORRUPTED) summonGuardian(g, i);
+                int c = nearChest(g), i = nearPortal(g);
+                if (c >= 0) openChest(g, c);
+                else if (i >= 0 && g.portals[i].state == Portal::CORRUPTED) summonGuardian(g, i);
                 else if (i >= 0) startFloor(g, g.floor + 1, g.p, g.runTime);
             }
             break;
@@ -1576,15 +1706,17 @@ int selftest() {
     grid.query({0, 0}, 25, [&](int i) { found += i == 0 || i == 1; return i == 2; });
     CHECK(found == 2);
     for (int i = 0; i < 1000; i++) { int t = weightedEnemy(MEADOW_SPAWNS, 0); CHECK(t == BASIC || t == RATMAN); }
+    CHECK(fabsf(hyper(0.15f, 1) - 0.1304f) < 0.001f && hyper(0.15f, 0) == 0);
 
-    // Every island is one walkable landmass holding the spawn and portal.
+    // Every island is one walkable landmass holding the spawn, portal and chests.
     for (const MapConfig& cfg : MAPS) {
         Map m = genMap(cfg);
         int land = int(std::count_if(m.tiles.begin(), m.tiles.end(), [](uint8_t t) { return t != 0; }));
         std::vector<bool> seen(m.tiles.size());
         int spawnTile = (int(floorf(m.spawn.y / TILE)) + BOUND) * MAP_N + int(floorf(m.spawn.x / TILE)) + BOUND;
         CHECK(m.at(m.spawn) && int(landmass(m.tiles, spawnTile, seen).size()) == land);
-        CHECK(m.at(m.portal));
+        CHECK(m.at(m.portal) && int(m.chests.size()) == cfg.chests);
+        for (Vector2 c : m.chests) CHECK(m.at(c));
     }
 
     // Guardian: enrages at half health, dies, purifies its portal and starts the end times.
@@ -1601,6 +1733,9 @@ int selftest() {
     updateEnemies(g, 1);
     CHECK(g.enemies.empty() && g.portals[0].state == Portal::PURIFIED && g.bossDefeated && g.endTimes);
     CHECK(g.seeds.size() == 50);
+    CHECK(g.chests.size() == 1 && g.chests[0].cost == 0);
+    openChest(g, 0);
+    CHECK(g.chests.empty() && std::accumulate(std::begin(g.p.items), std::end(g.p.items), 0) == 1);
     stopMusic();
 
     // Several levels at once queue several picks; dodge past the cap still gets hit.
@@ -1608,7 +1743,7 @@ int selftest() {
     lv.mode = Mode::Play;
     gainExp(lv, 500);
     CHECK(lv.mode == Mode::LevelUp && lv.p.pendingLevels > 1 && lv.options.size() == 3);
-    lv.p.evasion = 5;
+    lv.p.items[IT_CHARM] = 0, lv.p.evasion = 5;  // over the cap: still hittable
     int hits = 0;
     for (int i = 0; i < 200; i++) { lv.p.iframes = 0, lv.p.hp = 1e6f; hurtPlayer(lv, 1, nullptr); hits += lv.p.hp < 1e6f; }
     CHECK(hits > 40);
@@ -1668,6 +1803,7 @@ int main(int argc, char** argv) {
             updateEnemies(g, dt);  // last: removes enemies, invalidating grid indices
             for (DamageNumber& n : g.numbers) n.t += dt;
             std::erase_if(g.numbers, [](const DamageNumber& n) { return n.t > 0.6f; });
+            g.toastT -= dt;
         }
 
         Camera2D cam{{GetScreenWidth() / 2.f, GetScreenHeight() / 2.f}, g.p.pos, 0, ZOOM};
