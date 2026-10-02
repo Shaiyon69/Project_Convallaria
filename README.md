@@ -57,8 +57,6 @@ cmake --build build
 
 The executable loads its art and audio from `assets/` in this repository.
 
-The UI font is [Poppins](https://github.com/itfoundry/Poppins), under the SIL Open Font License (`assets/ui/fonts/OFL-Poppins.txt`).
-
 ## Not Ported Yet
 
-The original Godot version (see git history before the C++ port) also had statues, an options menu, JSON mod support, and Android touch controls. These are next on the list.
+The original Godot version (see git history before the C++ port) also had statues, JSON mod support, and Android touch controls. These are next on the list.

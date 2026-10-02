@@ -17,18 +17,19 @@ struct EnemyDef {
     int damage, exp;
     float pitch;
     bool shooter, ratman, deathSlime;
+    const char* sprite;  // assets/enemies/<sprite>.png walk sheet; null draws the tinted slime
 };
 
 constexpr EnemyDef ENEMIES[ENEMY_TYPE_COUNT] = {
-    {"basic", 30, 55.f, 1.0f, rgb(1, 1, 1), 8, 10, 1.0f, false, false, false},
-    {"ratman", 20, 95.f, 1.0f, rgb(1, 1, 1), 10, 15, 1.2f, false, true, false},
-    {"shooter", 20, 60.f, 0.9f, rgb(1, 0.831f, 0), 12, 20, 1.4f, true, false, false},
-    {"brute", 90, 38.f, 1.5f, rgb(1, 0.4f, 0.4f), 20, 30, 0.6f, false, false, false},
-    {"runner", 15, 120.f, 0.8f, rgb(0.2f, 0.9f, 0.2f), 6, 15, 1.5f, false, false, false},
-    {"swarm", 5, 105.f, 0.5f, rgb(1, 0.5f, 0), 3, 5, 1.8f, false, false, false},
-    {"tank", 300, 26.f, 2.0f, rgb(0.2f, 0.2f, 0.2f), 32, 100, 0.4f, false, false, false},
-    {"dasher", 25, 55.f, 0.9f, rgb(0.1f, 0.8f, 0.8f), 14, 25, 1.3f, false, false, false},
-    {"death_slime", 15000, 250.f, 3.0f, rgb(0.367f, 0, 0.367f), 500, 0, 0.2f, false, false, true},
+    {"basic", 30, 55.f, 1.0f, rgb(1, 1, 1), 8, 10, 1.0f, false, false, false, nullptr},
+    {"ratman", 20, 95.f, 1.0f, rgb(1, 1, 1), 10, 15, 1.2f, false, true, false, nullptr},
+    {"shooter", 20, 60.f, 0.9f, rgb(1, 1, 1), 12, 20, 1.4f, true, false, false, "shroom"},
+    {"brute", 90, 38.f, 1.5f, rgb(1, 1, 1), 20, 30, 0.6f, false, false, false, "boar"},
+    {"runner", 15, 120.f, 0.8f, rgb(1, 1, 1), 6, 15, 1.5f, false, false, false, "beetle"},
+    {"swarm", 5, 105.f, 0.5f, rgb(1, 1, 1), 3, 5, 1.8f, false, false, false, "bee"},
+    {"tank", 300, 26.f, 2.0f, rgb(1, 1, 1), 32, 100, 0.4f, false, false, false, "golem"},
+    {"dasher", 25, 55.f, 0.9f, rgb(1, 1, 1), 14, 25, 1.3f, false, false, false, "hare"},
+    {"death_slime", 15000, 250.f, 3.0f, rgb(0.367f, 0, 0.367f), 500, 0, 0.2f, false, false, true, nullptr},
 };
 
 // Enemy scaling. Damage grows gently so contact stays survivable deep into a run,
@@ -109,20 +110,20 @@ constexpr WeaponLevel WEAPON_LEVELS[WEAPON_COUNT][3] = {
 // Items: bought from chests with silver, stacked without limit (Risk of Rain style).
 enum ItemId { IT_QUILL, IT_BARK, IT_BOOTS, IT_CLOVER, IT_SPROUT, IT_LEECH,
               IT_EMBER, IT_BELL, IT_SPORES, IT_CHARM, IT_CROWN, IT_SICKLE, ITEM_COUNT };
-struct ItemDef { const char* name; const char* desc; int tier; };
+struct ItemDef { const char* name; const char* desc; int tier; const char* icon; };  // icon: assets/player/items/<icon>.png
 constexpr ItemDef ITEMS[ITEM_COUNT] = {
-    {"Quick Quill", "+12% attack speed", 0},
-    {"Oak Bark", "+30 max HP", 0},
-    {"Fleet Boots", "+10% move speed", 0},
-    {"Four-Leaf Clover", "+8% crit chance", 0},
-    {"Green Sprout", "+1.5 HP regen", 0},
-    {"Leech Seed", "Hits heal 1 HP", 0},
-    {"Ember Stone", "15% chance on hit to burn", 1},
-    {"Storm Bell", "20% chance on hit to zap 3 enemies (+2 per stack)", 1},
-    {"Volatile Spores", "Kills explode (bigger per stack)", 1},
-    {"Ward Charm", "15% chance to block a hit (stacks with falloff)", 1},
-    {"Lily Crown", "+1 projectile and orb", 2},
-    {"Reaper's Sickle", "Execute enemies under 13% HP (stacks with falloff)", 2},
+    {"Quick Quill", "+12% attack speed", 0, "quill"},
+    {"Oak Bark", "+30 max HP", 0, "bark"},
+    {"Fleet Boots", "+10% move speed", 0, "boots"},
+    {"Four-Leaf Clover", "+8% crit chance", 0, "clover"},
+    {"Green Sprout", "+1.5 HP regen", 0, "sprout"},
+    {"Leech Seed", "Hits heal 1 HP", 0, "leech"},
+    {"Ember Stone", "15% chance on hit to burn", 1, "ember"},
+    {"Storm Bell", "20% chance on hit to zap 3 enemies (+2 per stack)", 1, "bell"},
+    {"Volatile Spores", "Kills explode (bigger per stack)", 1, "spores"},
+    {"Ward Charm", "15% chance to block a hit (stacks with falloff)", 1, "charm"},
+    {"Lily Crown", "+1 projectile and orb", 2, "crown"},
+    {"Reaper's Sickle", "Execute enemies under 13% HP (stacks with falloff)", 2, "sickle"},
 };
 struct ItemTier { const char* name; Color color; int weight; };
 constexpr ItemTier ITEM_TIERS[] = {
@@ -130,6 +131,13 @@ constexpr ItemTier ITEM_TIERS[] = {
     {"Uncommon", rgb(0.2f, 0.8f, 0.2f), 25},
     {"Legendary", rgb(1, 0.3f, 0.2f), 5},
 };
+
+// Playable characters (cosmetic): walk sheets in assets/player/, picked in the shop.
+struct CharacterDef { const char* name; const char* sprite; };
+constexpr CharacterDef CHARACTERS[] = {
+    {"Lily", "woman"}, {"Shy", "shy_walk"}, {"Ivy", "ivy"}, {"Rowan", "rowan"}, {"Nyx", "nyx"},
+};
+constexpr int CHARACTER_COUNT = int(std::size(CHARACTERS));
 
 constexpr int MAX_FLOORS = 4;
 

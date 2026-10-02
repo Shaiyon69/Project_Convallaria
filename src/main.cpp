@@ -3,6 +3,7 @@
 #include <raymath.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -11,6 +12,7 @@
 #include <filesystem>
 #include <numeric>
 #include <fstream>
+#include <map>
 #include <random>
 #include <string>
 #include <vector>
@@ -55,6 +57,8 @@ std::string fillText(const char* text, float value) {
     return s;
 }
 
+float musicVolume = 1, sfxVolume = 1;  // set from the profile by applyVolume
+
 // Several aliases of one sound so hits can overlap; throttle drops spam.
 struct Sfx {
     Sound base{};
@@ -71,7 +75,7 @@ struct Sfx {
         last = now;
         Sound& s = alias[next++ % 8];
         SetSoundPitch(s, pitch);
-        SetSoundVolume(s, db(volumeDb));
+        SetSoundVolume(s, db(volumeDb) * sfxVolume);
         PlaySound(s);
     }
 };
@@ -84,76 +88,20 @@ Sound loadClip(const char* path, float from, float to) {
     return s;
 }
 
-// Terrain: draws the map heightfield (see Map) as smooth coast, beach, grass and animated water.
-const char* TERRAIN_FS = R"(#version 330
-in vec2 fragTexCoord;
-uniform sampler2D texture0;
-uniform float cut, time, size;
-uniform vec3 grass, soil, water;
-out vec4 finalColor;
-
-float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
-float noise(vec2 p) {
-    vec2 i = floor(p), f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
-}
-float fbm(vec2 p) {
-    float v = 0.0, a = 0.5;
-    for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.03 + 17.0; a *= 0.5; }
-    return v;
-}
-
-void main() {
-    vec2 w = fragTexCoord * size;  // world pixels
-    float h = texture(texture0, fragTexCoord).r;
-    float aa = max(fwidth(h), 1e-4);
-    float land = smoothstep(cut - aa, cut + aa, h);
-
-    // Water: shallows to deep, drifting light, the shore's shadow and rolling foam.
-    float depth = clamp((cut - h) / 0.15, 0.0, 1.0);
-    vec3 wc = mix(water * 1.3 + 0.06, water * 0.55, smoothstep(0.0, 1.0, depth));
-    float ripple = noise(w * 0.04 + vec2(time * 0.35, time * 0.2)) * noise(w * 0.07 - vec2(time * 0.25, -time * 0.3));
-    wc += smoothstep(0.22, 0.32, ripple) * 0.07 * (1.0 - depth * 0.5);
-    float hs = texture(texture0, fragTexCoord - vec2(1.5, 2.5) / vec2(textureSize(texture0, 0))).r;
-    wc *= 1.0 - 0.3 * smoothstep(cut - 0.02, cut + 0.02, hs);
-    float shore = clamp((cut - h) / 0.06, 0.0, 1.0);
-    float waves = sin(shore * 16.0 - time * 2.2 + noise(w * 0.05) * 3.0);
-    float foam = 1.0 - smoothstep(0.0, 0.2, shore) + smoothstep(0.8, 1.0, waves) * (1.0 - shore) * 0.6;
-    wc = mix(wc, vec3(0.95, 0.98, 1.0), clamp(foam, 0.0, 1.0) * 0.65);
-
-    // Land: wet sand, beach, grass with soft patches and flowers, soil on the heights.
-    float up = h - cut, n = fbm(w * 0.02), fine = noise(w * 0.3);
-    vec3 g = grass * (0.85 + 0.3 * n);
-    g = mix(g, grass * vec3(1.15, 1.12, 0.75), smoothstep(0.55, 0.75, fbm(w * 0.008 + 31.0)) * 0.6);
-    g *= 0.95 + 0.1 * fine;
-    vec3 s = soil * (0.85 + 0.3 * fbm(w * 0.05 + 7.0));
-    vec3 lc = mix(g, s, 0.85 * smoothstep(0.56, 0.65, h + (n - 0.5) * 0.08));
-    vec3 sand = mix(soil, vec3(0.96, 0.89, 0.7), 0.6) * (0.95 + 0.1 * fine);
-    lc = mix(sand, lc, smoothstep(0.025, 0.05, up + (n - 0.5) * 0.02));
-    vec2 cell = floor(w / 10.0);
-    float r = hash(cell);
-    if (r > 0.94 && up > 0.06 && h < 0.56) {
-        vec2 c = (cell + 0.25 + 0.5 * vec2(hash(cell + 1.3), hash(cell + 7.1))) * 10.0;
-        vec3 fc = r > 0.993 ? lc * vec3(1.5, 1.0, 1.4) : lc * 0.72;
-        lc = mix(lc, fc, 1.0 - smoothstep(0.8, 1.8, length(w - c)));
-    }
-    lc *= mix(0.78, 1.0, smoothstep(0.0, 0.015, up));
-    finalColor = vec4(mix(wc, lc, land), 1.0);
-}
-)";
-
 struct Assets {
-    Texture2D player, slime, ratman, guardian, portal, seed, projectile, aura, title, chest, shadow;
-    Shader terrain;
-    Font font;
+    Texture2D characters[CHARACTER_COUNT], enemySprites[ENEMY_TYPE_COUNT], thorn, slime, ratman, guardian, portal, seed, projectile, aura, title, chest;
+    Texture2D water, grass, soil, tree, titleBg, menuButton, weaponSlot, weaponIcons[WEAPON_COUNT], itemIcons[ITEM_COUNT];
     Sfx orb, levelup, hurt, wandShot, enemyShot, slimeHit, slimeDeath, ratmanDeath, win, hover, click;
     Music music{};
     std::string musicPath;
+    float musicDb = 0;
 } A;
 
 void loadAssets() {
-    A.player = LoadTexture(asset("player/woman.png"));
+    for (int i = 0; i < CHARACTER_COUNT; i++) A.characters[i] = LoadTexture(asset(TextFormat("player/%s.png", CHARACTERS[i].sprite)));
+    for (int i = 0; i < ENEMY_TYPE_COUNT; i++)
+        if (ENEMIES[i].sprite) A.enemySprites[i] = LoadTexture(asset(TextFormat("enemies/%s.png", ENEMIES[i].sprite)));
+    A.thorn = LoadTexture(asset("weapons/thorn/orb.png"));
     A.slime = LoadTexture(asset("enemies/blob.png"));
     A.ratman = LoadTexture(asset("enemies/ratman/ratman.png"));
     A.guardian = LoadTexture(asset("enemies/bob.png"));
@@ -162,16 +110,17 @@ void loadAssets() {
     A.projectile = LoadTexture(asset("weapons/wand/projectile.png"));
     A.aura = LoadTexture(asset("weapons/poison/poison_radius..png"));
     A.chest = LoadTexture(asset("drops/chest/chest.png"));
-    Image shadow = GenImageGradientRadial(32, 32, 0.2f, {0, 0, 0, 120}, {0, 0, 0, 0});
-    A.shadow = LoadTextureFromImage(shadow);
-    UnloadImage(shadow);
-    SetTextureFilter(A.shadow, TEXTURE_FILTER_BILINEAR);
-    A.terrain = LoadShaderFromMemory(nullptr, TERRAIN_FS);
-    // Loaded large and mipmapped so it stays crisp at every size, including world-space damage numbers.
-    A.font = LoadFontEx(asset("ui/fonts/Poppins-SemiBold.ttf"), 64, nullptr, 0);
-    if (!IsFontValid(A.font)) A.font = GetFontDefault();
-    GenTextureMipmaps(&A.font.texture);
-    SetTextureFilter(A.font.texture, TEXTURE_FILTER_TRILINEAR);
+    A.water = LoadTexture(asset("world/water.png"));
+    A.grass = LoadTexture(asset("world/grass.png"));
+    A.soil = LoadTexture(asset("world/soil.png"));
+    A.tree = LoadTexture(asset("world/tree.png"));
+    A.titleBg = LoadTexture(asset("ui/title_background.png"));
+    A.menuButton = LoadTexture(asset("ui/menu_buttons.png"));
+    A.weaponSlot = LoadTexture(asset("weapons/weaponslot.png"));
+    A.weaponIcons[WAND] = LoadTexture(asset("weapons/wand/wand.png"));
+    A.weaponIcons[POISON_AURA] = LoadTexture(asset("weapons/poison/poison.png"));
+    A.weaponIcons[ORBIT] = LoadTexture(asset("weapons/thorn/thorn.png"));
+    for (int i = 0; i < ITEM_COUNT; i++) A.itemIcons[i] = LoadTexture(asset(TextFormat("player/items/%s.png", ITEMS[i].icon)));
     A.orb.load(LoadSound(asset("player/orb.mp3")));
     A.levelup.load(LoadSound(asset("audio/levelup.wav")));
     A.hurt.load(LoadSound(asset("player/hurt.mp3")));
@@ -192,7 +141,8 @@ void playMusic(const char* path, float volumeDb) {
     if (IsMusicValid(A.music)) UnloadMusicStream(A.music);
     A.music = LoadMusicStream(asset(path));
     A.musicPath = path;
-    SetMusicVolume(A.music, db(volumeDb));
+    A.musicDb = volumeDb;
+    SetMusicVolume(A.music, db(volumeDb) * musicVolume);
     PlayMusicStream(A.music);
 }
 
@@ -207,7 +157,9 @@ void stopMusic() {
 struct Profile {
     int coins = 0;
     WeaponId weapon = WAND;
+    int character = 0;
     int levels[PERM_COUNT]{};
+    float volume[3] = {1, 1, 1};  // master, music, sfx
 } profile;
 
 std::filesystem::path savePath() {
@@ -224,7 +176,8 @@ bool saveProfile(const Profile& pr, const std::filesystem::path& path) {
     tmp += ".tmp";
     {
         std::ofstream out(tmp);
-        out << "coins " << pr.coins << "\nweapon " << int(pr.weapon) << "\n";
+        out << "coins " << pr.coins << "\nweapon " << int(pr.weapon) << "\ncharacter " << pr.character << "\n";
+        out << "volume " << pr.volume[0] << " " << pr.volume[1] << " " << pr.volume[2] << "\n";
         for (int i = 0; i < PERM_COUNT; i++) out << "upgrade " << PERM_UPGRADES[i].id << " " << pr.levels[i] << "\n";
         if (!out) return false;
     }
@@ -239,7 +192,10 @@ Profile loadProfile(const std::filesystem::path& path) {
     while (in >> key) {
         if (key == "coins") in >> pr.coins;
         else if (key == "weapon") { int w = 0; in >> w; pr.weapon = w >= 0 && w < WEAPON_COUNT ? WeaponId(w) : WAND; }
-        else if (key == "upgrade") {
+        else if (key == "character") { int c = 0; in >> c; pr.character = c >= 0 && c < CHARACTER_COUNT ? c : 0; }
+        else if (key == "volume") {
+            for (float& v : pr.volume) in >> v, v = std::clamp(v, 0.f, 1.f);
+        } else if (key == "upgrade") {
             std::string id;
             int level = 0;
             in >> id >> level;
@@ -286,29 +242,41 @@ float permBoost(const Profile& pr, PermId id) { return pr.levels[id] * PERM_UPGR
 
 // ---------------------------------------------------------------- map
 
-// The island is a heightfield, FIELD_RES cells per tile, and land is wherever the
-// bilinear height beats the cut. The GPU draws the same field with linear filtering,
-// so the smooth coastline on screen is exactly the one you collide with.
-constexpr int FIELD_RES = 4, FIELD_N = MAP_N * FIELD_RES;
-constexpr float CELL = float(TILE) / FIELD_RES;
+// The island is a 16 px tile grid drawn with the Godot tilemap art: animated water,
+// then grass and soil autotiles. Edge tiles only fill the quarters whose three
+// neighbours are land, so a point is walkable when the four tiles around its
+// nearest tile corner are all land; that is exactly the grass you see.
+// A tree's trunk blocks movement within TREE_W x TREE_H of its base.
+constexpr float TREE_W = 17, TREE_H = 8;
 
 struct Map {
     const MapConfig* cfg = &MAPS[0];
-    std::vector<uint8_t> field;  // height, 0-255
+    std::vector<uint8_t> field;  // height per tile, 0-255
+    std::vector<int8_t> grass, soil;  // autotile atlas index per tile, -1 for none
+    std::vector<int> treeAt;  // index into trees per tile, -1 for none
+    std::vector<Vector2> trees;
     uint8_t cut = 0;
-    Texture2D tex{};
     Vector2 spawn{}, portal{};
     std::vector<Vector2> chests;
-    Color water{}, grass{}, soil{};
+    Color water = WHITE, grassTint = WHITE, soilTint = WHITE;
 
-    float height(Vector2 p) const {
-        float fx = p.x / CELL + FIELD_N / 2 - 0.5f, fy = p.y / CELL + FIELD_N / 2 - 0.5f;
-        int x0 = int(floorf(fx)), y0 = int(floorf(fy));
-        float tx = fx - x0, ty = fy - y0;
-        auto h = [&](int x, int y) { return x < 0 || y < 0 || x >= FIELD_N || y >= FIELD_N ? 0.f : float(field[y * FIELD_N + x]); };
-        return Lerp(Lerp(h(x0, y0), h(x0 + 1, y0), tx), Lerp(h(x0, y0 + 1), h(x0 + 1, y0 + 1), tx), ty);
+    static int tileOf(float v) { return int(floorf(v / TILE)) + MAP_N / 2; }
+    bool land(int x, int y) const { return x >= 0 && y >= 0 && x < MAP_N && y < MAP_N && field[y * MAP_N + x] > cut; }
+    bool at(Vector2 p) const {
+        int vx = int(roundf(p.x / TILE)) + MAP_N / 2, vy = int(roundf(p.y / TILE)) + MAP_N / 2;
+        return land(vx - 1, vy - 1) && land(vx, vy - 1) && land(vx - 1, vy) && land(vx, vy);
     }
-    bool at(Vector2 p) const { return height(p) > cut; }
+    bool blocked(Vector2 p) const {  // by a tree trunk
+        if (treeAt.empty()) return false;
+        for (int y = tileOf(p.y) - 1; y <= tileOf(p.y) + 1; y++)
+            for (int x = tileOf(p.x) - 1; x <= tileOf(p.x) + 1; x++) {
+                int t = x >= 0 && y >= 0 && x < MAP_N && y < MAP_N ? treeAt[y * MAP_N + x] : -1;
+                if (t >= 0 && fabsf(p.x - trees[t].x) < TREE_W && fabsf(p.y - trees[t].y) < TREE_H) return true;
+            }
+        return false;
+    }
+    // Something already inside a trunk (spawned or pushed there) may walk out.
+    bool walk(Vector2 from, Vector2 to) const { return at(to) && (!blocked(to) || blocked(from)); }
     bool landAround(Vector2 p, int r) const {
         for (int dy = -r; dy <= r; dy++)
             for (int dx = -r; dx <= r; dx++)
@@ -317,90 +285,146 @@ struct Map {
     }
 };
 
-const Color WATER = {52, 118, 170, 255}, GRASS = {92, 158, 70, 255}, SOIL = {139, 108, 66, 255};
+int cellIndex(Vector2 p) { return std::clamp(Map::tileOf(p.y), 0, MAP_N - 1) * MAP_N + std::clamp(Map::tileOf(p.x), 0, MAP_N - 1); }
 
-int cellIndex(Vector2 p) { return (int(floorf(p.y / CELL)) + FIELD_N / 2) * FIELD_N + int(floorf(p.x / CELL)) + FIELD_N / 2; }
+// Godot terrain peering bits of each tile in world/grass.png and soil.png (11 x 5 atlas,
+// -1 unused). Bits: right, bottom-right, bottom, bottom-left, left, top-left, top, top-right.
+constexpr int AUTOTILE[5][11] = {
+    {7, 31, 28, 4, 5, 29, 23, 20, 21, 221, -1},
+    {199, 255, 124, 68, 197, 253, 247, 116, 245, 119, -1},
+    {193, 241, 112, 64, 71, 127, 223, 92, 95, 87, 93},
+    {1, 17, 16, 0, 65, 113, 209, 80, 81, 213, 117},
+    {255, 255, 255, 255, 69, 125, 215, 84, 85, -1, -1},
+};
 
-// Cells connected to `start` above the cut. Walking needs 4-connection (movement is
-// per axis); `diagonal` also follows corners so coastline nubs count as part of the island.
-// Land never touches the array edge.
-std::vector<int> landmass(const std::vector<uint8_t>& field, uint8_t cut, int start, std::vector<bool>& seen, bool diagonal) {
-    std::vector<int> out, stack = {start};
+// Picks the atlas tile for each set cell from its 8 neighbours, as Godot's
+// set_cells_terrain_connect does; corners only count when both sides do.
+std::vector<int8_t> autotile(const std::vector<bool>& set) {
+    static const std::array<int8_t, 256> lookup = [] {
+        std::array<int8_t, 256> l{};
+        for (int y = 4; y >= 0; y--)
+            for (int x = 10; x >= 0; x--)  // first in reading order wins, so 255 is the plain 1:1
+                if (AUTOTILE[y][x] >= 0) l[AUTOTILE[y][x]] = int8_t(y * 11 + x);
+        return l;
+    }();
+    std::vector<int8_t> out(set.size(), -1);
+    auto on = [&](int x, int y) { return x >= 0 && y >= 0 && x < MAP_N && y < MAP_N && set[y * MAP_N + x]; };
+    for (int y = 0; y < MAP_N; y++)
+        for (int x = 0; x < MAP_N; x++) {
+            if (!set[y * MAP_N + x]) continue;
+            bool r = on(x + 1, y), b = on(x, y + 1), l = on(x - 1, y), t = on(x, y - 1);
+            int m = r | (r && b && on(x + 1, y + 1)) << 1 | b << 2 | (b && l && on(x - 1, y + 1)) << 3 | l << 4 |
+                    (l && t && on(x - 1, y - 1)) << 5 | t << 6 | (t && r && on(x + 1, y - 1)) << 7;
+            int8_t tile = lookup[m];
+            if (m == 255 && rnd() < 0.4f / 1.4f) tile = int8_t(44 + rndi(4));  // the four plain variants weigh 0.1 each
+            out[y * MAP_N + x] = tile;
+        }
+    return out;
+}
+
+// A tile corner is walkable when its four tiles are land (see Map::at); its index is its bottom-right tile's.
+bool walkable(const Map& m, int v) { int x = v % MAP_N, y = v / MAP_N; return m.land(x - 1, y - 1) && m.land(x, y - 1) && m.land(x - 1, y) && m.land(x, y); }
+
+// Walkable corners 4-connected to `start` (movement is per axis).
+std::vector<int> landmass(const Map& m, int start, std::vector<bool>& seen) {
+    std::vector<int> out, stack;
+    if (seen[start] || !walkable(m, start)) return out;
+    stack.push_back(start);
     seen[start] = true;
     while (!stack.empty()) {
         int c = stack.back();
         stack.pop_back();
         out.push_back(c);
-        for (int n : {c - 1, c + 1, c - FIELD_N, c + FIELD_N, c - FIELD_N - 1, c - FIELD_N + 1, c + FIELD_N - 1, c + FIELD_N + 1}) {
-            if (field[n] > cut && !seen[n]) seen[n] = true, stack.push_back(n);
-            if (!diagonal && n == c + FIELD_N) break;
-        }
+        for (int n : {c - 1, c + 1, c - MAP_N, c + MAP_N})
+            if (!seen[n] && walkable(m, n)) seen[n] = true, stack.push_back(n);
     }
     return out;
 }
 
-// Same island recipe as the Godot map: fbm Perlin noise with a radial falloff.
-// Only the biggest landmass is kept so the portal and chests are always reachable;
-// the rest sinks under the waterline and shows as reefs.
+int vertexIndex(Vector2 p) { return (int(roundf(p.y / TILE)) + MAP_N / 2) * MAP_N + int(roundf(p.x / TILE)) + MAP_N / 2; }
+Vector2 vertexPos(int v) { return {float(v % MAP_N - MAP_N / 2) * TILE, float(v / MAP_N - MAP_N / 2) * TILE}; }
+
+// Same island recipe as the Godot map: fbm Perlin noise with a radial falloff, land
+// above the cut and soil above 0.6. Only the biggest walkable region is kept so the
+// portal and chests are always reachable; trees cover 1.5% of it like map.gd.
 Map genMap(const MapConfig& cfg) {
     Map m;
     m.cfg = &cfg;
     const Biome& biome = BIOMES[cfg.biome];
-    float radius = float(cfg.radius * FIELD_RES);
-    m.water = ColorTint(WATER, biome.water);
-    m.grass = ColorTint(GRASS, biome.grass);
-    m.soil = ColorTint(SOIL, biome.soil);
+    m.water = biome.water, m.grassTint = biome.grass, m.soilTint = biome.soil;
     m.cut = uint8_t(cfg.cut * 255);
-    std::vector<uint8_t> raw(FIELD_N * FIELD_N, 0);
-    Image noise = GenImagePerlinNoise(FIELD_N, FIELD_N, rndi(100000), rndi(100000), cfg.noiseScale * MAP_N);
+    float radius = float(cfg.radius);
+    m.field.assign(MAP_N * MAP_N, 0);
+    Image noise = GenImagePerlinNoise(MAP_N, MAP_N, rndi(100000), rndi(100000), cfg.noiseScale * MAP_N);
     Color* px = LoadImageColors(noise);
-    for (int y = 0; y < FIELD_N; y++)
-        for (int x = 0; x < FIELD_N; x++) {
-            float dx = x + 0.5f - FIELD_N / 2, dy = y + 0.5f - FIELD_N / 2, d = sqrtf(dx * dx + dy * dy) / radius;
+    for (int y = 0; y < MAP_N; y++)
+        for (int x = 0; x < MAP_N; x++) {
+            float dx = x + 0.5f - MAP_N / 2, dy = y + 0.5f - MAP_N / 2, d = sqrtf(dx * dx + dy * dy) / radius;
             if (d >= 1) continue;
             float falloff = 1.f - powf(fabsf(d - cfg.ring) / (1.f - cfg.ring), 2.5f);
-            raw[y * FIELD_N + x] = uint8_t(std::clamp(px[y * FIELD_N + x].r / 255.f * falloff, 0.f, 1.f) * 255);
+            m.field[y * MAP_N + x] = uint8_t(std::clamp(px[y * MAP_N + x].r / 255.f * falloff, 0.f, 1.f) * 255);
         }
     UnloadImageColors(px);
     UnloadImage(noise);
 
-    std::vector<bool> seen(raw.size());
+    // Sink land that doesn't touch the biggest region; repeat in case that strands a pocket.
     std::vector<int> biggest;
-    for (int i = 0; i < int(raw.size()); i++)
-        if (raw[i] > m.cut && !seen[i]) {
-            std::vector<int> part = landmass(raw, m.cut, i, seen, true);
+    for (int pass = 0; pass < 8; pass++) {
+        std::vector<bool> seen(m.field.size());
+        biggest.clear();
+        int total = 0;
+        for (int v = MAP_N + 1; v < MAP_N * (MAP_N - 1); v++) {
+            std::vector<int> part = landmass(m, v, seen);
+            total += int(part.size());
             if (part.size() > biggest.size()) biggest.swap(part);
         }
-    std::vector<bool> keep(raw.size());
-    for (int i : biggest) keep[i] = true;
-    for (int i = 0; i < int(raw.size()); i++)
-        if (raw[i] > m.cut && !keep[i]) raw[i] = uint8_t(std::max(0, m.cut - 1 - (raw[i] - m.cut) / 2));  // mirrored, so the reef edge stays smooth
+        if (total == int(biggest.size())) break;
+        std::vector<bool> keep(m.field.size());
+        for (int v : biggest)
+            for (int t : {v, v - 1, v - MAP_N, v - MAP_N - 1}) keep[t] = true;
+        for (int i = 0; i < int(m.field.size()); i++)
+            if (!keep[i]) m.field[i] = std::min(m.field[i], m.cut);
+    }
+
+    std::vector<bool> grass(m.field.size()), soil(m.field.size());
+    for (int i = 0; i < int(m.field.size()); i++) grass[i] = m.field[i] > m.cut, soil[i] = m.field[i] > 153;
+    m.grass = autotile(grass);
+    m.soil = autotile(soil);
 
     std::vector<Vector2> land;
     float best = 1e9f;
-    for (int i : biggest) {
-        Vector2 center = {(i % FIELD_N - FIELD_N / 2 + 0.5f) * CELL, (i / FIELD_N - FIELD_N / 2 + 0.5f) * CELL};
-        land.push_back(center);
-        float d2 = Vector2LengthSqr(center);
-        if (d2 < best) best = d2, m.spawn = center;
+    for (int v : biggest) {
+        land.push_back(vertexPos(v));
+        float d2 = Vector2LengthSqr(land.back());
+        if (d2 < best) best = d2, m.spawn = land.back();
     }
-    if (IsWindowReady()) {  // the selftest runs without a window
-        Image img = {raw.data(), FIELD_N, FIELD_N, 1, PIXELFORMAT_UNCOMPRESSED_GRAYSCALE};
-        m.tex = LoadTextureFromImage(img);
-        SetTextureFilter(m.tex, TEXTURE_FILTER_BILINEAR);
-        SetTextureWrap(m.tex, TEXTURE_WRAP_CLAMP);
-    }
-    m.field = std::move(raw);
-
+    // Tiles kept clear of trees: around the spawn, the portal and each chest.
+    std::vector<bool> reserved(m.field.size());
+    auto reserve = [&](Vector2 c, int r) {
+        for (int dy = -r; dy <= r; dy++)
+            for (int dx = -r; dx <= r; dx++) reserved[cellIndex({c.x + dx * TILE, c.y + dy * TILE})] = true;
+    };
+    reserve(m.spawn, 5);
     m.portal = m.spawn;
     for (int a = 0; a < 200 && !land.empty(); a++) {
         Vector2 c = land[rndi(int(land.size()))];
         if (m.landAround(c, 3) && Vector2Distance(c, m.spawn) > 9 * TILE) { m.portal = c; break; }
     }
+    reserve(m.portal, 3);
     for (int a = 0; a < cfg.chests * 20 && int(m.chests.size()) < cfg.chests && !land.empty(); a++) {
         Vector2 c = land[rndi(int(land.size()))];
         if (m.landAround(c, 1) && Vector2Distance(c, m.spawn) > 6 * TILE && Vector2Distance(c, m.portal) > 4 * TILE)
-            m.chests.push_back(c);
+            m.chests.push_back(c), reserve(c, 1);
+    }
+    m.treeAt.assign(m.field.size(), -1);
+    int target = int(land.size() * 0.015f);
+    for (int a = 0; a < target * 4 && int(m.trees.size()) < target; a++) {
+        Vector2 c = Vector2Add(land[rndi(int(land.size()))], {TILE / 2.f, TILE / 2.f});  // a tile centre
+        int i = cellIndex(c);
+        if (reserved[i] || !m.landAround(c, 1)) continue;
+        reserve(c, 1);
+        m.treeAt[i] = int(m.trees.size());
+        m.trees.push_back(Vector2Add(c, {rndr(-6, 6), rndr(-6, 6)}));
     }
     return m;
 }
@@ -459,7 +483,7 @@ struct Player {
     bool imbueFire = false, imbueFrost = false, moving = false;
     float magnetT = 0, magnetScan = 0, speedT = 0, iframes = 0, anim = 0;
     float time = 0;  // on this floor; the run total lives in Game::runTime
-    int facing = DOWN;
+    int facing = DOWN, character = 0;
     std::vector<std::string> uniques;
     std::vector<Weapon> weapons;
     int items[ITEM_COUNT]{};
@@ -501,7 +525,7 @@ struct Grid {
 enum OptionKind { OPT_UPGRADE, OPT_BUFF, OPT_WEAPON };
 struct Option { int kind, index, weapon; float value; int rarity; std::string text; };
 enum Buff { B_DAMAGE, B_FIRE_RATE, B_SIZE, B_RICOCHET, B_PROJECTILE };
-enum class Mode { Title, Shop, Play, LevelUp, Paused, GameOver, Victory };
+enum class Mode { Title, Shop, Play, LevelUp, ItemGet, Paused, GameOver, Victory };
 
 struct Game {
     Map map;
@@ -528,14 +552,15 @@ struct Game {
     int spawnCount = 1, lastSecond = -1;
     bool endTimes = false, bossSummoned = false, bossDefeated = false, banked = false, quit = false;
     float finalBossT = -1, victoryT = -1;
-    int runGold = 0;
+    int runGold = 0, gotItem = -1;  // gotItem: shown by the item popup
 };
 
 int chestCost(int floor) { return 10 + 8 * (floor - 1); }
 
+void showToast(Game& g, std::string text, Color c) { g.toast = std::move(text), g.toastColor = c, g.toastT = 3; }
+
 void startFloor(Game& g, int floor, Player player, float runTime) {  // player by value: g is reset below
     const MapConfig* prev = g.map.cfg;
-    if (g.map.tex.id) UnloadTexture(g.map.tex);
     g = Game{};
     g.floor = floor;
     g.runTime = runTime;
@@ -550,6 +575,7 @@ void startFloor(Game& g, int floor, Player player, float runTime) {  // player b
     if (floor < MAX_FLOORS) g.portals.push_back({g.map.portal});
     else g.finalBossT = 2.5f;
     g.mode = Mode::Play;
+    showToast(g, TextFormat("Floor %d  -  %s", floor, cfg->name), WHITE);
     playMusic("ui/music.mp3", -8);
 }
 
@@ -557,6 +583,7 @@ void startFloor(Game& g, int floor, Player player, float runTime) {  // player b
 void newRun(Game& g) {
     Player p;
     p.weapons.push_back({profile.weapon});
+    p.character = profile.character;
     p.maxHp += permBoost(profile, PERM_MAX_HP);
     p.hp = p.maxHp;
     p.dmgMul += permBoost(profile, PERM_DAMAGE);
@@ -677,8 +704,6 @@ void gainExp(Game& g, int amount) {
 
 void heal(Player& p, float amount) { p.hp = std::min(p.hp + amount, p.maxHp); }
 
-void showToast(Game& g, std::string text, Color c) { g.toast = std::move(text), g.toastColor = c, g.toastT = 3; }
-
 int rollItem() {
     int roll = rndi(100), tier = 0;
     for (int acc = 0; tier < 2 && roll >= (acc += ITEM_TIERS[tier].weight); tier++) {}
@@ -692,8 +717,8 @@ void grantItem(Game& g, int id) {
     Player& p = g.p;
     p.items[id]++;
     if (id == IT_BARK) p.maxHp += 30, p.hp += 30;
-    const ItemDef& it = ITEMS[id];
-    showToast(g, TextFormat("%s  -  %s", it.name, it.desc), ITEM_TIERS[it.tier].color);
+    g.gotItem = id;
+    if (g.mode == Mode::Play) g.mode = Mode::ItemGet;  // the Godot ItemGetPopup pauses
     A.levelup.play(1.5f, -10);
 }
 
@@ -1106,9 +1131,9 @@ void updatePlayer(Game& g, float dt) {
         p.anim += dt;
         float speed = p.speed * (1 + 0.1f * p.items[IT_BOOTS]) * (p.speedT > 0 ? 1.5f : 1);
         Vector2 nx = {p.pos.x + in.x * speed * dt, p.pos.y};
-        if (g.map.at(nx)) p.pos.x = nx.x;
+        if (g.map.walk(p.pos, nx)) p.pos.x = nx.x;
         Vector2 ny = {p.pos.x, p.pos.y + in.y * speed * dt};
-        if (g.map.at(ny)) p.pos.y = ny.y;
+        if (g.map.walk(p.pos, ny)) p.pos.y = ny.y;
     }
 
     float regen = p.regen + 1.5f * p.items[IT_SPROUT];
@@ -1424,8 +1449,8 @@ void updateEnemies(Game& g, float dt) {
         if (dist > ACTIVE_RADIUS || e.boss()) {
             e.pos = Vector2Add(e.pos, step);
         } else {
-            if (g.map.at(Vector2{e.pos.x + step.x, e.pos.y})) e.pos.x += step.x;
-            if (g.map.at(Vector2{e.pos.x, e.pos.y + step.y})) e.pos.y += step.y;
+            if (g.map.walk(e.pos, {e.pos.x + step.x, e.pos.y})) e.pos.x += step.x;
+            if (g.map.walk(e.pos, {e.pos.x, e.pos.y + step.y})) e.pos.y += step.y;
         }
         if (Vector2LengthSqr(e.vel) > 0 && (e.hurtT <= 0 || e.ratman)) {
             e.facing = fabsf(e.vel.x) > fabsf(e.vel.y) ? (e.vel.x > 0 ? RIGHT : LEFT) : (e.vel.y > 0 ? DOWN : UP);
@@ -1495,19 +1520,27 @@ void drawFrame(Texture2D tex, int col, int row, Vector2 pos, float scale, Color 
     DrawTexturePro(tex, {col * 48.f, row * 48.f, 48, 48}, {pos.x, pos.y, size, size}, {size / 2, size / 2}, 0, tint);
 }
 
-void text(const char* s, float x, float y, float size, Color c, bool center = false) {
-    if (center) x -= MeasureTextEx(A.font, s, size, 0).x / 2;
-    float o = std::max(1.f, size / 16);
-    DrawTextEx(A.font, s, {x, y + o}, size, 0, Fade(BLACK, 0.45f * c.a / 255.f));
-    DrawTextEx(A.font, s, {x, y}, size, 0, c);
+// Pixelify Sans rasterised at its on-screen pixel size, so text stays crisp at any scale like Godot's.
+// ponytail: one font per pixel size, never freed; fine for the handful of sizes the UI uses.
+// Sizes are em sizes as in Godot; raylib sizes fonts by line height, 1.2 em for this font.
+constexpr float EM = 1.2f;
+float textScale = 1;  // screen pixels per unit of the current transform
+const Font& font(float size) {
+    static std::map<int, Font> cache;
+    auto [it, fresh] = cache.try_emplace(std::max(6, int(roundf(size * textScale))));
+    if (fresh) {
+        it->second = LoadFontEx(asset("ui/fonts/PixelifySans-VariableFont_wght.ttf"), it->first, nullptr, 0);
+        if (!IsFontValid(it->second)) it->second = GetFontDefault();
+    }
+    return it->second;
 }
+Vector2 measure(const char* s, float size) { return MeasureTextEx(font(size * EM), s, size * EM, 0); }
 
-// A rounded card with a soft drop shadow and a hairline edge.
-void panel(Rectangle r, Color bg = Fade(rgb(.06f, .08f, .1f), 0.82f), Color edge = Fade(WHITE, 0.08f), float radius = 12) {
-    float round = std::min(1.f, 2 * radius / std::min(r.width, r.height));
-    DrawRectangleRounded({r.x, r.y + 4, r.width, r.height}, round, 12, Fade(BLACK, 0.25f * bg.a / 255.f));
-    DrawRectangleRounded(r, round, 12, bg);
-    DrawRectangleRoundedLinesEx(r, round, 12, 1.5f, edge);
+void text(const char* s, float x, float y, float size, Color c, bool center = false, float outline = 0, Color oc = BLACK) {
+    if (center) x -= measure(s, size).x / 2;
+    size *= EM;
+    for (int k = 0; outline > 0 && k < 8; k++) DrawTextEx(font(size), s, {x + cosf(k * PI / 4) * outline / 2, y + sinf(k * PI / 4) * outline / 2}, size, 0, oc);
+    DrawTextEx(font(size), s, {x, y}, size, 0, c);
 }
 
 Color enemyTint(const Enemy& e, float t) {
@@ -1530,6 +1563,10 @@ void drawEnemy(const Enemy& e, float t) {
         int f = e.dying ? (e.deathT < 0.2f) : e.hurtT > 0 ? (e.hurtT < 0.075f) : walk;
         int col = e.dying ? 6 + f : e.hurtT > 0 ? (e.facing == RIGHT ? 3 - f : 4 + f) : (e.facing == RIGHT ? 7 - f : f);
         drawFrame(A.guardian, col, e.dying ? 0 : e.facing, e.pos, e.scale, tint);
+    } else if (Texture2D tex = A.enemySprites[e.type]; tex.id) {
+        if (e.hurtT > 0) tint = ColorBrightness(tint, -0.35f);
+        if (e.dying) drawFrame(tex, 0, e.facing, e.pos, e.scale * (0.6f + e.deathT), Fade(tint, e.deathT / 0.4f));  // shrink and fade
+        else drawFrame(tex, walk, e.facing, e.pos, e.scale, tint);
     } else if (e.dying) {
         drawFrame(A.slime, 12 + (e.deathT < 0.2f), 0, e.pos, e.scale, tint);
     } else {
@@ -1542,27 +1579,30 @@ void drawEnemy(const Enemy& e, float t) {
     }
 }
 
-// Call inside BeginMode2D. The quad is padded far past the field (clamped to deep water) so no edge ever shows.
-void drawTerrain(const Map& map) {
-    float t = float(GetTime()), extent = MAP_N * TILE, pad = 4000, cut = map.cut / 255.f;
-    auto uniform = [&](const char* name, const void* v, int type) { SetShaderValue(A.terrain, GetShaderLocation(A.terrain, name), v, type); };
-    auto color = [&](const char* name, Color c) { Vector3 v = {c.r / 255.f, c.g / 255.f, c.b / 255.f}; uniform(name, &v, SHADER_UNIFORM_VEC3); };
-    uniform("cut", &cut, SHADER_UNIFORM_FLOAT);
-    uniform("time", &t, SHADER_UNIFORM_FLOAT);
-    uniform("size", &extent, SHADER_UNIFORM_FLOAT);
-    color("grass", map.grass), color("soil", map.soil), color("water", map.water);
-    BeginShaderMode(A.terrain);
-    DrawTexturePro(map.tex, {-pad / CELL, -pad / CELL, FIELD_N + 2 * pad / CELL, FIELD_N + 2 * pad / CELL},
-                   {-BOUND * TILE - pad, -BOUND * TILE - pad, extent + 2 * pad, extent + 2 * pad}, {}, 0, WHITE);
-    EndShaderMode();
+// Call inside BeginMode2D: water everywhere on screen, then the grass and soil autotiles.
+void drawTerrain(const Map& map, Camera2D cam) {
+    Vector2 lo = GetScreenToWorld2D({0, 0}, cam), hi = GetScreenToWorld2D({float(GetScreenWidth()), float(GetScreenHeight())}, cam);
+    int x0 = int(floorf(lo.x / TILE)) - 1, y0 = int(floorf(lo.y / TILE)) - 1, x1 = int(ceilf(hi.x / TILE)), y1 = int(ceilf(hi.y / TILE));
+    float frame = float(int(GetTime() * 2) % 4) * TILE;  // 4 frames at 2 fps, as in the Godot tileset
+    for (int y = y0; y <= y1; y++)
+        for (int x = x0; x <= x1; x++) DrawTextureRec(A.water, {frame, 0, TILE, TILE}, {float(x * TILE), float(y * TILE)}, map.water);
+    auto layer = [&](Texture2D tex, const std::vector<int8_t>& tiles, Color tint) {
+        for (int y = std::max(y0, -MAP_N / 2); y <= std::min(y1, MAP_N / 2 - 1); y++)
+            for (int x = std::max(x0, -MAP_N / 2); x <= std::min(x1, MAP_N / 2 - 1); x++) {
+                int8_t t = tiles[(y + MAP_N / 2) * MAP_N + x + MAP_N / 2];
+                if (t >= 0) DrawTextureRec(tex, {float(t % 11 * TILE), float(t / 11 * TILE), TILE, TILE}, {float(x * TILE), float(y * TILE)}, tint);
+            }
+    };
+    layer(A.grass, map.grass, map.grassTint);
+    layer(A.soil, map.soil, map.soilTint);
 }
 
 void drawWorld(const Game& g, Camera2D cam) {
     const Player& p = g.p;
     float t = float(GetTime());
     BeginMode2D(cam);
-    drawTerrain(g.map);
-    auto shadow = [](Vector2 at, float w) { DrawTexturePro(A.shadow, {0, 0, 32, 32}, {at.x, at.y, w, w * 0.4f}, {w / 2, w * 0.2f}, 0, WHITE); };
+    textScale = cam.zoom;
+    drawTerrain(g.map, cam);
 
     for (const Portal& pt : g.portals) {
         int col = pt.state == Portal::PURIFIED ? 3 + int(t * 5) % 2 : int(t * 5) % 3;
@@ -1570,7 +1610,6 @@ void drawWorld(const Game& g, Camera2D cam) {
     }
 
     for (const Chest& c : g.chests) {
-        shadow({c.pos.x, c.pos.y + 6}, 22);
         if (!c.cost) DrawCircleV(c.pos, 14 + 2 * sinf(t * 4), Fade(rgb(1, .8f, .2f), 0.18f));  // the guardian's reward glows
         drawFrame(A.chest, 0, 0, c.pos, 1, WHITE);
     }
@@ -1589,14 +1628,30 @@ void drawWorld(const Game& g, Camera2D cam) {
             DrawTexturePro(A.aura, {0, 0, 48, 48}, {p.pos.x, p.pos.y, r * 2, r * 2}, {r, r}, 0, Fade(WHITE, 0.35f + w.pulse));
         }
 
-    for (const Enemy& e : g.enemies)
-        if (!e.dying) shadow({e.pos.x, e.pos.y + 8 * e.scale}, 16 * e.scale);
-    shadow({p.pos.x, p.pos.y + 9}, 18);
-    for (const Enemy& e : g.enemies) drawEnemy(e, t);
-
-    Color tint = p.speedT > 0 ? rgb(.5f, .8f, 1) : WHITE;
-    if (p.iframes > 0) tint = Fade(tint, int(p.iframes * 10) % 2 ? 0.3f : 1.f);
-    drawFrame(A.player, p.moving ? int(p.anim * 5) % 4 : 0, p.facing, p.pos, 1, tint);
+    // Trees, enemies and the player sorted by their feet, like Godot's y-sort.
+    // A tree the player stands behind turns see-through.
+    Vector2 lo = GetScreenToWorld2D({0, 0}, cam), hi = GetScreenToWorld2D({float(GetScreenWidth()), float(GetScreenHeight())}, cam);
+    std::vector<std::pair<float, int>> order;  // (feet y, index): enemies >= 0, player -1, trees <= -2
+    for (int i = 0; i < int(g.enemies.size()); i++) order.push_back({g.enemies[i].pos.y + 8 * g.enemies[i].scale, i});
+    order.push_back({p.pos.y + 9, -1});
+    for (int i = 0; i < int(g.map.trees.size()); i++) {
+        Vector2 tp = g.map.trees[i];
+        if (tp.x > lo.x - 32 && tp.x < hi.x + 32 && tp.y > lo.y - 8 && tp.y < hi.y + 56) order.push_back({tp.y, -2 - i});
+    }
+    std::sort(order.begin(), order.end());
+    for (auto [y, i] : order) {
+        if (i >= 0) drawEnemy(g.enemies[i], t);
+        else if (i == -1) {
+            Color tint = p.speedT > 0 ? rgb(.5f, .8f, 1) : WHITE;
+            if (p.iframes > 0) tint = Fade(tint, int(p.iframes * 10) % 2 ? 0.3f : 1.f);
+            drawFrame(A.characters[p.character], p.moving ? int(p.anim * 5) % 4 : 0, p.facing, p.pos, 1, tint);
+        } else {
+            Vector2 c = Vector2Add(g.map.trees[-2 - i], {0, -22});
+            float size = 32 * 1.51f;  // world/tree.tscn scale
+            Color tint = Fade(g.map.grassTint, Vector2Distance(p.pos, c) < 26 ? 0.4f : 1.f);
+            DrawTexturePro(A.tree, {0, 0, 32, 32}, {c.x, c.y, size, size}, {size / 2, size / 2}, 0, tint);
+        }
+    }
 
     for (const Shot& s : g.shots) {
         float size = 16 * s.size;
@@ -1608,7 +1663,7 @@ void drawWorld(const Game& g, Camera2D cam) {
             for (int k = 0; k < orbCount(p, w); k++) {
                 Vector2 at = orbPos(p, w, k);
                 float size = 2.5f * orbRadius(w);
-                DrawTexturePro(A.projectile, {0, 0, 16, 16}, {at.x, at.y, size, size}, {size / 2, size / 2}, w.spin * RAD2DEG * 3, rgb(.6f, 1, .5f));
+                DrawTexturePro(A.thorn, {0, 0, 16, 16}, {at.x, at.y, size, size}, {size / 2, size / 2}, w.spin * RAD2DEG * 3, WHITE);
             }
     for (const EnemyShot& s : g.enemyShots) {
         DrawCircleV(s.pos, 7 * s.scale, Fade(s.color, 0.25f));
@@ -1620,14 +1675,14 @@ void drawWorld(const Game& g, Camera2D cam) {
     for (const DamageNumber& n : g.numbers) {
         const char* txt = TextFormat("%d", n.value);
         Vector2 at = {n.pos.x - 4, n.pos.y - 14 - n.t * 30};
-        DrawTextEx(A.font, txt, {at.x + 0.5f, at.y + 0.5f}, 8, 0, Fade(BLACK, 1 - n.t / 0.6f));
-        DrawTextEx(A.font, txt, at, 8, 0, Fade(WHITE, 1 - n.t / 0.6f));
+        DrawTextEx(font(8), txt, {at.x + 0.5f, at.y + 0.5f}, 8, 0, Fade(BLACK, 1 - n.t / 0.6f));
+        DrawTextEx(font(8), txt, at, 8, 0, Fade(WHITE, 1 - n.t / 0.6f));
     }
 
     auto prompt = [&](const char* label, Vector2 at) {
-        Vector2 size = MeasureTextEx(A.font, label, 9, 0.5f);
+        Vector2 size = MeasureTextEx(font(9), label, 9, 0.5f);
         DrawRectangleRounded({at.x - size.x / 2 - 5, at.y - size.y / 2 - 1, size.x + 10, size.y + 2}, 1, 8, Fade(BLACK, 0.6f));
-        DrawTextEx(A.font, label, {at.x - size.x / 2, at.y - size.y / 2}, 9, 0.5f, WHITE);
+        DrawTextEx(font(9), label, {at.x - size.x / 2, at.y - size.y / 2}, 9, 0.5f, WHITE);
     };
     int chest = nearChest(g), near = nearPortal(g);
     if (g.mode == Mode::Play && chest >= 0) {
@@ -1640,140 +1695,117 @@ void drawWorld(const Game& g, Camera2D cam) {
     EndMode2D();
 }
 
-// A pill-shaped meter with a glossy fill.
-void bar(Rectangle r, float frac, Color c) {
-    DrawRectangleRounded(r, 1, 12, Fade(BLACK, 0.55f));
-    frac = std::clamp(frac, 0.f, 1.f);
-    if (frac <= 0) return;
-    Rectangle f = {r.x, r.y, std::max(r.height, r.width * frac), r.height};
-    DrawRectangleRounded(f, 1, 12, c);
-    if (f.width > 6) DrawRectangleRounded({f.x + 3, f.y + 1, f.width - 6, f.height * 0.4f}, 1, 12, Fade(WHITE, 0.2f));
-}
+// ---------------------------------------------------------------- ui
 
-void coin(float x, float y, float r, Color c) {
-    DrawCircleV({x, y}, r, ColorBrightness(c, -0.3f));
-    DrawCircleV({x, y - 1}, r - 1.5f, c);
-    DrawCircleV({x - r * 0.3f, y - r * 0.35f}, r * 0.3f, Fade(WHITE, 0.5f));
-}
+// The menus and HUD follow the Godot scenes (ui/*.tscn): laid out on its 1280x720
+// canvas and scaled to the window like its canvas_items stretch (see main).
+struct Ui {
+    int hot = -1, lastHot = -1, drag = -1;
+    std::string hint;
+    float w = 1280, h = 720;  // canvas size in UI units
+    float grow[64]{};         // per-button hover scale
+    bool options = false;
+    int lastExp = -1;
+    float expShowT = 0, turnT = 0;
+    Vector2 scroll{}, dir{1, 0}, target{1, 0};
+} ui;
 
-void drawHud(const Game& g) {
-    const Player& p = g.p;
-    float sw = float(GetScreenWidth()), sh = float(GetScreenHeight());
-    const Color card = Fade(rgb(.06f, .08f, .1f), 0.82f);
-    bar({16, 10, sw - 32, 8}, float(p.exp) / p.expNext, rgb(.35f, .9f, .6f));
+float roundness(Rectangle r, float radius) { return std::min(1.f, 2 * radius / std::min(r.width, r.height)); }
+Color gray(float v, float a) { return {uint8_t(v * 255), uint8_t(v * 255), uint8_t(v * 255), uint8_t(a * 255)}; }
 
-    panel({16, 28, 300, 64});
-    DrawCircleV({50, 60}, 22, rgb(.35f, .9f, .6f));
-    DrawCircleV({50, 60}, 19, rgb(.08f, .12f, .12f));
-    text(TextFormat("%d", p.level), 50, 47, 24, WHITE, true);
-    text("LEVEL", 84, 31, 13, Fade(WHITE, 0.55f));
-    bar({84, 50, 218, 20}, p.hp / p.maxHp, p.hp < p.maxHp * 0.3f ? rgb(1, .3f, .25f) : rgb(.9f, .25f, .35f));
-    text(TextFormat("%d / %d", int(std::max(0.f, p.hp)), int(p.maxHp)), 193, 50, 16, WHITE, true);
-    text(g.floor == MAX_FLOORS ? "Final Floor" : TextFormat("Floor %d  -  %s", g.floor, g.map.cfg->name), 20, 100, 18, rgb(.8f, .9f, .7f));
-
-    int secs = int(p.time);
-    panel({sw / 2 - 72, 28, 144, 48}, card, g.endTimes ? Fade(rgb(1, .3f, .3f), 0.8f) : Fade(WHITE, 0.08f), 24);
-    text(TextFormat("%02d:%02d", secs / 60, secs % 60), sw / 2, 34, 30, g.endTimes ? rgb(1, .35f, .35f) : WHITE, true);
-
-    float rx = sw - 196;
-    panel({rx, 28, 180, 96});
-    coin(rx + 22, 47, 8, rgb(.9f, .3f, .3f));
-    text(TextFormat("%d", p.kills), rx + 40, 36, 20, WHITE);
-    coin(rx + 22, 75, 8, rgb(.8f, .82f, .88f));
-    text(TextFormat("%d", p.silver), rx + 40, 64, 20, rgb(.85f, .87f, .92f));
-    coin(rx + 22, 103, 8, rgb(1, .78f, .15f));
-    text(TextFormat("%d", int(p.gold)), rx + 40, 92, 20, rgb(1, .84f, .3f));
-
-    int owned = 0;
-    for (int i = 0; i < ITEM_COUNT; i++) owned += p.items[i] > 0;
-    if (owned) {
-        panel({rx, 132, 180, 14.f + owned * 22});
-        float iy = 139;
-        for (int i = 0; i < ITEM_COUNT; i++)
-            if (p.items[i]) {
-                Color tc = ITEM_TIERS[ITEMS[i].tier].color;
-                DrawCircleV({rx + 16, iy + 10}, 4, tc);
-                text(ITEMS[i].name, rx + 28, iy, 15, WHITE);
-                if (p.items[i] > 1) {
-                    const char* n = TextFormat("x%d", p.items[i]);
-                    text(n, rx + 168 - MeasureTextEx(A.font, n, 15, 0).x, iy, 15, tc);
-                }
-                iy += 22;
-            }
-    }
-
-    for (int i = 0; i < int(p.weapons.size()); i++) {
-        const Weapon& w = p.weapons[i];
-        const char* label = TextFormat("%s  Lv %d", WEAPON_NAMES[w.id], w.level);
-        Rectangle r = {16, sh - 50 - i * 42.f, MeasureTextEx(A.font, label, 16, 0).x + 28, 34};
-        panel(r, card, Fade(rgb(.55f, .8f, .45f), 0.5f), 17);
-        text(label, r.x + 14, r.y + 7, 16, WHITE);
-    }
-
-    if (g.toastT > 0) {
-        float a = std::min(1.f, g.toastT), tw = MeasureTextEx(A.font, g.toast.c_str(), 20, 0).x + 40;
-        panel({sw / 2 - tw / 2, sh - 136, tw, 42}, Fade(card, 0.85f * a), Fade(g.toastColor, a), 21);
-        text(g.toast.c_str(), sw / 2, sh - 127, 20, Fade(g.toastColor, a), true);
-    }
-    const char* fps = TextFormat("%d FPS  %zu enemies", GetFPS(), g.enemies.size());
-    text(fps, sw - 16 - MeasureTextEx(A.font, fps, 14, 0).x, sh - 26, 14, Fade(WHITE, 0.45f));
-
-    for (const Enemy& e : g.enemies)
-        if (e.boss() && !e.dying) {
-            float w = std::min(600.f, sw - 80);
-            text(e.kind == GUARDIAN ? "Floor Guardian" : "The Rat King", sw / 2, 84, 20, e.enraged ? e.glow : WHITE, true);
-            bar({sw / 2 - w / 2, 112, w, 14}, e.hp / e.maxHp, e.enraged ? rgb(1, .35f, .15f) : rgb(.7f, .2f, .75f));
-            break;
-        }
-}
-
-// Greedy word wrap; explicit newlines are kept.
-std::string wrap(const std::string& s, float size, float width) {
-    std::string out, line;
-    for (size_t i = 0; i <= s.size();) {
-        size_t j = std::min(s.find_first_of(" \n", i), s.size());
-        std::string word = s.substr(i, j - i), next = line.empty() ? word : line + " " + word;
-        if (!line.empty() && MeasureTextEx(A.font, next.c_str(), size, 0).x > width) out += line + "\n", line = word;
-        else line = next;
-        if (j == s.size() || s[j] == '\n') out += line + (j == s.size() ? "" : "\n"), line.clear();
-        i = j + 1;
-    }
+std::vector<std::string> lines(const std::string& s) {
+    std::vector<std::string> out(1);
+    for (char c : s)
+        if (c == '\n') out.emplace_back();
+        else out.back().push_back(c);
     return out;
 }
 
-Rectangle optionRect(int i) {
-    float sw = float(GetScreenWidth()), sh = float(GetScreenHeight());
-    float w = 320, h = 170, gap = 30, x0 = sw / 2 - (3 * w + 2 * gap) / 2;
-    return {x0 + i * (w + gap), sh / 2 - h / 2 + 20, w, h};
+float textWidth(const std::string& s, float size) {
+    float w = 0;
+    for (const std::string& l : lines(s)) w = std::max(w, measure(l.c_str(), size).x);
+    return w;
 }
 
-// ---------------------------------------------------------------- menus
+// Each line centred in r, the block centred vertically, like a Godot Label or Button.
+void textIn(const std::string& s, Rectangle r, float size, Color c, float outline = 0, Color oc = BLACK) {
+    std::vector<std::string> ls = lines(s);
+    float lh = size * EM, y = r.y + (r.height - ls.size() * lh) / 2;
+    for (const std::string& l : ls) text(l.c_str(), r.x + r.width / 2, y, size, c, true, outline, oc), y += lh;
+}
 
-// Immediate-mode buttons: drawn and clicked in the same call.
-struct Ui { int hot = -1, lastHot = -1; std::string hint; } ui;
+// Hover grows a button 10% and a click squashes it, like the tweens in gui.gd.
+Rectangle grown(int id, Rectangle r, bool hover) {
+    float& g = ui.grow[id];
+    if (g == 0) g = 1;
+    g = Lerp(g, hover ? 1.1f : 1.f, std::min(1.f, GetFrameTime() * 20));
+    return {r.x + r.width * (1 - g) / 2, r.y + r.height * (1 - g) / 2, r.width * g, r.height * g};
+}
 
-bool button(int id, Rectangle r, const char* label, bool enabled, Color accent = rgb(.55f, .8f, .45f), float size = 22) {
-    bool hover = CheckCollisionPointRec(GetMousePosition(), r);
+bool clicked(int id, bool hover, bool enabled) {
     if (hover) ui.hot = id;
-    Color base = rgb(.1f, .12f, .15f);
-    Rectangle d = hover && enabled ? Rectangle{r.x, r.y - 2, r.width, r.height} : r;
-    Color bg = !enabled ? rgb(.08f, .09f, .1f) : hover ? ColorLerp(base, accent, 0.28f) : base;
-    panel(d, Fade(bg, 0.94f), enabled ? Fade(accent, hover ? 1.f : 0.55f) : Fade(WHITE, 0.06f), 10);
-    Vector2 m = MeasureTextEx(A.font, label, size, 0);
-    text(label, d.x + (d.width - m.x) / 2, d.y + (d.height - m.y) / 2, size, enabled ? WHITE : Fade(WHITE, 0.35f));
-    bool clicked = enabled && hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    if (clicked) A.click.play(1, -6);
-    return clicked;
+    bool c = enabled && hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (c) A.click.play(1, -6), ui.grow[id] = 0.9f;
+    return c;
 }
 
-// A slow drift over the current island.
-void menuBackground(const Game& g) {
-    float sw = float(GetScreenWidth()), sh = float(GetScreenHeight()), t = float(GetTime()) * 0.05f;
-    float r = g.map.cfg->radius * TILE * 0.5f;
-    BeginMode2D({{sw / 2, sh / 2}, {cosf(t) * r, sinf(t * 0.8f) * r}, 0, 1.5f});
-    drawTerrain(g.map);
-    EndMode2D();
-    DrawRectangleGradientV(0, 0, int(sw), int(sh), Fade(BLACK, 0.3f), Fade(BLACK, 0.75f));
+// A TextureButton on ui/menu_buttons.png with a white label.
+bool imageButton(int id, Rectangle r, const char* label, float size) {
+    bool hover = CheckCollisionPointRec(GetMousePosition(), r), click = clicked(id, hover, true);
+    Rectangle d = grown(id, r, hover);
+    DrawTexturePro(A.menuButton, {0, 0, 128, 48}, d, {}, 0, WHITE);
+    textIn(label, d, size * d.width / r.width, WHITE);
+    return click;
+}
+
+// Godot's default theme Button; `tint` is the node's modulate.
+bool button(int id, Rectangle r, const std::string& label, bool enabled = true, Color fg = gray(.875f, 1), Color tint = WHITE) {
+    bool hover = CheckCollisionPointRec(GetMousePosition(), r), click = clicked(id, hover, enabled);
+    Rectangle d = grown(id, r, hover && enabled);
+    float v = hover && enabled ? (IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? 0 : 0.225f) : 0.1f;
+    DrawRectangleRounded(d, roundness(d, 3), 4, ColorTint(gray(v, enabled ? 0.6f : 0.3f), tint));
+    textIn(label, d, 16 * d.width / r.width, ColorTint(enabled ? fg : ColorAlpha(fg, 0.5f), tint));
+    return click;
+}
+
+// Godot's default ProgressBar under a modulate colour.
+void meter(Rectangle r, float frac, Color mod, const char* label, Color labelColor) {
+    frac = std::clamp(frac, 0.f, 1.f);
+    if (frac < 1) DrawRectangleRounded(r, roundness(r, 3), 4, ColorAlpha(ColorTint(gray(.1f, 1), mod), 0.3f * (1 - frac * 0.8f)));
+    if (frac > 0) {
+        Rectangle f = {r.x, r.y, std::max(6.f, r.width * frac), r.height};
+        DrawRectangleRounded(f, roundness(f, 3), 4, ColorAlpha(ColorTint(gray(.75f, 1), mod), 0.6f));
+    }
+    textIn(label, r, 16, labelColor);
+}
+
+// The drifting lily-of-the-valley wallpaper of the Godot menus: 40 px/s, a new heading every 4 s.
+void wallpaper() {
+    float dt = GetFrameTime();
+    if ((ui.turnT -= dt) <= 0) ui.turnT = 4, ui.target = Vector2Normalize({rndr(-1, 1), rndr(-1, 1)});
+    ui.dir = Vector2Lerp(ui.dir, ui.target, std::min(1.f, dt * 0.5f));
+    ui.scroll = Vector2Add(ui.scroll, Vector2Scale(ui.dir, 40 * dt));
+    float ox = fmodf(ui.scroll.x, 288), oy = fmodf(ui.scroll.y, 288);
+    for (float y = oy - 288 * (oy > 0); y < ui.h; y += 288)
+        for (float x = ox - 288 * (1 + (ox > 0)); x < ui.w; x += 288) DrawTexture(A.titleBg, int(x), int(y), WHITE);
+}
+
+// The title art bobbing over its half-transparent shadow.
+void logo(Vector2 c, float scale, float bob) {
+    float y = c.y - bob * (0.5f - 0.5f * cosf(float(GetTime()) * PI / 1.5f)), w = 256 * scale, h = 48 * scale;
+    DrawTexturePro(A.title, {0, 0, 256, 48}, {c.x - w / 2 + scale, y - h / 2 + 2 * scale, w, h}, {}, 0, Fade(BLACK, 0.5f));
+    DrawTexturePro(A.title, {0, 0, 256, 48}, {c.x - w / 2, y - h / 2, w, h}, {}, 0, WHITE);
+}
+
+void applyVolume() {
+    SetMasterVolume(profile.volume[0]);
+    musicVolume = profile.volume[1], sfxVolume = profile.volume[2];
+    if (IsMusicValid(A.music)) SetMusicVolume(A.music, db(A.musicDb) * musicVolume);
+}
+
+void toTitle(Game& g) {
+    g.mode = Mode::Title;
+    playMusic("ui/music.mp3", -8);
 }
 
 void openShop(Game& g) {
@@ -1782,39 +1814,64 @@ void openShop(Game& g) {
     playMusic("ui/shopping.wav", -8);
 }
 
-void titleScreen(Game& g) {
-    float sw = float(GetScreenWidth()), sh = float(GetScreenHeight());
-    menuBackground(g);
-    Rectangle src = {0, 0, float(A.title.width), float(A.title.height)};
-    float w = A.title.width * 4.f, h = A.title.height * 4.f, y = sh / 2 - 200 + sinf(float(GetTime()) * 2) * 8;
-    DrawTexturePro(A.title, src, {sw / 2 - w / 2 + 4, y + 8, w, h}, {}, 0, Fade(BLACK, 0.5f));
-    DrawTexturePro(A.title, src, {sw / 2 - w / 2, y, w, h}, {}, 0, WHITE);
-    if (button(30, {sw / 2 - 150, sh / 2 + 20, 300, 56}, "Start", true, rgb(.55f, .8f, .45f), 26) || IsKeyPressed(KEY_ENTER)) openShop(g);
-    if (button(31, {sw / 2 - 150, sh / 2 + 96, 300, 56}, "Quit", true, GRAY, 26)) g.quit = true;
-    text(TextFormat("Coins: %d", profile.coins), sw / 2, sh - 60, 22, rgb(1, .84f, 0), true);
+// ui/options.tscn: three volume sliders and BACK.
+void optionsScreen() {
+    float cx = ui.w / 2, cy = ui.h / 2, k = 1.2885f, x = cx - 376, w = 584 * k, y = cy - 168;
+    wallpaper();
+    const char* names[] = {"Master", "Music", "Sfx"};
+    Vector2 m = GetMousePosition();
+    if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) ui.drag = -1;
+    for (int i = 0; i < 3; i++) {
+        text(names[i], x, y, 42 * k, WHITE);
+        y += 42 * k * EM + 4 * k;
+        Rectangle track = {x, y + 6 * k, w, 4 * k};
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(m, {x - 8, y, w + 16, 16 * k})) ui.drag = i;
+        if (ui.drag == i) profile.volume[i] = std::clamp((m.x - x) / w, 0.f, 1.f), applyVolume();
+        float v = profile.volume[i];
+        DrawRectangleRounded(track, 1, 4, gray(0, 0.4f));
+        DrawRectangleRounded({x, track.y, w * v, track.height}, 1, 4, gray(1, 0.75f));
+        DrawCircleV({x + w * v, track.y + track.height / 2}, 8 * k, WHITE);
+        y += 16 * k + 4 * k;
+    }
+    if (imageButton(40, {cx - 103.8f, ui.h - 181.87f, 128 * 1.6408f, 48 * 1.6408f}, "BACK", 34.5f) || IsKeyPressed(KEY_ESCAPE)) {
+        ui.options = false;
+        save();
+    }
 }
 
-void shopScreen(Game& g) {
-    float sw = float(GetScreenWidth());
-    menuBackground(g);
-    float x0 = std::max(20.f, sw / 2 - 560), x1 = x0 + 540, top = 40;
-    text("Shop", x0, top, 48, rgb(.95f, .95f, .85f));
-    const char* coins = TextFormat("Total Coins: %d", profile.coins);
-    text(coins, x1 + 540 - MeasureTextEx(A.font, coins, 28, 1).x, top + 12, 28, rgb(1, .84f, 0));
-    std::string hover;
+void titleScreen(Game& g) {
+    float cx = ui.w / 2, cy = ui.h / 2;
+    wallpaper();
+    logo({cx, cy - 112}, 4.785f, 18.3f);
+    if (imageButton(30, {cx - 104.7f, cy + 28, 234, 87.8f}, "START", 38.5f) || IsKeyPressed(KEY_ENTER)) openShop(g);
+    if (imageButton(31, {cx - 104.7f, cy + 123.1f, 234, 87.8f}, "OPTIONS", 27.6f)) ui.options = true;
+    if (imageButton(32, {cx - 104.7f, cy + 218.2f, 234, 87.8f}, "QUIT", 30.3f)) g.quit = true;
+}
 
-    panel({x0 - 16, top + 68, 512, 52 + int(PERM_COUNT) * 52.f});
-    panel({x1 - 16, top + 68, 572, 108});
-    panel({x1 - 16, top + 184, 572, 316});
-    text("Permanent Upgrades", x0, top + 80, 24, rgb(1, .9f, .5f));
+// The PREPARATION panel of ui/gui.tscn.
+void shopScreen(Game& g) {
+    float cx = ui.w / 2;
+    wallpaper();
+    DrawRectangle(0, 0, int(ui.w) + 1, int(ui.h) + 1, gray(.1f, .6f));
+    textIn("PREPARATION", {0, 0, ui.w, 20}, 16, WHITE);
+    int refund = respecRefund(profile);
+    if (imageButton(20, {cx - 62, 26, 124, 46}, "RESPEC", 20) && refund > 0) {
+        respec(profile);
+        save();
+        ui.hint = TextFormat("Upgrades reset! Refunded %d coins.", refund);
+    }
+    textIn(TextFormat("Total Coins: %d", profile.coins), {0, 76, ui.w, 20}, 16, WHITE);
+    textIn("Upgrades", {cx - 234, 100, 263, 20}, 16, WHITE);
+    textIn("Weapons", {cx + 33, 100, 200, 20}, 16, WHITE);
+    std::string hover;
     for (int i = 0; i < PERM_COUNT; i++) {
         const PermUpgrade& u = PERM_UPGRADES[i];
         int cost = upgradeCost(profile, i);
-        Rectangle r = {x0, top + 116 + i * 52.f, 480, 46};
-        const char* label = cost < 0 ? TextFormat("%s  (MAX)", u.name) : TextFormat("%s  Lv %d/%d  -  %d", u.name, profile.levels[i], u.maxLevel, cost);
-        if (button(i, r, label, cost >= 0 && profile.coins >= cost, rgb(1, .84f, 0), 22) && buyUpgrade(profile, i)) {
+        Rectangle r = {cx - 234, 124 + i * 54.f, 263, 50};
+        std::string label = cost < 0 ? TextFormat("%s (MAX)", u.name) : TextFormat("%s (Lv %d) : %d Coins", u.name, profile.levels[i], cost);
+        if (button(i, r, label, cost >= 0 && profile.coins >= cost) && buyUpgrade(profile, i)) {
             save();
-            ui.hint = "Upgrade purchased!";
+            ui.hint = "Upgrade Purchased!";
         }
         if (CheckCollisionPointRec(GetMousePosition(), r)) {
             bool pct = i != PERM_MAX_HP && i != PERM_SPEED && i != PERM_REGEN;
@@ -1824,99 +1881,236 @@ void shopScreen(Game& g) {
                              : TextFormat("Increases %s. Current: +%s%s -> Next: +%s%s", u.name, now.c_str(), pct ? "%" : "", next.c_str(), pct ? "%" : "");
         }
     }
-
-    text("Starting Weapon", x1, top + 80, 24, rgb(1, .9f, .5f));
     for (int w = 0; w < WEAPON_COUNT; w++) {
-        Rectangle r = {x1 + w * 182.f, top + 116, 176, 50};
+        Rectangle r = {cx + 33, 124 + w * 54.f, 200, 50};
         bool selected = profile.weapon == w;
-        if (button(10 + w, r, selected ? TextFormat("[ %s ]", WEAPON_NAMES[w]) : WEAPON_NAMES[w], true, selected ? rgb(.5f, 1, .5f) : GRAY, 22)) {
+        if (button(10 + w, r, selected ? TextFormat("[ %s ]", WEAPON_NAMES[w]) : WEAPON_NAMES[w], true, gray(.875f, 1), selected ? rgb(.5f, 1, .5f) : WHITE)) {
             profile.weapon = WeaponId(w);
             save();
         }
         if (CheckCollisionPointRec(GetMousePosition(), r)) hover = TextFormat("Start your run equipped with the %s.", WEAPON_NAMES[w]);
     }
-
-    text("Base Stats", x1, top + 196, 24, rgb(1, .9f, .5f));
-    float y = top + 232;
-    auto stat = [&](const char* name, const char* value, Color c) {
-        text(name, x1, y, 22, c);
-        text(value, x1 + 220, y, 22, WHITE);
-        y += 32;
-    };
-    auto pct = [&](PermId id) { return int(roundf(permBoost(profile, id) * 100)); };
-    stat("Max HP", TextFormat("%d", int(250 + permBoost(profile, PERM_MAX_HP))), rgb(.6f, 1, .6f));
-    stat("Speed", TextFormat("%d", int(165 + permBoost(profile, PERM_SPEED))), rgb(.4f, .9f, 1));
-    stat("Damage", TextFormat("+%d%%", pct(PERM_DAMAGE)), rgb(1, .45f, .35f));
-    stat("HP Regen", TextFormat("%s/s", fmtNum(permBoost(profile, PERM_REGEN)).c_str()), rgb(1, .7f, .8f));
-    stat("Dodge", TextFormat("%d%%", pct(PERM_EVASION)), rgb(.6f, .8f, 1));
-    stat("Thorns", TextFormat("%d%%", pct(PERM_ARMOR)), rgb(1, .65f, .3f));
-    stat("Coin Bonus", TextFormat("+%d%%", pct(PERM_GREED)), rgb(1, .84f, 0));
-    stat("EXP Bonus", TextFormat("+%d%%", pct(PERM_EXP_GAIN)), rgb(.5f, 1, .7f));
-
-    float by = top + 116 + int(PERM_COUNT) * 52.f + 24;
-    int refund = respecRefund(profile);
-    if (button(20, {x0, by, 230, 54}, "Respec", refund > 0, rgb(1, .5f, .4f))) {
-        respec(profile);
-        save();
-        ui.hint = TextFormat("Upgrades reset! Refunded %d coins.", refund);
+    textIn("Character", {cx + 33, 124 + float(WEAPON_COUNT) * 54, 200, 20}, 16, WHITE);
+    for (int c = 0; c < CHARACTER_COUNT; c++) {
+        Rectangle r = {cx + 33 + c * 40.f, 148 + float(WEAPON_COUNT) * 54, 36, 46};
+        if (button(30 + c, r, "")) profile.character = c, save();
+        if (profile.character == c) DrawRectangleLinesEx(r, 2, rgb(.5f, 1, .5f));
+        DrawTexturePro(A.characters[c], {12, 12, 24, 24}, {r.x, r.y + 5, 36, 36}, {}, 0, WHITE);
+        if (CheckCollisionPointRec(GetMousePosition(), r)) hover = TextFormat("Play as %s.", CHARACTERS[c].name);
     }
-    if (button(21, {x0 + 250, by, 230, 54}, "Back", true, GRAY) || IsKeyPressed(KEY_ESCAPE)) {
-        g.mode = Mode::Title;
-        playMusic("ui/music.mp3", -8);
-    }
-    if (button(22, {x1, by, 540, 54}, "Start Run", true, rgb(.5f, 1, .5f), 28) || IsKeyPressed(KEY_ENTER)) newRun(g);
-    text(hover.empty() ? ui.hint.c_str() : hover.c_str(), x0, by + 72, 20, Fade(WHITE, 0.8f));
+    float y = 124 + int(PERM_COUNT) * 54.f;
+    const char* details = hover.empty() ? ui.hint.c_str() : hover.c_str();
+    float tw = measure(details, 16).x;
+    DrawRectangleRec({cx - tw / 2 - 4, y + 2, tw + 8, 20}, gray(.1f, .6f));
+    textIn(details, {0, y + 2, ui.w, 20}, 16, WHITE);
+    if (imageButton(21, {cx - 128, y + 26, 124, 46}, "START", 20) || IsKeyPressed(KEY_ENTER)) newRun(g);
+    if (imageButton(22, {cx + 4, y + 26, 124, 46}, "QUIT", 16) || IsKeyPressed(KEY_ESCAPE)) toTitle(g);
 }
 
-void drawOverlay(const Game& g) {
-    float sw = float(GetScreenWidth()), sh = float(GetScreenHeight());
-    if (g.mode == Mode::Play || g.mode == Mode::Title || g.mode == Mode::Shop) return;
-    DrawRectangleGradientV(0, 0, int(sw), int(sh), Fade(BLACK, 0.45f), Fade(BLACK, 0.75f));
-    int secs = int(g.runTime);
+// The PLAYER STATS / WEAPON BUFFS panel shown while paused or levelling up (hud.gd).
+void statsPanel(const Player& p) {
+    struct Row { std::string name, value; Color color; bool header; };
+    std::vector<Row> rows;
+    auto pct = [](float v) { return std::string(TextFormat("%.1f%%", v * 100)); };
+    rows.push_back({"PLAYER STATS", "", YELLOW, true});
+    rows.push_back({"Max HP:", TextFormat("%d", int(p.maxHp)), rgb(.56f, .93f, .56f), false});
+    rows.push_back({"Speed:", TextFormat("%d", int(p.speed)), rgb(0, 1, 1), false});
+    rows.push_back({"Damage:", pct(p.dmgMul), rgb(1, .39f, .28f), false});
+    rows.push_back({"Area Size:", pct(p.aoe), rgb(.56f, .93f, .56f), false});
+    rows.push_back({"Cooldown:", pct(p.fireRateMul), rgb(0, 1, 1), false});
+    if (p.crit > 0) rows.push_back({"Crit Chance:", pct(p.crit), rgb(1, 0, 1), false});
+    if (p.regen > 0) rows.push_back({"HP Regen:", TextFormat("%.1f/s", p.regen), rgb(1, .75f, .8f), false});
+    if (p.evasion > 0) rows.push_back({"Evasion:", pct(p.evasion), rgb(.68f, .85f, .9f), false});
+    if (p.thorns > 0) rows.push_back({"Thorns:", pct(p.thorns), rgb(1, .65f, 0), false});
+    if (p.vampirism > 0) rows.push_back({"Vampirism:", pct(p.vampirism), RED, false});
+    if (p.coinMul > 1) rows.push_back({"Greed Bonus:", "+" + pct(p.coinMul - 1), rgb(1, .84f, 0), false});
+    rows.push_back({"WEAPON BUFFS", "", YELLOW, true});
+    for (const Weapon& w : p.weapons) {
+        rows.push_back({"Equipped:", TextFormat("%s Lv.%d", WEAPON_NAMES[w.id], w.level), rgb(1, .65f, 0), false});
+        if (w.damage > 1) rows.push_back({"Bonus Dmg:", "+" + pct(w.damage - 1), rgb(1, .39f, .28f), false});
+        if (w.size > 1) rows.push_back({"Bonus Size:", "+" + pct(w.size - 1), rgb(.56f, .93f, .56f), false});
+        if (w.fireRate > 1) rows.push_back({"Bonus Speed:", "+" + pct(w.fireRate - 1), rgb(0, 1, 1), false});
+        if (w.pierce > 0) rows.push_back({"Pierce:", TextFormat("+%d", w.pierce), YELLOW, false});
+        if (w.ricochet > 0) rows.push_back({"Ricochet:", TextFormat("+%d", w.ricochet), rgb(.68f, .85f, .9f), false});
+        if (w.projectile > 0) rows.push_back({"Projectiles:", TextFormat("+%d", w.projectile), YELLOW, false});
+    }
+    float c1 = measure("PLAYER STATS      ", 16).x, c2 = 0;
+    for (const Row& r : rows) c1 = std::max(c1, textWidth(r.name, 16)), c2 = std::max(c2, textWidth(r.value, 16));
+    Rectangle box = {ui.w - (c1 + c2 + 44), 99, c1 + c2 + 44, rows.size() * 24.f + 26};
+    DrawRectangleRounded(box, roundness(box, 12), 8, gray(.1f, .85f));
+    float y = box.y + 15;
+    for (const Row& r : rows) {
+        text(r.name.c_str(), box.x + 20, y, 16, r.color);
+        text(r.value.c_str(), box.x + 24 + c1, y, 16, WHITE);
+        y += 24;
+    }
+}
+
+// ui/hud.tscn.
+// Points from the screen edge at a world spot that is off screen (the world is drawn at ZOOM around the player).
+void edgeMarker(const Game& g, Vector2 at, Color c) {
+    Vector2 d = Vector2Scale(Vector2Subtract(at, g.p.pos), ZOOM), half = {ui.w / 2 - 28, ui.h / 2 - 34};
+    if (fabsf(d.x) < half.x && fabsf(d.y) < half.y) return;
+    Vector2 m = Vector2Add({ui.w / 2, ui.h / 2}, Vector2Scale(d, std::min(half.x / fabsf(d.x), half.y / fabsf(d.y))));
+    float ang = atan2f(d.y, d.x) * RAD2DEG;
+    DrawPoly(m, 3, 13, ang, BLACK);
+    DrawPoly(m, 3, 10, ang, c);
+}
+
+// Name and description beside a hovered HUD icon; only while the mouse is free (paused or picking).
+void tooltip(Rectangle icon, const char* name, const char* desc, Color c) {
+    if (!CheckCollisionPointRec(GetMousePosition(), icon)) return;
+    float tw = std::max(measure(name, 16).x, measure(desc, 16).x);
+    Rectangle box = {icon.x + icon.width + 6, icon.y, tw + 16, 46};
+    DrawRectangleRounded(box, roundness(box, 6), 4, gray(.1f, .85f));
+    text(name, box.x + 8, box.y + 4, 16, c);
+    text(desc, box.x + 8, box.y + 24, 16, WHITE);
+}
+
+void drawHud(Game& g) {
+    const Player& p = g.p;
+    float w = ui.w, h = ui.h;
+    if (p.hp / p.maxHp <= 0.3f) DrawRectangle(0, 0, int(w) + 1, int(h) + 1, ColorAlpha(rgb(.278f, 0, 0), 0.204f));  // LowHPWarning
+    for (const Portal& pt : g.portals) edgeMarker(g, pt.pos, pt.state == Portal::PURIFIED ? rgb(.6f, 1, .6f) : rgb(.8f, .5f, 1));
+    for (const Enemy& e : g.enemies)
+        if (e.boss() && !e.dying) edgeMarker(g, e.pos, RED);
+    bool mouse = g.mode == Mode::Paused || g.mode == Mode::LevelUp;
+    meter({6, 1, 199, 20}, p.hp / p.maxHp, rgb(1, .0744f, .045f), TextFormat("%d/%d", int(std::max(0.f, p.hp)), int(p.maxHp)), rgb(1, .23f, .17f));
+    text(TextFormat("Kills: %d", p.kills), w * 0.243f - 24.6f, 0, 16, rgb(1, .4f, .33f));
+    text(TextFormat("Gold: %d", int(p.gold)), w * 0.243f + 79.5f, 0, 16, YELLOW);
+    text(TextFormat("Silver: %d", p.silver), w * 0.243f + 169, 0, 16, rgb(.72f, .72f, .72f));
+    int secs = int(p.time);
+    textIn(TextFormat("%02d:%02d", secs / 60, secs % 60), {5, 0, w - 5, 20}, 16, g.endTimes ? rgb(1, .2f, .2f) : WHITE);
+
+    for (int i = 0; i < int(p.weapons.size()); i++) {
+        float x = 5 + i * 68.f;
+        DrawTexturePro(A.weaponSlot, {0, 0, 64, 64}, {x, 23, 64, 64}, {}, 0, Fade(WHITE, 0.765f));
+        Texture2D icon = A.weaponIcons[p.weapons[i].id];
+        DrawTexturePro(icon, {0, 0, float(icon.width), float(icon.height)}, {x + 6, 29, 52, 52}, {}, 0, WHITE);
+        const Weapon& wp = p.weapons[i];
+        text(TextFormat("Lv%d", wp.level), x + 34, 68, 12, WHITE, false, 4);
+        if (mouse) tooltip({x, 23, 64, 64}, WEAPON_NAMES[wp.id], TextFormat("Level %d", wp.level), rgb(1, .65f, 0));
+    }
+    float iy = 91;
+    for (int i = 0; i < ITEM_COUNT; i++)
+        if (p.items[i]) {
+            Texture2D icon = A.itemIcons[i];
+            DrawTexturePro(icon, {0, 0, float(icon.width), float(icon.height)}, {5, iy, 32, 32}, {}, 0, WHITE);
+            if (p.items[i] > 1) text(TextFormat("x%d", p.items[i]), 23, iy + 18, 12, WHITE, false, 4);
+            if (mouse) tooltip({5, iy, 32, 32}, ITEMS[i].name, ITEMS[i].desc, ITEM_TIERS[ITEMS[i].tier].color);
+            iy += 36;
+        }
+
+    for (const Enemy& e : g.enemies)
+        if (e.boss() && !e.dying) {
+            textIn(e.kind == GUARDIAN ? "Floor Guardian" : "The Rat King", {0, 22, w, 20}, 16, e.enraged ? e.glow : WHITE);
+            meter({w / 2 - 300, 44, 600, 14}, e.hp / e.maxHp, e.enraged ? rgb(1, .35f, .15f) : rgb(.7f, .2f, .75f), "", WHITE);
+            break;
+        }
+
+    if (p.exp != ui.lastExp) ui.expShowT = ui.lastExp < 0 ? 0 : 2, ui.lastExp = p.exp;
+    ui.expShowT -= GetFrameTime();
+    meter({0, h - 19, w, 19}, float(p.exp) / p.expNext, rgb(0, .263f, 1),
+          ui.expShowT > 0 ? TextFormat("%d / %d", p.exp, p.expNext) : TextFormat("LVL %d", p.level), rgb(0, .263f, 1));
+
+    if (g.toastT > 0) textIn(g.toast, {0, h - 140, w, 24}, 16, Fade(g.toastColor, std::min(1.f, g.toastT)), 4, Fade(BLACK, std::min(1.f, g.toastT)));
+
+    if (g.mode == Mode::Paused || g.mode == Mode::LevelUp) statsPanel(p);
+    if (imageButton(50, {w - 114.8f, 4.2f, 108.3f, 40.6f}, "PAUSE", 14.6f) && (g.mode == Mode::Play || g.mode == Mode::Paused))
+        g.mode = g.mode == Mode::Play ? Mode::Paused : Mode::Play;
+}
+
+Rectangle optionRect(const Game& g, int i) {
+    float x = ui.w / 2, total = -4;
+    for (const Option& o : g.options) total += std::max(150.f, textWidth(o.text, 16) + 16) + 4;
+    x -= total / 2;
+    for (int k = 0; k < i; k++) x += std::max(150.f, textWidth(g.options[k].text, 16) + 16) + 4;
+    return {x, ui.h / 2 + 60, std::max(150.f, textWidth(g.options[i].text, 16) + 16), 64};
+}
+
+void chooseOption(Game& g, int i) {
+    applyOption(g, g.options[i]);
+    if (--g.p.pendingLevels > 0) buildOptions(g);
+    else g.mode = Mode::Play;
+}
+
+std::string clock(float seconds) { int s = int(seconds); return TextFormat("%02d:%02d", s / 60, s % 60); }
+
+struct StatRow { const char* name; std::string value; Color color; };
+// The outlined two-column summary of the victory screen; returns the y below the last row.
+float statRows(float cx, float y, std::initializer_list<StatRow> rows, Color title, Color outline) {
+    float c1 = 0;
+    for (const StatRow& r : rows) c1 = std::max(c1, measure(r.name, 24).x);
+    for (const StatRow& r : rows) {
+        text(r.name, cx - 144, y, 24, title, false, 6, outline);
+        text(r.value.c_str(), cx - 132 + c1, y, 24, r.color, false, 6, outline);
+        y += 34;
+    }
+    return y;
+}
+
+void drawOverlay(Game& g) {
+    float w = ui.w, h = ui.h, cx = w / 2, cy = h / 2;
     switch (g.mode) {
-        case Mode::LevelUp: {
-            text(g.p.pendingLevels > 1 ? TextFormat("LEVEL UP!  x%d", g.p.pendingLevels) : "LEVEL UP!", sw / 2, sh / 2 - 150, 48, rgb(1, .8f, .1f), true);
+        case Mode::LevelUp:
+            DrawRectangle(0, 0, int(w) + 1, int(h) + 1, gray(0, 0.49f));
+            textIn("BLOSSOM UP!", {0, cy - 40, w, 80}, 64, WHITE);
             for (int i = 0; i < int(g.options.size()); i++) {
-                Rectangle r = optionRect(i);
-                const Option& o = g.options[i];
-                Color rc = RARITIES[o.rarity].color;
-                bool hover = CheckCollisionPointRec(GetMousePosition(), r);
-                if (hover) r.y -= 6;
-                panel(r, hover ? rgb(.13f, .15f, .19f) : rgb(.09f, .1f, .13f), Fade(rc, hover ? 1.f : 0.6f), 16);
-                DrawRectangleRounded({r.x + 16, r.y + 16, 30, 30}, 0.4f, 8, Fade(rc, 0.2f));
-                text(TextFormat("%d", i + 1), r.x + 31, r.y + 18, 20, rc, true);
-                const char* rarity = TextFormat("%c%s", RARITIES[o.rarity].id[0] - 32, RARITIES[o.rarity].id + 1);
-                text(rarity, r.x + r.width - 16 - MeasureTextEx(A.font, rarity, 16, 0).x, r.y + 22, 16, rc);
-                text(wrap(o.text, 22, r.width - 36).c_str(), r.x + 18, r.y + 64, 22, WHITE);
+                Rectangle r = optionRect(g, i);
+                text(TextFormat("%d", i + 1), r.x + r.width / 2, r.y + r.height + 6, 16, gray(.75f, 1), true, 4);  // key hint
+                if (button(60 + i, r, g.options[i].text, true, RARITIES[g.options[i].rarity].color)) {
+                    chooseOption(g, i);
+                    break;
+                }
             }
+            break;
+        case Mode::ItemGet: {
+            // hud.tscn ItemGetPopup: name on top, icon in the middle, description below; a click anywhere continues.
+            const ItemDef& it = ITEMS[g.gotItem];
+            Rectangle r = {cx - 141, cy - 118, 286, 229};
+            Texture2D icon = A.itemIcons[g.gotItem];
+            DrawTexturePro(icon, {0, 0, float(icon.width), float(icon.height)}, {cx - 64 + 2, cy - 64 - 3, 128, 128}, {}, 0, WHITE);
+            textIn(it.name, {0, r.y, w, 38}, 32, ITEM_TIERS[it.tier].color, 6);
+            textIn(it.desc, {0, r.y + r.height - 38, w, 38}, 32, WHITE, 6);
+            textIn("Click to continue", {0, r.y + r.height + 4, w, 20}, 16, gray(.75f, 1), 4);
+            if (clicked(65, CheckCollisionPointRec(GetMousePosition(), r), true)) g.mode = Mode::Play;
             break;
         }
         case Mode::Paused:
-            panel({sw / 2 - 270, sh / 2 - 90, 540, 160});
-            text("Paused", sw / 2, sh / 2 - 60, 56, WHITE, true);
-            text("Esc to resume  -  Q to end the run", sw / 2, sh / 2 + 10, 24, Fade(WHITE, 0.8f), true);
+            DrawRectangle(0, 0, int(w) + 1, int(h) + 1, gray(0, 0.706f));
+            logo({cx - 8, cy - 160}, 2.254f, 10);
+            if (imageButton(70, {cx - 306, h - 229.12f, 201.4f, 75.5f}, "RESUME", 31.9f)) g.mode = Mode::Play;
+            if (imageButton(71, {cx - 98.3f, h - 229.12f, 201.4f, 75.5f}, "OPTIONS", 31.9f)) ui.options = true;
+            if (imageButton(72, {cx + 109.4f, h - 229.12f, 201.4f, 75.5f}, "QUIT", 31.9f)) bankRun(g), toTitle(g);
+            if (imageButton(73, {cx - 63, h * 0.883f - 23.76f, 128, 48}, "RESTART", 17)) bankRun(g), newRun(g);
             break;
         case Mode::GameOver:
-            panel({sw / 2 - 400, sh / 2 - 130, 800, 270});
-            text("You Died", sw / 2, sh / 2 - 100, 64, rgb(1, .3f, .3f), true);
-            text(TextFormat("Floor %d  -  %02d:%02d  -  Level %d  -  %d kills", g.floor, secs / 60, secs % 60, g.p.level, g.p.kills), sw / 2, sh / 2, 26, WHITE, true);
-            text(TextFormat("+%d gold banked", g.runGold), sw / 2, sh / 2 + 44, 24, rgb(1, .84f, 0), true);
-            text("R to retry  -  Enter for shop  -  Esc for title", sw / 2, sh / 2 + 90, 22, Fade(WHITE, 0.8f), true);
+            DrawRectangle(0, 0, int(w) + 1, int(h) + 1, ColorAlpha(rgb(.314f, 0, 0), 0.757f));
+            textIn("GAME OVER", {0, cy - 190, w, 80}, 74, RED);
+            statRows(cx, cy - 86, {{"Time Survived:", clock(g.runTime), WHITE},
+                                   {"Floor Reached:", TextFormat("%d / %d", g.floor, MAX_FLOORS), WHITE},
+                                   {"Enemies Slain:", TextFormat("%d", g.p.kills), WHITE},
+                                   {"Gold Banked:", TextFormat("+ %d Gold", g.runGold), rgb(1, .84f, 0)}},
+                     rgb(1, .7f, .7f), rgb(.2f, 0, 0));
+            if (button(80, {cx - 136, cy + 76, 111, 40}, "Try Again")) newRun(g);
+            else if (button(81, {cx + 24, cy + 76, 112, 40}, "Exit")) toTitle(g);
             break;
-        case Mode::Victory:
-            panel({sw / 2 - 330, sh / 2 - 150, 660, 340});
-            text("Victory!", sw / 2, sh / 2 - 120, 72, rgb(.7f, .95f, .7f), true);
-            text(TextFormat("Time Survived  %02d:%02d", secs / 60, secs % 60), sw / 2, sh / 2 - 20, 26, WHITE, true);
-            text(TextFormat("Enemies Slain  %d", g.p.kills), sw / 2, sh / 2 + 14, 26, WHITE, true);
-            text("Victory Bonus  +1000 Gold", sw / 2, sh / 2 + 48, 26, rgb(1, .84f, 0), true);
-            text(TextFormat("Gold Banked  %d", g.runGold), sw / 2, sh / 2 + 82, 26, rgb(1, .84f, 0), true);
-            text("Enter to return to the shop", sw / 2, sh / 2 + 140, 22, Fade(WHITE, 0.8f), true);
+        case Mode::Victory: {
+            wallpaper();
+            textIn("VICTORY!!!", {0, cy - 185.57f, w, 77}, 64, WHITE);
+            float y = statRows(cx, cy - 66.5f, {{"Time Survived:", clock(g.runTime), WHITE},
+                                                {"Enemies Slain:", TextFormat("%d", g.p.kills), WHITE},
+                                                {"Victory Bonus:", "+ 1000 Gold", rgb(1, .84f, 0)}},
+                               rgb(.7f, .95f, .7f), rgb(.06f, .2f, .1f));
+            if (imageButton(90, {cx - 64, y + 4, 128, 48}, "Return", 24)) toTitle(g);
             break;
+        }
         default: break;
     }
 }
 
 void handleInput(Game& g) {
+    if (ui.options) return;  // optionsScreen handles its own input
     switch (g.mode) {
         case Mode::Title:
             if (IsKeyPressed(KEY_ESCAPE)) g.quit = true;
@@ -1933,24 +2127,20 @@ void handleInput(Game& g) {
             break;
         case Mode::Paused:
             if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) g.mode = Mode::Play;
-            if (IsKeyPressed(KEY_Q)) bankRun(g), openShop(g);
+            break;
+        case Mode::ItemGet:
+            if (IsKeyPressed(KEY_E) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ESCAPE)) g.mode = Mode::Play;
             break;
         case Mode::LevelUp:
             for (int i = 0; i < int(g.options.size()); i++)
-                if (IsKeyPressed(KEY_ONE + i) || (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), optionRect(i)))) {
-                    applyOption(g, g.options[i]);
-                    if (--g.p.pendingLevels > 0) buildOptions(g);
-                    else g.mode = Mode::Play;
-                    break;
-                }
+                if (IsKeyPressed(KEY_ONE + i)) { chooseOption(g, i); break; }
             break;
         case Mode::GameOver:
             if (IsKeyPressed(KEY_R)) newRun(g);
-            if (IsKeyPressed(KEY_ENTER)) openShop(g);
-            if (IsKeyPressed(KEY_ESCAPE)) g.mode = Mode::Title, playMusic("ui/music.mp3", -8);
+            else if (IsKeyPressed(KEY_ESCAPE)) toTitle(g);
             break;
         case Mode::Victory:
-            if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE)) openShop(g);
+            if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE)) toTitle(g);
             break;
     }
 }
@@ -1987,18 +2177,18 @@ int selftest() {
     // Every island is one landmass, and the portal and chests are walkable from the spawn.
     for (const MapConfig& cfg : MAPS) {
         Map m = genMap(cfg);
-        int land = int(std::count_if(m.field.begin(), m.field.end(), [&](uint8_t h) { return h > m.cut; }));
+        int walkableCount = 0;
+        for (int v = MAP_N + 1; v < MAP_N * (MAP_N - 1); v++) walkableCount += walkable(m, v);
         std::vector<bool> seen(m.field.size());
-        CHECK(m.at(m.spawn) && int(landmass(m.field, m.cut, cellIndex(m.spawn), seen, true).size()) == land);
-        std::vector<bool> walk(m.field.size());
-        landmass(m.field, m.cut, cellIndex(m.spawn), walk, false);
-        CHECK(walk[cellIndex(m.portal)] && int(m.chests.size()) == cfg.chests);
-        for (Vector2 c : m.chests) CHECK(walk[cellIndex(c)]);
+        CHECK(m.at(m.spawn) && !m.blocked(m.spawn) && int(landmass(m, vertexIndex(m.spawn), seen).size()) == walkableCount);
+        CHECK(seen[vertexIndex(m.portal)] && !m.blocked(m.portal) && int(m.chests.size()) == cfg.chests && !m.trees.empty());
+        for (Vector2 c : m.chests) CHECK(seen[vertexIndex(c)] && !m.blocked(c));
+        for (int i = 0; i < int(m.field.size()); i++) CHECK((m.grass[i] >= 0) == (m.field[i] > m.cut));
     }
 
     // Guardian: enrages at half health, dies, purifies its portal and starts the end times.
     Game g;
-    g.map.field.assign(FIELD_N * FIELD_N, 255);
+    g.map.field.assign(MAP_N * MAP_N, 255);
     g.portals.push_back({{0, 0}});
     summonGuardian(g, 0);
     Enemy& boss = g.enemies.back();
@@ -2017,7 +2207,7 @@ int selftest() {
 
     // Dashers wind up near the player, then lunge; regular enemies never outpace the player.
     Game dg;
-    dg.map.field.assign(FIELD_N * FIELD_N, 255);
+    dg.map.field.assign(MAP_N * MAP_N, 255);
     Enemy dasher = makeEnemy(dg, {150, 0});
     dasher.type = DASHER, dasher.speed = 55, dasher.shootT = 0;
     dg.enemies.push_back(dasher);
@@ -2030,6 +2220,12 @@ int selftest() {
     dg.runTime = 3600, dg.floor = 3;
     for (int i = 0; i < 20; i++) CHECK(spawnEnemy(dg, RUNNER, 0) && spawnEnemy(dg, RATMAN, 0));
     for (const Enemy& e : dg.enemies) CHECK(e.speed <= ENEMY_SPEED_CAP && ENEMY_SPEED_CAP < Player{}.speed);
+
+    // A chest item pauses on the item popup.
+    Game sg;
+    sg.mode = Mode::Play;
+    grantItem(sg, IT_BOOTS);
+    CHECK(sg.mode == Mode::ItemGet && sg.gotItem == IT_BOOTS && sg.p.items[IT_BOOTS] == 1);
 
     // Several levels at once queue several picks; weapon offers are only for weapons you lack.
     Game lv;
@@ -2075,11 +2271,11 @@ int selftest() {
     CHECK(buyUpgrade(pr, PERM_MAX_HP) && buyUpgrade(pr, PERM_MAX_HP));  // 100 + 150
     CHECK(pr.coins == 750 && pr.levels[PERM_MAX_HP] == 2 && upgradeCost(pr, PERM_MAX_HP) == 225);
     CHECK(respecRefund(pr) == 250);
-    pr.weapon = POISON_AURA;
+    pr.weapon = POISON_AURA, pr.character = 2;
     auto path = std::filesystem::temp_directory_path() / "convallaria_selftest" / "save.txt";
     CHECK(saveProfile(pr, path));
     Profile back = loadProfile(path);
-    CHECK(back.coins == 750 && back.weapon == POISON_AURA && back.levels[PERM_MAX_HP] == 2 && back.levels[PERM_SPEED] == 0);
+    CHECK(back.coins == 750 && back.weapon == POISON_AURA && back.character == 2 && back.levels[PERM_MAX_HP] == 2 && back.levels[PERM_SPEED] == 0);
     std::filesystem::remove_all(path.parent_path());
     CHECK(loadProfile(path).coins == 0);  // missing file means a fresh profile
     respec(pr);
@@ -2087,6 +2283,7 @@ int selftest() {
     puts("selftest ok");
     return 0;
 }
+
 
 }  // namespace
 
@@ -2104,11 +2301,10 @@ int main(int argc, char** argv) {
     SetExitKey(KEY_NULL);
     loadAssets();
     profile = loadProfile(savePath());
+    applyVolume();
     playMusic("ui/music.mp3", -8);
 
     Game g;
-    g.map = genMap(MAPS[0]);
-    g.p.pos = g.map.spawn;
 
     while (!WindowShouldClose() && !g.quit) {
         float dt = std::min(GetFrameTime(), 1 / 30.f);
@@ -2116,17 +2312,26 @@ int main(int argc, char** argv) {
         handleInput(g);
         if (g.mode == Mode::Play) step(g, dt);
 
-        Camera2D cam{{GetScreenWidth() / 2.f, GetScreenHeight() / 2.f}, g.p.pos, 0, ZOOM};
+        // Godot's canvas_items stretch: the 1280x720 layout and the world both scale with the window.
+        float scale = std::min(GetScreenWidth() / float(SCREEN_W), GetScreenHeight() / float(SCREEN_H));
+        ui.w = GetScreenWidth() / scale, ui.h = GetScreenHeight() / scale;
+        SetMouseScale(1 / scale, 1 / scale);
+        Camera2D cam{{GetScreenWidth() / 2.f, GetScreenHeight() / 2.f}, g.p.pos, 0, ZOOM * scale}, canvas{{}, {}, 0, scale};
         BeginDrawing();
-        ClearBackground(g.map.water);
+        ClearBackground(BLACK);
         ui.hot = -1;
-        if (g.mode == Mode::Title) titleScreen(g);
+        bool inRun = g.mode != Mode::Title && g.mode != Mode::Shop && g.mode != Mode::Victory;
+        if (inRun && !ui.options) drawWorld(g, cam);
+        BeginMode2D(canvas);
+        textScale = scale;
+        if (ui.options) optionsScreen();
+        else if (g.mode == Mode::Title) titleScreen(g);
         else if (g.mode == Mode::Shop) shopScreen(g);
         else {
-            drawWorld(g, cam);
-            drawHud(g);
+            if (inRun) drawHud(g);
             drawOverlay(g);
         }
+        EndMode2D();
         if (ui.hot >= 0 && ui.hot != ui.lastHot) A.hover.play(1, -10);
         ui.lastHot = ui.hot;
         EndDrawing();
