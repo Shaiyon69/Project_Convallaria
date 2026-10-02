@@ -91,12 +91,14 @@ constexpr Rarity RARITIES[] = {
     {"gold", rgb(1, 0.8f, 0.1f), 3.0f, 3},
 };
 
-enum WeaponId { WAND, POISON_AURA };
+enum WeaponId { WAND, POISON_AURA, ORBIT, WEAPON_COUNT };
+// Orbit: wait is the per-enemy hit cooldown, speed the spin in radians per second.
 struct WeaponLevel { int damage; float wait; int projectiles; float speed; float scale; };
-constexpr const char* WEAPON_NAMES[] = {"Wand", "Poison Aura"};
-constexpr WeaponLevel WEAPON_LEVELS[2][3] = {
+constexpr const char* WEAPON_NAMES[WEAPON_COUNT] = {"Wand", "Poison Aura", "Thorn Orbit"};
+constexpr WeaponLevel WEAPON_LEVELS[WEAPON_COUNT][3] = {
     {{20, 1.0f, 1, 400, 1}, {35, 0.8f, 1, 450, 1}, {55, 0.5f, 1, 550, 1}},
     {{15, 1.0f, 0, 0, 1.0f}, {25, 0.8f, 0, 0, 1.25f}, {40, 0.5f, 0, 0, 1.6f}},
+    {{12, 0.6f, 2, 3, 1.0f}, {20, 0.5f, 2, 3.5f, 1.1f}, {32, 0.4f, 3, 4, 1.2f}},
 };
 
 // Items: bought from chests with silver, stacked without limit (Risk of Rain style).
@@ -114,7 +116,7 @@ constexpr ItemDef ITEMS[ITEM_COUNT] = {
     {"Storm Bell", "20% chance on hit to zap 3 enemies (+2 per stack)", 1},
     {"Volatile Spores", "Kills explode (bigger per stack)", 1},
     {"Ward Charm", "15% chance to block a hit (stacks with falloff)", 1},
-    {"Lily Crown", "+1 projectile", 2},
+    {"Lily Crown", "+1 projectile and orb", 2},
     {"Reaper's Sickle", "Execute enemies under 13% HP (stacks with falloff)", 2},
 };
 struct ItemTier { const char* name; Color color; int weight; };

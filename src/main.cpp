@@ -170,7 +170,7 @@ Profile loadProfile(const std::filesystem::path& path) {
     std::string key;
     while (in >> key) {
         if (key == "coins") in >> pr.coins;
-        else if (key == "weapon") { int w = 0; in >> w; pr.weapon = w == POISON_AURA ? POISON_AURA : WAND; }
+        else if (key == "weapon") { int w = 0; in >> w; pr.weapon = w >= 0 && w < WEAPON_COUNT ? WeaponId(w) : WAND; }
         else if (key == "upgrade") {
             std::string id;
             int level = 0;
@@ -333,7 +333,7 @@ struct Enemy {
     bool shooter = false, ratman = false, dying = false, gone = false, enraged = false, fired = false;
     int facing = DOWN, burnTicks = 0;
     float anim = 0, hurtT = 0, deathT = 0, shootT = 0, burnT = 0, burnDamage = 0, slowT = 0;
-    float castT = 0, dashT = 0, transformT = 0, specialT = 0, specialWait = 0;
+    float castT = 0, dashT = 0, transformT = 0, specialT = 0, specialWait = 0, orbitT = 0;
     float radius() const { return 6.f * scale; }
     bool boss() const { return kind != NORMAL; }
     float missing() const { return 1.f - hp / maxHp; }
@@ -358,7 +358,7 @@ struct Portal { Vector2 pos; enum { CORRUPTED, COMBAT, PURIFIED } state = CORRUP
 struct Weapon {
     WeaponId id = WAND;
     int level = 1, pierce = 0, ricochet = 0, projectile = 0;
-    float damage = 1, size = 1, fireRate = 1, timer = 0, pulse = 0;
+    float damage = 1, size = 1, fireRate = 1, timer = 0, pulse = 0, spin = 0;
     const WeaponLevel& stats() const { return WEAPON_LEVELS[id][std::min(level, 3) - 1]; }
 };
 
@@ -374,7 +374,7 @@ struct Player {
     float time = 0;  // on this floor; the run total lives in Game::runTime
     int facing = DOWN;
     std::vector<std::string> uniques;
-    Weapon weapon;
+    std::vector<Weapon> weapons;
     int items[ITEM_COUNT]{};
 };
 
@@ -411,7 +411,8 @@ struct Grid {
     }
 };
 
-struct Option { bool buff; int index; float value; int rarity; std::string text; };
+enum OptionKind { OPT_UPGRADE, OPT_BUFF, OPT_WEAPON };
+struct Option { int kind, index, weapon; float value; int rarity; std::string text; };
 enum Buff { B_DAMAGE, B_FIRE_RATE, B_SIZE, B_RICOCHET, B_PROJECTILE };
 enum class Mode { Title, Shop, Play, LevelUp, Paused, GameOver, Victory };
 
@@ -468,7 +469,7 @@ void startFloor(Game& g, int floor, Player player, float runTime) {  // player b
 // A fresh character with the shop upgrades applied.
 void newRun(Game& g) {
     Player p;
-    p.weapon.id = profile.weapon;
+    p.weapons.push_back({profile.weapon});
     p.maxHp += permBoost(profile, PERM_MAX_HP);
     p.hp = p.maxHp;
     p.dmgMul += permBoost(profile, PERM_DAMAGE);
@@ -872,6 +873,7 @@ void updateBoss(Game& g, Enemy& e, Vector2 dir, float dist, float dt) {
 // ---------------------------------------------------------------- level up
 
 const char* BUFF_TEXT[] = {"+%s%% Damage", "+%s%% Fire Rate", "+%s%% Size", "+%s Bounce", "+%s Projectile"};
+const char* SIZE_TEXT[WEAPON_COUNT] = {"+%s%% Splash Size", "+%s%% Aura Radius", "+%s%% Orbit Size"};
 const float BUFF_VALUE[] = {0.15f, 0.10f, 0.15f, 1, 1};
 
 int rollRarity() {
@@ -885,44 +887,60 @@ bool hasUnique(const Player& p, const char* id) {
     return std::find(p.uniques.begin(), p.uniques.end(), id) != p.uniques.end();
 }
 
+Weapon* findWeapon(Player& p, int id) {
+    for (Weapon& w : p.weapons)
+        if (w.id == id) return &w;
+    return nullptr;
+}
+
 void buildOptions(Game& g) {
-    struct Entry { bool buff; int index; };
-    std::vector<Entry> pool;
+    Player& p = g.p;
+    std::vector<Option> pool;  // value, rarity and text are filled in once picked
     for (int i = 0; i < int(std::size(UPGRADES)); i++)
-        if (!(UPGRADES[i].unique && hasUnique(g.p, UPGRADES[i].id))) pool.push_back({false, i});
-    const Weapon& w = g.p.weapon;
-    if (w.level < 99) {
+        if (!(UPGRADES[i].unique && hasUnique(p, UPGRADES[i].id))) pool.push_back({OPT_UPGRADE, i, 0});
+    for (const Weapon& w : p.weapons) {
+        if (w.level >= 99) continue;
         std::vector<int> buffs = {B_DAMAGE, B_FIRE_RATE, B_SIZE};
         if (w.id == WAND) buffs.insert(buffs.end(), {B_RICOCHET, B_PROJECTILE});
-        for (int i = 0; i < 4; i++) pool.push_back({true, buffs[rndi(int(buffs.size()))]});
+        if (w.id == ORBIT) buffs.push_back(B_PROJECTILE);
+        for (int i = 0; i < 3; i++) pool.push_back({OPT_BUFF, buffs[rndi(int(buffs.size()))], w.id});
     }
+    for (int id = 0; id < WEAPON_COUNT; id++)
+        if (!findWeapon(p, id)) pool.insert(pool.end(), 2, Option{OPT_WEAPON, id, id});
     std::shuffle(pool.begin(), pool.end(), rng);
 
     g.options.clear();
-    std::vector<std::pair<bool, int>> used;
-    for (const Entry& en : pool) {
+    for (Option o : pool) {
         if (g.options.size() >= 3) break;
-        if (std::find(used.begin(), used.end(), std::pair{en.buff, en.index}) != used.end()) continue;
-        used.push_back({en.buff, en.index});
-        int r = rollRarity();
-        if (!en.buff) {
-            float v = UPGRADES[en.index].base * RARITIES[r].mult;
-            g.options.push_back({false, en.index, v, r, fillText(UPGRADES[en.index].text, v)});
+        auto same = [&](const Option& x) { return x.kind == o.kind && x.index == o.index && x.weapon == o.weapon; };
+        if (std::any_of(g.options.begin(), g.options.end(), same)) continue;
+        o.rarity = rollRarity();
+        if (o.kind == OPT_UPGRADE) {
+            o.value = UPGRADES[o.index].base * RARITIES[o.rarity].mult;
+            o.text = fillText(UPGRADES[o.index].text, o.value);
+        } else if (o.kind == OPT_BUFF) {
+            const Weapon& w = *findWeapon(p, o.weapon);
+            o.value = BUFF_VALUE[o.index] * RARITIES[o.rarity].mult;
+            float shown = o.index <= B_SIZE ? o.value * 100 : o.value;
+            const char* text = o.index == B_SIZE ? SIZE_TEXT[w.id] : BUFF_TEXT[o.index];
+            o.text = std::string(WEAPON_NAMES[w.id]) + " Lv." + std::to_string(w.level + 1) + "\n" + fillText(text, shown);
         } else {
-            float v = BUFF_VALUE[en.index] * RARITIES[r].mult;
-            float shown = en.index <= B_SIZE ? v * 100 : v;
-            const char* text = en.index == B_SIZE ? (w.id == WAND ? "+%s%% Splash Size" : "+%s%% Aura Radius") : BUFF_TEXT[en.index];
-            std::string label = std::string(WEAPON_NAMES[w.id]) + " Lv." + std::to_string(w.level + 1) + "\n" + fillText(text, shown);
-            g.options.push_back({true, en.index, v, r, label});
+            o.rarity = 2;
+            o.text = std::string("New Weapon\n") + WEAPON_NAMES[o.index];
         }
+        g.options.push_back(o);
     }
 }
 
 void applyOption(Game& g, const Option& o) {
     Player& p = g.p;
     float v = o.value, pct = v / 100.f;
-    if (o.buff) {
-        Weapon& w = p.weapon;
+    if (o.kind == OPT_WEAPON) {
+        p.weapons.push_back({WeaponId(o.index)});
+        return;
+    }
+    if (o.kind == OPT_BUFF) {
+        Weapon& w = *findWeapon(p, o.weapon);
         w.level++;
         switch (o.index) {
             case B_DAMAGE: w.damage += v; break;
@@ -947,7 +965,7 @@ void applyOption(Game& g, const Option& o) {
     else if (id == "evasion") p.evasion += pct;
     else if (id == "crit_chance") p.crit += pct;
     else if (id == "exp_boost") p.expMul += pct;
-    else if (id == "multi_attack") p.weapon.projectile += int(v);
+    else if (id == "multi_attack") for (Weapon& w : p.weapons) w.projectile += int(v);
     else if (id == "glass_cannon") { p.dmgMul += pct; p.maxHp -= p.maxHp * 0.2f; p.hp = std::min(p.hp, p.maxHp); }
     else if (id == "heavy_armor") { float inc = p.maxHp * 0.1f; p.thorns += pct; p.speed -= p.speed * 0.15f; p.maxHp += inc; p.hp += inc; }
     else if (id == "berserker") { fasterFire(pct); p.evasion = std::max(0.f, p.evasion - 0.1f); }
@@ -1083,15 +1101,42 @@ void updateSpawner(Game& g, float dt) {
     }
 }
 
-void updateWeapon(Game& g, float dt) {
+float weaponWait(const Player& p, const Weapon& w) {
+    return std::max(0.05f, w.stats().wait * p.fireRateMul / w.fireRate / (1 + 0.12f * p.items[IT_QUILL]));
+}
+
+int orbCount(const Player& p, const Weapon& w) { return w.stats().projectiles + w.projectile + p.items[IT_CROWN]; }
+float orbRadius(const Weapon& w) { return 8 * w.size; }
+Vector2 orbPos(const Player& p, const Weapon& w, int k) {
+    float ring = 40 * w.stats().scale * w.size * p.aoe;
+    return Vector2Add(p.pos, Vector2Rotate({ring, 0}, w.spin + k * 2 * PI / orbCount(p, w)));
+}
+
+void fireWeapon(Game& g, Weapon& w, float dt) {
     Player& p = g.p;
-    Weapon& w = p.weapon;
     const WeaponLevel& lv = w.stats();
     w.pulse = std::max(0.f, w.pulse - dt);
-    float wait = std::max(0.05f, lv.wait * p.fireRateMul / w.fireRate / (1 + 0.12f * p.items[IT_QUILL]));
-    if ((w.timer += dt) < wait) return;
-    w.timer = 0;
     int damage = int(roundf(lv.damage * p.dmgMul * w.damage));
+
+    if (w.id == ORBIT) {
+        // Orbs hit whatever they touch; each enemy then has a cooldown.
+        w.spin += lv.speed * dt;
+        float r = orbRadius(w);
+        for (int k = 0; k < orbCount(p, w); k++) {
+            Vector2 at = orbPos(p, w, k);
+            g.grid.query(at, r + 120, [&](int i) {
+                Enemy& e = g.enemies[i];
+                if (e.dying || e.orbitT > 0 || Vector2Distance(e.pos, at) > r + e.radius()) return false;
+                e.orbitT = weaponWait(p, w);
+                onHit(g, e, damage, p.imbueFire, p.imbueFrost);
+                return false;
+            });
+        }
+        return;
+    }
+
+    if ((w.timer += dt) < weaponWait(p, w)) return;
+    w.timer = 0;
 
     if (w.id == POISON_AURA) {
         w.pulse = 0.3f;
@@ -1224,6 +1269,7 @@ void updateEnemies(Game& g, float dt) {
             if (e.dying) continue;
         }
         if (e.slowT > 0 && (e.slowT -= dt) <= 0) e.slowMul = 1;
+        e.orbitT -= dt;
 
         Vector2 to = Vector2Subtract(p.pos, e.pos);
         float dist = Vector2Length(to);
@@ -1409,10 +1455,11 @@ void drawWorld(const Game& g, Camera2D cam) {
         DrawTexturePro(A.seed, {0, 0, 48, 48}, {s.pos.x, s.pos.y, size, size}, {size / 2, size / 2}, 0, Fade(SEED_TINT[s.type], alpha));
     }
 
-    if (p.weapon.id == POISON_AURA) {
-        float r = 48 * p.weapon.stats().scale * p.aoe * p.weapon.size;
-        DrawTexturePro(A.aura, {0, 0, 48, 48}, {p.pos.x, p.pos.y, r * 2, r * 2}, {r, r}, 0, Fade(WHITE, 0.35f + p.weapon.pulse));
-    }
+    for (const Weapon& w : p.weapons)
+        if (w.id == POISON_AURA) {
+            float r = 48 * w.stats().scale * p.aoe * w.size;
+            DrawTexturePro(A.aura, {0, 0, 48, 48}, {p.pos.x, p.pos.y, r * 2, r * 2}, {r, r}, 0, Fade(WHITE, 0.35f + w.pulse));
+        }
 
     for (const Enemy& e : g.enemies) drawEnemy(e, t);
 
@@ -1425,6 +1472,13 @@ void drawWorld(const Game& g, Camera2D cam) {
         DrawTexturePro(A.projectile, {0, 0, 16, 16}, {s.pos.x, s.pos.y, size, size}, {size / 2, size / 2},
                        atan2f(s.dir.y, s.dir.x) * RAD2DEG, s.crit ? rgb(1, .8f, .1f) : WHITE);
     }
+    for (const Weapon& w : p.weapons)
+        if (w.id == ORBIT)
+            for (int k = 0; k < orbCount(p, w); k++) {
+                Vector2 at = orbPos(p, w, k);
+                float size = 2.5f * orbRadius(w);
+                DrawTexturePro(A.projectile, {0, 0, 16, 16}, {at.x, at.y, size, size}, {size / 2, size / 2}, w.spin * RAD2DEG * 3, rgb(.6f, 1, .5f));
+            }
     for (const EnemyShot& s : g.enemyShots) DrawCircleV(s.pos, 4 * s.scale, s.color);
     for (const Blast& b : g.blasts) DrawCircleV(b.pos, b.radius * (0.5f + b.t * 2), Fade(rgb(1, .6f, .2f), 0.5f * (1 - b.t / 0.25f)));
     for (const Bolt& b : g.bolts) DrawLineEx(b.a, b.b, 1.5f, Fade(rgb(.6f, .85f, 1), 1 - b.t / 0.15f));
@@ -1468,7 +1522,10 @@ void drawHud(const Game& g) {
     text(TextFormat("Kills %d", p.kills), sw - 200, 20, 22, WHITE);
     text(TextFormat("Silver %d", p.silver), sw - 200, 44, 22, rgb(.8f, .8f, .85f));
     text(TextFormat("Gold %d", int(p.gold)), sw - 200, 68, 22, rgb(1, .8f, .1f));
-    text(TextFormat("%s Lv.%d", WEAPON_NAMES[p.weapon.id], p.weapon.level), 20, sh - 34, 20, WHITE);
+    for (int i = 0; i < int(p.weapons.size()); i++) {
+        const Weapon& w = p.weapons[p.weapons.size() - 1 - i];
+        text(TextFormat("%s Lv.%d", WEAPON_NAMES[w.id], w.level), 20, sh - 34 - i * 24.f, 20, WHITE);
+    }
     float iy = 100;
     for (int i = 0; i < ITEM_COUNT; i++)
         if (p.items[i]) {
@@ -1477,7 +1534,6 @@ void drawHud(const Game& g) {
             iy += 20;
         }
     if (g.toastT > 0) text(g.toast.c_str(), sw / 2, sh - 120, 24, Fade(g.toastColor, std::min(1.f, g.toastT)), true);
-    text(TextFormat("%d FPS  %zu enemies", GetFPS(), g.enemies.size()), sw - 260, sh - 30, 18, Fade(WHITE, 0.6f));
     text(TextFormat("%d FPS  %zu enemies", GetFPS(), g.enemies.size()), sw - 260, sh - 30, 18, Fade(WHITE, 0.6f));
 
     for (const Enemy& e : g.enemies)
@@ -1570,8 +1626,8 @@ void shopScreen(Game& g) {
     }
 
     text("Starting Weapon", x1, top + 80, 24, rgb(1, .9f, .5f));
-    for (int w = 0; w < 2; w++) {
-        Rectangle r = {x1 + w * 280.f, top + 116, 260, 50};
+    for (int w = 0; w < WEAPON_COUNT; w++) {
+        Rectangle r = {x1 + w * 182.f, top + 116, 176, 50};
         bool selected = profile.weapon == w;
         if (button(10 + w, r, selected ? TextFormat("[ %s ]", WEAPON_NAMES[w]) : WEAPON_NAMES[w], true, selected ? rgb(.5f, 1, .5f) : GRAY, 22)) {
             profile.weapon = WeaponId(w);
@@ -1692,6 +1748,19 @@ void handleInput(Game& g) {
     }
 }
 
+void step(Game& g, float dt) {
+    g.grid.build(g.enemies);
+    updatePlayer(g, dt);
+    updateSpawner(g, dt);
+    for (Weapon& w : g.p.weapons) fireWeapon(g, w, dt);
+    updateShots(g, dt);
+    updateSeeds(g, dt);
+    updateEnemies(g, dt);  // last: removes enemies, invalidating grid indices
+    for (DamageNumber& n : g.numbers) n.t += dt;
+    std::erase_if(g.numbers, [](const DamageNumber& n) { return n.t > 0.6f; });
+    g.toastT -= dt;
+}
+
 #define CHECK(c) if (!(c)) { printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #c); return 1; }
 int selftest() {
     CHECK(expForLevel(2) == 31);
@@ -1738,15 +1807,43 @@ int selftest() {
     CHECK(g.chests.empty() && std::accumulate(std::begin(g.p.items), std::end(g.p.items), 0) == 1);
     stopMusic();
 
-    // Several levels at once queue several picks; dodge past the cap still gets hit.
+    // Several levels at once queue several picks; weapon offers are only for weapons you lack.
     Game lv;
     lv.mode = Mode::Play;
+    lv.p.weapons.push_back({WAND});
     gainExp(lv, 500);
     CHECK(lv.mode == Mode::LevelUp && lv.p.pendingLevels > 1 && lv.options.size() == 3);
+    for (int i = 0; i < 200; i++) {
+        buildOptions(lv);
+        for (const Option& o : lv.options) CHECK(o.kind != OPT_WEAPON || o.index != WAND);
+    }
+    applyOption(lv, {OPT_WEAPON, ORBIT, ORBIT});
+    CHECK(lv.p.weapons.size() == 2 && findWeapon(lv.p, ORBIT));
     lv.p.items[IT_CHARM] = 0, lv.p.evasion = 5;  // over the cap: still hittable
     int hits = 0;
     for (int i = 0; i < 200; i++) { lv.p.iframes = 0, lv.p.hp = 1e6f; hurtPlayer(lv, 1, nullptr); hits += lv.p.hp < 1e6f; }
     CHECK(hits > 40);
+
+    // Smoke run: every weapon and three of every item for two simulated minutes on floor 2.
+    Player hero;
+    for (int w = 0; w < WEAPON_COUNT; w++) hero.weapons.push_back({WeaponId(w)});
+    for (int& n : hero.items) n = 3;
+    Game sim;
+    startFloor(sim, 2, hero, 0);
+    int kills = 0;
+    for (int f = 0; f < 120 * 60; f++) {
+        sim.p.hp = sim.p.maxHp;
+        while (sim.mode == Mode::LevelUp) {
+            applyOption(sim, sim.options[0]);
+            if (--sim.p.pendingLevels <= 0) sim.mode = Mode::Play;
+            else buildOptions(sim);
+        }
+        CHECK(sim.mode == Mode::Play);
+        step(sim, 1 / 60.f);
+        kills = sim.p.kills;
+    }
+    CHECK(kills > 100 && sim.map.cfg != &MAPS[0]);
+    stopMusic();
 
     Profile pr;
     pr.coins = 1000;
@@ -1793,18 +1890,7 @@ int main(int argc, char** argv) {
         float dt = std::min(GetFrameTime(), 1 / 30.f);
         if (IsMusicValid(A.music)) UpdateMusicStream(A.music);
         handleInput(g);
-        if (g.mode == Mode::Play) {
-            g.grid.build(g.enemies);
-            updatePlayer(g, dt);
-            updateSpawner(g, dt);
-            updateWeapon(g, dt);
-            updateShots(g, dt);
-            updateSeeds(g, dt);
-            updateEnemies(g, dt);  // last: removes enemies, invalidating grid indices
-            for (DamageNumber& n : g.numbers) n.t += dt;
-            std::erase_if(g.numbers, [](const DamageNumber& n) { return n.t > 0.6f; });
-            g.toastT -= dt;
-        }
+        if (g.mode == Mode::Play) step(g, dt);
 
         Camera2D cam{{GetScreenWidth() / 2.f, GetScreenHeight() / 2.f}, g.p.pos, 0, ZOOM};
         BeginDrawing();

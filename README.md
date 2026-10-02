@@ -14,6 +14,7 @@ Convallaria is a top-down survival action game written in C++ with [raylib](http
 - Collect experience seeds to level up, then pick one of three upgrades: health, speed, damage, fire rate, area size, regeneration, thorns, dodge, crits, fire and frost effects, and more.
 - Grab power-ups: magnet, speed boost, bomb, healing, silver and gold.
 - Spend silver on chests scattered across each island. Every chest holds a random item, and items stack without limit: attack speed, max HP, move speed, crit, regen, life on hit, burning hits, chain lightning, exploding kills, blocking, extra projectiles and executes. Defeating a guardian leaves a free chest.
+- Pick up new weapons from level-ups and run several at once.
 - Each floor rolls a different island: Meadow, Marsh, Atoll or Highlands, each with its own shape and enemy mix.
 - Find the corrupted portal on each island and summon its guardian. Defeat it to purify the portal and travel to the next floor.
 - Reach the final island and defeat the Rat King.
@@ -33,6 +34,7 @@ Weapons:
 
 - Wand: fires magic projectiles at the nearest enemy, with splash, pierce, bounce and multishot upgrades.
 - Poison Aura: damages every enemy around you.
+- Thorn Orbit: blades circle you and cut whatever they touch.
 
 Enemy types include slimes, runners, shooters, brutes, swarms, dashers, tanks and ratmen. Horde events hit at set times. Stay on a floor past ten minutes, or after its guardian falls, and death slimes start pouring in.
 
