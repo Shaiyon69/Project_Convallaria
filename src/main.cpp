@@ -415,11 +415,12 @@ struct Enemy {
     Vector2 pos{}, vel{}, dashDir{};
     float hp = 1, maxHp = 1, speed = 0, slowMul = 1, scale = 1, pitch = 1;
     Color color = WHITE, glow = WHITE;
-    int damage = 0, exp = 0, phase = 1, portal = -1, lastHit = 0;
+    int type = BASIC, damage = 0, exp = 0, phase = 1, portal = -1, lastHit = 0;
     bool shooter = false, ratman = false, dying = false, gone = false, enraged = false, fired = false;
     int facing = DOWN, burnTicks = 0;
     float anim = 0, hurtT = 0, deathT = 0, shootT = 0, burnT = 0, burnDamage = 0, slowT = 0;
     float castT = 0, dashT = 0, transformT = 0, specialT = 0, specialWait = 0, orbitT = 0;
+    float flank = 0;  // radians off the direct line while closing in, so packs surround
     float radius() const { return 6.f * scale; }
     bool boss() const { return kind != NORMAL; }
     float missing() const { return 1.f - hp / maxHp; }
@@ -620,8 +621,9 @@ void hurtEnemy(Game& g, Enemy& e, int amount) {
         if (e.ratman) playAt(A.ratmanDeath, g, e.pos, e.pitch * rndr(0.9f, 1.1f), e.boss() ? -10 : -15, 0.05);
         else playAt(A.slimeDeath, g, e.pos, e.pitch, e.boss() ? 0 : -10, 0.05);
         if (e.boss()) stopMusic();
-    } else if (e.hurtT <= 0 && e.castT <= 0 && e.transformT <= 0) {
-        e.hurtT = e.ratman || e.boss() ? 0.15f : 0.4f;
+    } else if (e.hurtT <= 0 && e.castT <= 0 && e.transformT <= 0 && e.dashT <= 0) {
+        e.hurtT = e.ratman || e.boss() ? 0.15f : 0.25f;
+        if (!e.ratman && !e.boss()) e.vel = Vector2Scale(Vector2Normalize(Vector2Subtract(e.pos, g.p.pos)), 140 / e.scale);  // knockback
         if (!e.ratman) playAt(A.slimeHit, g, e.pos, e.pitch, -5, 0.05);
     }
 }
@@ -647,7 +649,7 @@ void hurtPlayer(Game& g, int damage, Enemy* source) {
     A.hurt.play(rndr(1.4f, 1.8f), -5);
     if (source && p.thorns > 0) hurtEnemy(g, *source, int(damage * p.thorns));
     if (p.hp <= 0) g.mode = Mode::GameOver, bankRun(g);
-    else p.iframes = 0.4f;
+    else p.iframes = 0.5f;
 }
 
 void buildOptions(Game& g);
@@ -759,6 +761,7 @@ Enemy makeEnemy(Game& g, Vector2 pos) {
     e.pos = pos;
     e.shootT = rndr(2, 4);
     e.anim = rndr(0, 1);
+    e.flank = rndr(-0.7f, 0.7f);
     return e;
 }
 
@@ -792,8 +795,8 @@ bool spawnEnemy(Game& g, int type, int extraCap) {
     } else {
         float m = runMinutes(g), floorHp = 1 + (g.floor - 1) * 0.5f;
         e.hp = float(int(d.health * floorHp * (1 + m * 0.3f)));
-        e.damage = int(d.damage * floorHp * (1 + m * 0.15f));
-        e.speed = d.speed + m * 3 + (g.floor - 1) * 10;
+        e.damage = int(d.damage * (1 + (g.floor - 1) * ENEMY_DMG_PER_FLOOR) * (1 + m * ENEMY_DMG_PER_MIN));
+        e.speed = d.speed + m * ENEMY_SPEED_PER_MIN + (g.floor - 1) * ENEMY_SPEED_PER_FLOOR;
         e.scale = d.scale;
         e.exp = int(d.exp * floorMult);
         e.color = d.color;
@@ -805,7 +808,9 @@ bool spawnEnemy(Game& g, int type, int extraCap) {
             if (v > 0.75f) e.scale *= 1.25f, e.hp = float(int(e.hp * 1.5f)), e.speed *= 0.75f, e.color = rgb(0.7f, 0.6f, 0.6f);
             else if (v < 0.25f) e.scale *= 0.8f, e.hp = float(int(e.hp * 0.6f)), e.speed *= 1.4f, e.color = rgb(1.2f, 1.1f, 1.1f);
         }
+        e.speed = std::min(e.speed, ENEMY_SPEED_CAP);
     }
+    e.type = type;
     e.maxHp = e.hp;
     g.enemies.push_back(e);
     return true;
@@ -844,7 +849,7 @@ void summonGuardian(Game& g, int portal) {
     e.portal = portal;
     e.hp = float(int(int(BOSS_HEALTH * (1 + m * 0.2f)) * (1 + (f - 1) * 1.5f + m * 0.25f)));
     e.maxHp = e.hp;
-    e.damage = int(int(BOSS_DAMAGE * (1 + m * 0.08f)) * (1 + (f - 1) * 0.3f + m * 0.1f));
+    e.damage = int(BOSS_DAMAGE * (1 + (f - 1) * ENEMY_DMG_PER_FLOOR) * (1 + m * 0.05f));
     e.speed = BOSS_SPEED + (f - 1) * 20;
     e.scale = 2;
     e.color = fb.color;
@@ -861,7 +866,7 @@ void spawnFinalBoss(Game& g) {
     e.ratman = e.shooter = true;
     e.hp = float(int(int(BOSS_HEALTH * mult * 5) * 0.35f * (1 + m * 0.4f)));
     e.maxHp = e.hp;
-    e.damage = int(int(BOSS_DAMAGE * mult * 2) * 0.4f * (1 + m * 0.15f));
+    e.damage = int(BOSS_DAMAGE * 1.2f * (1 + m * 0.04f));
     e.speed = BOSS_SPEED * 1.5f + m * 2;
     e.scale = 4.5f;
     e.color = rgb(0.8f, 0.05f, 0.1f);
@@ -1130,12 +1135,13 @@ void updatePlayer(Game& g, float dt) {
         p.iframes -= dt;
         return;
     }
+    Enemy* hitter = nullptr;  // the hardest hitter touching you, not whichever the grid lists first
     g.grid.query(p.pos, PLAYER_RADIUS + 120, [&](int i) {
         Enemy& e = g.enemies[i];
-        if (e.dying || Vector2Distance(e.pos, p.pos) > PLAYER_RADIUS + e.radius()) return false;
-        hurtPlayer(g, e.damage, &e);
-        return true;
+        if (!e.dying && Vector2Distance(e.pos, p.pos) <= PLAYER_RADIUS + e.radius() && (!hitter || e.damage > hitter->damage)) hitter = &e;
+        return false;
     });
+    if (hitter) hurtPlayer(g, hitter->damage, hitter);
 }
 
 void updateSpawner(Game& g, float dt) {
@@ -1373,32 +1379,45 @@ void updateEnemies(Game& g, float dt) {
                 e.shootT = rndr(2, 3.5f);
                 bossShot(g, e, dir, e.damage, 0.8f, rgb(0.1f, 0.1f, 0.1f));
             }
+        } else if (e.dashT > 0) {
+            e.dashT -= dt;
+            e.vel = Vector2Scale(e.dashDir, e.speed * 5);
+        } else if (e.castT > 0) {
+            // Dash wind-up (drawn grey): stand still, then lunge at where the player was.
+            e.vel = {};
+            if ((e.castT -= dt) <= 0) e.dashT = 0.35f, e.dashDir = dir;
         } else if (e.hurtT > 0) {
             e.hurtT -= dt;
-            e.vel = Vector2Scale(e.vel, powf(0.95f, dt * 60));
-        } else if (dist > ACTIVE_RADIUS) {
-            e.vel = Vector2Scale(dir, speed);
-        } else if (e.shooter && dist <= 350) {
-            e.vel = {};
-            if ((e.shootT -= dt) <= 0) {
-                e.shootT = rndr(3.5f, 6);
-                bossShot(g, e, dir, e.damage, 1, rgb(1, 0.3f, 0.2f));
-            }
+            e.vel = Vector2Scale(e.vel, powf(0.85f, dt * 60));  // knockback skid
         } else {
-            // Soft separation from the closest few neighbours.
-            Vector2 push{};
-            int n = 0;
-            g.grid.query(e.pos, e.radius() + 120, [&](int j) {
-                if (j == int(i)) return false;
-                const Enemy& o = g.enemies[j];
-                Vector2 away = Vector2Subtract(e.pos, o.pos);
-                float d = Vector2Length(away);
-                if (d >= e.radius() + o.radius()) return false;
-                push = Vector2Add(push, d > 0 ? Vector2Scale(away, 1 / d) : Vector2{rndr(-1, 1), rndr(-1, 1)});
-                return ++n >= 3;
-            });
-            Vector2 want = Vector2Add(Vector2Scale(dir, speed), Vector2Scale(Vector2Normalize(push), 20));
-            e.vel = Vector2ClampValue(want, 0, speed);
+            Vector2 want = Vector2Scale(dir, speed);
+            if (dist <= ACTIVE_RADIUS) {
+                if (e.shooter && dist <= 350) {
+                    want = dist < 180 ? Vector2Scale(dir, -speed * 0.6f) : Vector2{};  // hold range, back off if rushed
+                    if ((e.shootT -= dt) <= 0) {
+                        e.shootT = rndr(3.5f, 6);
+                        bossShot(g, e, dir, e.damage, 1, rgb(1, 0.3f, 0.2f));
+                    }
+                } else {
+                    if (e.type == DASHER && (e.shootT -= dt) <= 0 && dist < 220) e.shootT = rndr(2.5f, 4), e.castT = 0.5f;
+                    want = Vector2Scale(Vector2Rotate(dir, e.flank * std::clamp((dist - 60) / 300, 0.f, 1.f)), speed);
+                }
+                // Separation, stronger the deeper the overlap.
+                Vector2 push{};
+                int n = 0;
+                g.grid.query(e.pos, e.radius() + 120, [&](int j) {
+                    if (j == int(i)) return false;
+                    const Enemy& o = g.enemies[j];
+                    Vector2 away = Vector2Subtract(e.pos, o.pos);
+                    float d = Vector2Length(away), reach = e.radius() + o.radius();
+                    if (d >= reach) return false;
+                    Vector2 u = d > 0 ? Vector2Scale(away, 1 / d) : Vector2{rndr(-1, 1), rndr(-1, 1)};
+                    push = Vector2Add(push, Vector2Scale(u, 1 - d / reach));
+                    return ++n >= 6;
+                });
+                want = Vector2ClampValue(Vector2Add(want, Vector2Scale(push, speed)), 0, speed);
+            }
+            e.vel = Vector2Lerp(e.vel, want, std::min(1.f, dt * 8));  // steer, don't snap
         }
 
         Vector2 step = Vector2Scale(e.vel, dt);
@@ -1514,7 +1533,7 @@ void drawEnemy(const Enemy& e, float t) {
     } else if (e.dying) {
         drawFrame(A.slime, 12 + (e.deathT < 0.2f), 0, e.pos, e.scale, tint);
     } else {
-        drawFrame(A.slime, e.hurtT > 0 ? 10 + (e.hurtT < 0.2f) : 6 + walk, e.facing, e.pos, e.scale, tint);
+        drawFrame(A.slime, e.hurtT > 0 ? 10 + (e.hurtT < 0.125f) : 6 + walk, e.facing, e.pos, e.scale, tint);
     }
     if (!e.dying && !e.boss() && e.hp < e.maxHp) {
         float w = 16 * e.scale, y = e.pos.y + 10 * e.scale;
@@ -1995,6 +2014,22 @@ int selftest() {
     openChest(g, 0);
     CHECK(g.chests.empty() && std::accumulate(std::begin(g.p.items), std::end(g.p.items), 0) == 1);
     stopMusic();
+
+    // Dashers wind up near the player, then lunge; regular enemies never outpace the player.
+    Game dg;
+    dg.map.field.assign(FIELD_N * FIELD_N, 255);
+    Enemy dasher = makeEnemy(dg, {150, 0});
+    dasher.type = DASHER, dasher.speed = 55, dasher.shootT = 0;
+    dg.enemies.push_back(dasher);
+    for (int f = 0; f < 41; f++) {
+        dg.grid.build(dg.enemies);
+        updateEnemies(dg, 1 / 60.f);
+        if (f == 0) CHECK(dg.enemies[0].castT > 0);
+    }
+    CHECK(dg.enemies[0].dashT > 0 && dg.enemies[0].pos.x < 130);
+    dg.runTime = 3600, dg.floor = 3;
+    for (int i = 0; i < 20; i++) CHECK(spawnEnemy(dg, RUNNER, 0) && spawnEnemy(dg, RATMAN, 0));
+    for (const Enemy& e : dg.enemies) CHECK(e.speed <= ENEMY_SPEED_CAP && ENEMY_SPEED_CAP < Player{}.speed);
 
     // Several levels at once queue several picks; weapon offers are only for weapons you lack.
     Game lv;

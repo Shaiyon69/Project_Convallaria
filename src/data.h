@@ -20,16 +20,21 @@ struct EnemyDef {
 };
 
 constexpr EnemyDef ENEMIES[ENEMY_TYPE_COUNT] = {
-    {"basic", 30, 45.f, 1.0f, rgb(1, 1, 1), 10, 10, 1.0f, false, false, false},
-    {"ratman", 20, 110.f, 1.0f, rgb(1, 1, 1), 12, 15, 1.2f, false, true, false},
-    {"shooter", 20, 50.f, 0.9f, rgb(1, 0.831f, 0), 15, 20, 1.4f, true, false, false},
-    {"brute", 90, 25.f, 1.5f, rgb(1, 0.4f, 0.4f), 25, 30, 0.6f, false, false, false},
-    {"runner", 15, 85.f, 0.8f, rgb(0.2f, 0.9f, 0.2f), 5, 15, 1.5f, false, false, false},
-    {"swarm", 5, 100.f, 0.5f, rgb(1, 0.5f, 0), 2, 5, 1.8f, false, false, false},
-    {"tank", 300, 15.f, 2.0f, rgb(0.2f, 0.2f, 0.2f), 50, 100, 0.4f, false, false, false},
-    {"dasher", 25, 40.f, 0.9f, rgb(0.1f, 0.8f, 0.8f), 15, 25, 1.3f, false, false, false},
+    {"basic", 30, 55.f, 1.0f, rgb(1, 1, 1), 8, 10, 1.0f, false, false, false},
+    {"ratman", 20, 95.f, 1.0f, rgb(1, 1, 1), 10, 15, 1.2f, false, true, false},
+    {"shooter", 20, 60.f, 0.9f, rgb(1, 0.831f, 0), 12, 20, 1.4f, true, false, false},
+    {"brute", 90, 38.f, 1.5f, rgb(1, 0.4f, 0.4f), 20, 30, 0.6f, false, false, false},
+    {"runner", 15, 120.f, 0.8f, rgb(0.2f, 0.9f, 0.2f), 6, 15, 1.5f, false, false, false},
+    {"swarm", 5, 105.f, 0.5f, rgb(1, 0.5f, 0), 3, 5, 1.8f, false, false, false},
+    {"tank", 300, 26.f, 2.0f, rgb(0.2f, 0.2f, 0.2f), 32, 100, 0.4f, false, false, false},
+    {"dasher", 25, 55.f, 0.9f, rgb(0.1f, 0.8f, 0.8f), 14, 25, 1.3f, false, false, false},
     {"death_slime", 15000, 250.f, 3.0f, rgb(0.367f, 0, 0.367f), 500, 0, 0.2f, false, false, true},
 };
+
+// Enemy scaling. Damage grows gently so contact stays survivable deep into a run,
+// and chase speed is capped below the player's base 165 so you can always outrun a pack.
+constexpr float ENEMY_DMG_PER_FLOOR = 0.25f, ENEMY_DMG_PER_MIN = 0.06f;
+constexpr float ENEMY_SPEED_PER_FLOOR = 8, ENEMY_SPEED_PER_MIN = 1.5f, ENEMY_SPEED_CAP = 145;
 
 struct SpawnChance { EnemyType type; float base, growth; };
 constexpr SpawnChance MEADOW_SPAWNS[] = {
@@ -129,7 +134,7 @@ constexpr ItemTier ITEM_TIERS[] = {
 constexpr int MAX_FLOORS = 4;
 
 // Floor boss base stats (the "boss" entry of data/enemies.json).
-constexpr int BOSS_HEALTH = 5000, BOSS_DAMAGE = 100;
+constexpr int BOSS_HEALTH = 5000, BOSS_DAMAGE = 60;
 constexpr float BOSS_SPEED = 35.f;
 
 struct Biome { Color grass, water, soil; };
