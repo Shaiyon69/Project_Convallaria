@@ -110,3 +110,17 @@ constexpr FloorBoss FLOOR_BOSSES[] = {
     {"world/level2.wav", rgb(0.4f, 0.2f, 0.6f), rgb(0.8f, 0.2f, 0.8f), rgb(1, 0.4f, 1), 1.5f, 1.3f, 4.5f},
     {"world/level3.mp3", rgb(0.8f, 0.2f, 0.2f), rgb(1, 0, 0), rgb(1, 0.4f, 0.2f), 1.8f, 1.4f, 3.5f},
 };
+
+// Permanent shop upgrades (core/data.gd permanent_upgrades).
+enum PermId { PERM_MAX_HP, PERM_DAMAGE, PERM_SPEED, PERM_REGEN, PERM_ARMOR, PERM_EVASION, PERM_GREED, PERM_EXP_GAIN, PERM_COUNT };
+struct PermUpgrade { const char* id; const char* name; int maxLevel, baseCost; float costMult, boost; };
+constexpr PermUpgrade PERM_UPGRADES[PERM_COUNT] = {
+    {"max_hp", "Base Health", 5, 100, 1.5f, 10},
+    {"damage", "Base Damage", 5, 250, 2.0f, 0.05f},
+    {"speed", "Movement Speed", 5, 150, 1.5f, 15},
+    {"regeneration", "HP Regen", 3, 300, 2.5f, 0.5f},
+    {"armor", "Thorns Armor", 3, 400, 2.0f, 0.1f},
+    {"evasion", "Dodge Chance", 3, 500, 3.0f, 0.02f},
+    {"greed", "Coin Multiplier", 3, 500, 3.0f, 0.2f},
+    {"exp_gain", "EXP Gain %", 5, 200, 1.8f, 0.10f},
+};

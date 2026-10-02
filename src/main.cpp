@@ -6,7 +6,10 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <random>
 #include <string>
 #include <vector>
@@ -81,10 +84,11 @@ Sound loadClip(const char* path, float from, float to) {
 }
 
 struct Assets {
-    Texture2D player, slime, ratman, guardian, portal, seed, projectile, aura;
+    Texture2D player, slime, ratman, guardian, portal, seed, projectile, aura, title, titleBg;
     Font font;
-    Sfx orb, levelup, hurt, wandShot, enemyShot, slimeHit, slimeDeath, ratmanDeath, win;
+    Sfx orb, levelup, hurt, wandShot, enemyShot, slimeHit, slimeDeath, ratmanDeath, win, hover, click;
     Music music{};
+    std::string musicPath;
 } A;
 
 void loadAssets() {
@@ -104,6 +108,10 @@ void loadAssets() {
     A.slimeHit.load(LoadSound(asset("enemies/slime.ogg")));
     A.slimeDeath.load(LoadSound(asset("enemies/slime.ogg")));
     A.win.load(LoadSound(asset("ui/win.mp3")));
+    A.title = LoadTexture(asset("ui/title.png"));
+    A.titleBg = LoadTexture(asset("ui/title_background.png"));
+    A.hover.load(loadClip("ui/menu_hover.mp3", 0.62f, 10.f));
+    A.click.load(loadClip("ui/menu_click.mp3", 0.62f, 10.f));
     // The Godot game played these clips from an offset.
     A.wandShot.load(loadClip("weapons/wand/shooting.mp3", 0.52f, 0.62f));
     A.enemyShot.load(loadClip("enemies/shooting.mp3", 0.52f, 0.62f));
@@ -111,8 +119,10 @@ void loadAssets() {
 }
 
 void playMusic(const char* path, float volumeDb) {
+    if (A.musicPath == path && IsMusicValid(A.music)) return;
     if (IsMusicValid(A.music)) UnloadMusicStream(A.music);
     A.music = LoadMusicStream(asset(path));
+    A.musicPath = path;
     SetMusicVolume(A.music, db(volumeDb));
     PlayMusicStream(A.music);
 }
@@ -120,7 +130,90 @@ void playMusic(const char* path, float volumeDb) {
 void stopMusic() {
     if (IsMusicValid(A.music)) UnloadMusicStream(A.music);
     A.music = Music{};
+    A.musicPath.clear();
 }
+
+// ---------------------------------------------------------------- profile (coins + shop, saved to disk)
+
+struct Profile {
+    int coins = 0;
+    WeaponId weapon = WAND;
+    int levels[PERM_COUNT]{};
+} profile;
+
+std::filesystem::path savePath() {
+    const char* base = getenv("APPDATA");
+    if (!base) base = getenv("HOME");
+    return (base ? std::filesystem::path(base) / "Convallaria" : std::filesystem::path(".")) / "save.txt";
+}
+
+// Writes to a temp file first so a crash mid-save can't wipe the old save.
+bool saveProfile(const Profile& pr, const std::filesystem::path& path) {
+    std::error_code ec;
+    std::filesystem::create_directories(path.parent_path(), ec);
+    std::filesystem::path tmp = path;
+    tmp += ".tmp";
+    {
+        std::ofstream out(tmp);
+        out << "coins " << pr.coins << "\nweapon " << int(pr.weapon) << "\n";
+        for (int i = 0; i < PERM_COUNT; i++) out << "upgrade " << PERM_UPGRADES[i].id << " " << pr.levels[i] << "\n";
+        if (!out) return false;
+    }
+    std::filesystem::rename(tmp, path, ec);
+    return !ec;
+}
+
+Profile loadProfile(const std::filesystem::path& path) {
+    Profile pr;
+    std::ifstream in(path);
+    std::string key;
+    while (in >> key) {
+        if (key == "coins") in >> pr.coins;
+        else if (key == "weapon") { int w = 0; in >> w; pr.weapon = w == POISON_AURA ? POISON_AURA : WAND; }
+        else if (key == "upgrade") {
+            std::string id;
+            int level = 0;
+            in >> id >> level;
+            for (int i = 0; i < PERM_COUNT; i++)
+                if (id == PERM_UPGRADES[i].id) pr.levels[i] = std::clamp(level, 0, PERM_UPGRADES[i].maxLevel);
+        }
+        if (!in) break;
+    }
+    pr.coins = std::max(0, pr.coins);
+    return pr;
+}
+
+void save() {
+    if (!saveProfile(profile, savePath())) TraceLog(LOG_WARNING, "Could not write save file %s", savePath().string().c_str());
+}
+
+int upgradeCost(const Profile& pr, int i) {
+    const PermUpgrade& u = PERM_UPGRADES[i];
+    if (pr.levels[i] >= u.maxLevel) return -1;
+    return int(u.baseCost * powf(u.costMult, float(pr.levels[i])));
+}
+
+bool buyUpgrade(Profile& pr, int i) {
+    int cost = upgradeCost(pr, i);
+    if (cost < 0 || pr.coins < cost) return false;
+    pr.coins -= cost;
+    pr.levels[i]++;
+    return true;
+}
+
+int respecRefund(const Profile& pr) {
+    int total = 0;
+    for (int i = 0; i < PERM_COUNT; i++)
+        for (int l = 0; l < pr.levels[i]; l++) total += int(PERM_UPGRADES[i].baseCost * powf(PERM_UPGRADES[i].costMult, float(l)));
+    return total;
+}
+
+void respec(Profile& pr) {
+    pr.coins += respecRefund(pr);
+    std::fill(std::begin(pr.levels), std::end(pr.levels), 0);
+}
+
+float permBoost(const Profile& pr, PermId id) { return pr.levels[id] * PERM_UPGRADES[id].boost; }
 
 // ---------------------------------------------------------------- map
 
@@ -229,9 +322,10 @@ struct Weapon {
 struct Player {
     Vector2 pos{};
     float speed = 165, maxHp = 250, hp = 250;
-    int level = 1, exp = 0, expNext = 15, kills = 0, silver = 0, gold = 0;
+    int level = 1, exp = 0, expNext = 15, kills = 0, silver = 0;
     float dmgMul = 1, fireRateMul = 1, aoe = 1, expMul = 1, regen = 0, regenAcc = 0;
-    float thorns = 0, evasion = 0, crit = 0, vampirism = 0, magnetScale = 1;
+    float thorns = 0, evasion = 0, crit = 0, vampirism = 0, magnetScale = 1, coinMul = 1;
+    float gold = 0;  // collected this run, banked into the profile when the run ends
     bool imbueFire = false, imbueFrost = false, boosted = false, moving = false;
     float magnetT = 0, magnetScan = 0, speedT = 0, boostBase = 0, iframes = 0, anim = 0;
     float time = 0;  // on this floor; the run total lives in Game::runTime
@@ -275,7 +369,7 @@ struct Grid {
 
 struct Option { bool buff; int index; float value; int rarity; std::string text; };
 enum Buff { B_DAMAGE, B_FIRE_RATE, B_SIZE, B_RICOCHET, B_PROJECTILE };
-enum class Mode { Title, Play, LevelUp, Paused, GameOver, Victory };
+enum class Mode { Title, Shop, Play, LevelUp, Paused, GameOver, Victory };
 
 struct Game {
     Map map;
@@ -294,8 +388,9 @@ struct Game {
     float runTime = 0;
     float spawnT = 1, spawnWait = 1, difficultyT = 5, deathT = 0, deathWait = DEATH_SLIME_BASE_INTERVAL;
     int spawnCount = 1, lastSecond = -1;
-    bool endTimes = false, bossSummoned = false, bossDefeated = false, quit = false;
+    bool endTimes = false, bossSummoned = false, bossDefeated = false, banked = false, quit = false;
     float finalBossT = -1, victoryT = -1;
+    int runGold = 0;
 };
 
 void startFloor(Game& g, int floor, Player player, float runTime) {  // player by value: g is reset below
@@ -313,10 +408,30 @@ void startFloor(Game& g, int floor, Player player, float runTime) {  // player b
     playMusic("ui/music.mp3", -8);
 }
 
-void newRun(Game& g, WeaponId weapon) {
+// A fresh character with the shop upgrades applied.
+void newRun(Game& g) {
     Player p;
-    p.weapon.id = weapon;
+    p.weapon.id = profile.weapon;
+    p.maxHp += permBoost(profile, PERM_MAX_HP);
+    p.hp = p.maxHp;
+    p.dmgMul += permBoost(profile, PERM_DAMAGE);
+    p.speed += permBoost(profile, PERM_SPEED);
+    p.regen += permBoost(profile, PERM_REGEN);
+    p.thorns += permBoost(profile, PERM_ARMOR);
+    p.evasion += permBoost(profile, PERM_EVASION);
+    p.coinMul += permBoost(profile, PERM_GREED);
+    p.expMul += permBoost(profile, PERM_EXP_GAIN);
     startFloor(g, 1, p, 0);
+}
+
+// Moves the gold collected this run into the saved profile, once per run.
+void bankRun(Game& g) {
+    if (g.banked) return;
+    g.banked = true;
+    g.runGold = int(g.p.gold);
+    profile.coins += g.runGold;
+    g.p.gold = 0;
+    save();
 }
 
 float runMinutes(const Game& g) { return g.runTime / 60.f; }
@@ -382,7 +497,7 @@ void hurtPlayer(Game& g, int damage, Enemy* source) {
     p.hp -= damage;
     A.hurt.play(rndr(1.4f, 1.8f), -5);
     if (source && p.thorns > 0) hurtEnemy(g, *source, int(damage * p.thorns));
-    if (p.hp <= 0) g.mode = Mode::GameOver;
+    if (p.hp <= 0) g.mode = Mode::GameOver, bankRun(g);
     else p.iframes = 0.4f;
 }
 
@@ -796,6 +911,7 @@ void updateSpawner(Game& g, float dt) {
         if (g.victoryT > 0 && (g.victoryT -= dt) <= 0) {
             g.p.gold += 1000;
             g.mode = Mode::Victory;
+            bankRun(g);
             stopMusic();
             A.win.play(1, 0);
         }
@@ -1050,7 +1166,7 @@ void collectSeed(Game& g, const Seed& s) {
                 return false;
             });
             break;
-        case SEED_GOLD: p.gold += s.amount; A.orb.play(2, -5, 0.04); break;
+        case SEED_GOLD: p.gold += s.amount * p.coinMul; A.orb.play(2, -5, 0.04); break;
         case SEED_SILVER: p.silver += s.amount; A.orb.play(2, -5, 0.04); break;
         case SEED_HEAL:
             if (p.hp < p.maxHp) heal(p, float(s.amount)), A.orb.play(1.8f, -6, 0.04);
@@ -1193,7 +1309,7 @@ void drawHud(const Game& g) {
     text(TextFormat("%02d:%02d", secs / 60, secs % 60), sw / 2, 20, 36, g.endTimes ? rgb(1, .3f, .3f) : WHITE, true);
     text(TextFormat("Kills %d", p.kills), sw - 200, 20, 22, WHITE);
     text(TextFormat("Silver %d", p.silver), sw - 200, 44, 22, rgb(.8f, .8f, .85f));
-    text(TextFormat("Gold %d", p.gold), sw - 200, 68, 22, rgb(1, .8f, .1f));
+    text(TextFormat("Gold %d", int(p.gold)), sw - 200, 68, 22, rgb(1, .8f, .1f));
     text(TextFormat("%s Lv.%d", WEAPON_NAMES[p.weapon.id], p.weapon.level), 20, sh - 34, 20, WHITE);
     text(TextFormat("%d FPS  %zu enemies", GetFPS(), g.enemies.size()), sw - 260, sh - 30, 18, Fade(WHITE, 0.6f));
 
@@ -1212,18 +1328,129 @@ Rectangle optionRect(int i) {
     return {x0 + i * (w + gap), sh / 2 - h / 2 + 20, w, h};
 }
 
+// ---------------------------------------------------------------- menus
+
+// Immediate-mode buttons: drawn and clicked in the same call.
+struct Ui { int hot = -1, lastHot = -1; std::string hint; } ui;
+
+bool button(int id, Rectangle r, const char* label, bool enabled, Color accent = rgb(.55f, .8f, .45f), float size = 24) {
+    bool hover = CheckCollisionPointRec(GetMousePosition(), r);
+    if (hover) ui.hot = id;
+    Color bg = !enabled ? rgb(.1f, .1f, .12f) : hover ? rgb(.24f, .3f, .22f) : rgb(.14f, .17f, .14f);
+    DrawRectangleRec(r, Fade(bg, 0.92f));
+    DrawRectangleLinesEx(r, 2, enabled ? accent : rgb(.3f, .3f, .3f));
+    Vector2 m = MeasureTextEx(A.font, label, size, 1);
+    DrawTextEx(A.font, label, {r.x + (r.width - m.x) / 2, r.y + (r.height - m.y) / 2}, size, 1, enabled ? WHITE : GRAY);
+    bool clicked = enabled && hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    if (clicked) A.click.play(1, -6);
+    return clicked;
+}
+
+void menuBackground() {
+    float sw = float(GetScreenWidth()), sh = float(GetScreenHeight()), t = float(GetTime());
+    float tw = A.titleBg.width * 3.f, th = A.titleBg.height * 3.f;
+    float ox = fmodf(t * 20, tw), oy = fmodf(t * 12, th);
+    for (float y = -oy; y < sh; y += th)
+        for (float x = -ox; x < sw; x += tw)
+            DrawTexturePro(A.titleBg, {0, 0, float(A.titleBg.width), float(A.titleBg.height)}, {x, y, tw, th}, {}, 0, WHITE);
+    DrawRectangle(0, 0, int(sw), int(sh), Fade(BLACK, 0.35f));
+}
+
+void openShop(Game& g) {
+    g.mode = Mode::Shop;
+    ui.hint = "Prepare for your journey.";
+    playMusic("ui/shopping.wav", -8);
+}
+
+void titleScreen(Game& g) {
+    float sw = float(GetScreenWidth()), sh = float(GetScreenHeight());
+    menuBackground();
+    Rectangle src = {0, 0, float(A.title.width), float(A.title.height)};
+    float w = A.title.width * 4.f, h = A.title.height * 4.f, y = sh / 2 - 200 + sinf(float(GetTime()) * 2) * 8;
+    DrawTexturePro(A.title, src, {sw / 2 - w / 2 + 4, y + 8, w, h}, {}, 0, Fade(BLACK, 0.5f));
+    DrawTexturePro(A.title, src, {sw / 2 - w / 2, y, w, h}, {}, 0, WHITE);
+    if (button(30, {sw / 2 - 150, sh / 2 + 20, 300, 56}, "Start", true) || IsKeyPressed(KEY_ENTER)) openShop(g);
+    if (button(31, {sw / 2 - 150, sh / 2 + 96, 300, 56}, "Quit", true)) g.quit = true;
+    text(TextFormat("Coins: %d", profile.coins), sw / 2, sh - 60, 22, rgb(1, .84f, 0), true);
+}
+
+void shopScreen(Game& g) {
+    float sw = float(GetScreenWidth());
+    menuBackground();
+    float x0 = std::max(20.f, sw / 2 - 560), x1 = x0 + 540, top = 40;
+    text("Shop", x0, top, 48, rgb(.95f, .95f, .85f));
+    const char* coins = TextFormat("Total Coins: %d", profile.coins);
+    text(coins, x1 + 540 - MeasureTextEx(A.font, coins, 28, 1).x, top + 12, 28, rgb(1, .84f, 0));
+    std::string hover;
+
+    text("Permanent Upgrades", x0, top + 80, 24, rgb(1, .9f, .5f));
+    for (int i = 0; i < PERM_COUNT; i++) {
+        const PermUpgrade& u = PERM_UPGRADES[i];
+        int cost = upgradeCost(profile, i);
+        Rectangle r = {x0, top + 116 + i * 52.f, 480, 46};
+        const char* label = cost < 0 ? TextFormat("%s  (MAX)", u.name) : TextFormat("%s  Lv %d/%d  -  %d", u.name, profile.levels[i], u.maxLevel, cost);
+        if (button(i, r, label, cost >= 0 && profile.coins >= cost, rgb(1, .84f, 0), 22) && buyUpgrade(profile, i)) {
+            save();
+            ui.hint = "Upgrade purchased!";
+        }
+        if (CheckCollisionPointRec(GetMousePosition(), r)) {
+            bool pct = i != PERM_MAX_HP && i != PERM_SPEED && i != PERM_REGEN;
+            float scale = pct ? 100.f : 1.f;
+            std::string now = fmtNum(permBoost(profile, PermId(i)) * scale), next = fmtNum((profile.levels[i] + 1) * u.boost * scale);
+            hover = cost < 0 ? TextFormat("Maximum level reached for %s.", u.name)
+                             : TextFormat("Increases %s. Current: +%s%s -> Next: +%s%s", u.name, now.c_str(), pct ? "%" : "", next.c_str(), pct ? "%" : "");
+        }
+    }
+
+    text("Starting Weapon", x1, top + 80, 24, rgb(1, .9f, .5f));
+    for (int w = 0; w < 2; w++) {
+        Rectangle r = {x1 + w * 280.f, top + 116, 260, 50};
+        bool selected = profile.weapon == w;
+        if (button(10 + w, r, selected ? TextFormat("[ %s ]", WEAPON_NAMES[w]) : WEAPON_NAMES[w], true, selected ? rgb(.5f, 1, .5f) : GRAY, 22)) {
+            profile.weapon = WeaponId(w);
+            save();
+        }
+        if (CheckCollisionPointRec(GetMousePosition(), r)) hover = TextFormat("Start your run equipped with the %s.", WEAPON_NAMES[w]);
+    }
+
+    text("Base Stats", x1, top + 196, 24, rgb(1, .9f, .5f));
+    float y = top + 232;
+    auto stat = [&](const char* name, const char* value, Color c) {
+        text(name, x1, y, 22, c);
+        text(value, x1 + 220, y, 22, WHITE);
+        y += 32;
+    };
+    auto pct = [&](PermId id) { return int(roundf(permBoost(profile, id) * 100)); };
+    stat("Max HP", TextFormat("%d", int(250 + permBoost(profile, PERM_MAX_HP))), rgb(.6f, 1, .6f));
+    stat("Speed", TextFormat("%d", int(165 + permBoost(profile, PERM_SPEED))), rgb(.4f, .9f, 1));
+    stat("Damage", TextFormat("+%d%%", pct(PERM_DAMAGE)), rgb(1, .45f, .35f));
+    stat("HP Regen", TextFormat("%s/s", fmtNum(permBoost(profile, PERM_REGEN)).c_str()), rgb(1, .7f, .8f));
+    stat("Dodge", TextFormat("%d%%", pct(PERM_EVASION)), rgb(.6f, .8f, 1));
+    stat("Thorns", TextFormat("%d%%", pct(PERM_ARMOR)), rgb(1, .65f, .3f));
+    stat("Coin Bonus", TextFormat("+%d%%", pct(PERM_GREED)), rgb(1, .84f, 0));
+    stat("EXP Bonus", TextFormat("+%d%%", pct(PERM_EXP_GAIN)), rgb(.5f, 1, .7f));
+
+    float by = top + 116 + int(PERM_COUNT) * 52.f + 16;
+    int refund = respecRefund(profile);
+    if (button(20, {x0, by, 230, 54}, "Respec", refund > 0, rgb(1, .5f, .4f))) {
+        respec(profile);
+        save();
+        ui.hint = TextFormat("Upgrades reset! Refunded %d coins.", refund);
+    }
+    if (button(21, {x0 + 250, by, 230, 54}, "Back", true, GRAY) || IsKeyPressed(KEY_ESCAPE)) {
+        g.mode = Mode::Title;
+        playMusic("ui/music.mp3", -8);
+    }
+    if (button(22, {x1, by, 540, 54}, "Start Run", true, rgb(.5f, 1, .5f), 28) || IsKeyPressed(KEY_ENTER)) newRun(g);
+    text(hover.empty() ? ui.hint.c_str() : hover.c_str(), x0, by + 72, 22, Fade(WHITE, 0.85f));
+}
+
 void drawOverlay(const Game& g) {
     float sw = float(GetScreenWidth()), sh = float(GetScreenHeight());
-    if (g.mode == Mode::Play) return;
-    DrawRectangle(0, 0, int(sw), int(sh), Fade(BLACK, g.mode == Mode::Title ? 0.75f : 0.55f));
+    if (g.mode == Mode::Play || g.mode == Mode::Title || g.mode == Mode::Shop) return;
+    DrawRectangle(0, 0, int(sw), int(sh), Fade(BLACK, 0.55f));
     int secs = int(g.runTime);
     switch (g.mode) {
-        case Mode::Title:
-            text("Convallaria", sw / 2, sh / 2 - 140, 72, rgb(.95f, .95f, .85f), true);
-            text("Choose your starting weapon", sw / 2, sh / 2 - 30, 28, WHITE, true);
-            text("[1] Wand        [2] Poison Aura", sw / 2, sh / 2 + 20, 28, rgb(1, .8f, .1f), true);
-            text("WASD to move  -  E to interact  -  Esc to pause", sw / 2, sh / 2 + 90, 20, Fade(WHITE, 0.7f), true);
-            break;
         case Mode::LevelUp: {
             text("LEVEL UP!", sw / 2, sh / 2 - 150, 48, rgb(1, .8f, .1f), true);
             for (int i = 0; i < int(g.options.size()); i++) {
@@ -1239,19 +1466,21 @@ void drawOverlay(const Game& g) {
         }
         case Mode::Paused:
             text("Paused", sw / 2, sh / 2 - 60, 56, WHITE, true);
-            text("Esc to resume  -  Q to quit", sw / 2, sh / 2 + 10, 24, Fade(WHITE, 0.8f), true);
+            text("Esc to resume  -  Q to end the run", sw / 2, sh / 2 + 10, 24, Fade(WHITE, 0.8f), true);
             break;
         case Mode::GameOver:
             text("You Died", sw / 2, sh / 2 - 100, 64, rgb(1, .3f, .3f), true);
             text(TextFormat("Floor %d  -  %02d:%02d  -  Level %d  -  %d kills", g.floor, secs / 60, secs % 60, g.p.level, g.p.kills), sw / 2, sh / 2, 26, WHITE, true);
-            text("R to retry  -  Esc for title", sw / 2, sh / 2 + 60, 22, Fade(WHITE, 0.8f), true);
+            text(TextFormat("+%d gold banked", g.runGold), sw / 2, sh / 2 + 44, 24, rgb(1, .84f, 0), true);
+            text("R to retry  -  Enter for shop  -  Esc for title", sw / 2, sh / 2 + 90, 22, Fade(WHITE, 0.8f), true);
             break;
         case Mode::Victory:
             text("Victory!", sw / 2, sh / 2 - 120, 72, rgb(.7f, .95f, .7f), true);
             text(TextFormat("Time Survived  %02d:%02d", secs / 60, secs % 60), sw / 2, sh / 2 - 20, 26, WHITE, true);
             text(TextFormat("Enemies Slain  %d", g.p.kills), sw / 2, sh / 2 + 14, 26, WHITE, true);
             text("Victory Bonus  +1000 Gold", sw / 2, sh / 2 + 48, 26, rgb(1, .84f, 0), true);
-            text("Enter to return to title", sw / 2, sh / 2 + 110, 22, Fade(WHITE, 0.8f), true);
+            text(TextFormat("Gold Banked  %d", g.runGold), sw / 2, sh / 2 + 82, 26, rgb(1, .84f, 0), true);
+            text("Enter to return to the shop", sw / 2, sh / 2 + 140, 22, Fade(WHITE, 0.8f), true);
             break;
         default: break;
     }
@@ -1260,10 +1489,9 @@ void drawOverlay(const Game& g) {
 void handleInput(Game& g) {
     switch (g.mode) {
         case Mode::Title:
-            if (IsKeyPressed(KEY_ONE)) newRun(g, WAND);
-            if (IsKeyPressed(KEY_TWO)) newRun(g, POISON_AURA);
             if (IsKeyPressed(KEY_ESCAPE)) g.quit = true;
             break;
+        case Mode::Shop: break;  // shopScreen handles its own input
         case Mode::Play:
             if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) g.mode = Mode::Paused;
             if (IsKeyPressed(KEY_E)) {
@@ -1274,7 +1502,7 @@ void handleInput(Game& g) {
             break;
         case Mode::Paused:
             if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) g.mode = Mode::Play;
-            if (IsKeyPressed(KEY_Q)) g.mode = Mode::Title, playMusic("ui/music.mp3", -8);
+            if (IsKeyPressed(KEY_Q)) bankRun(g), openShop(g);
             break;
         case Mode::LevelUp:
             for (int i = 0; i < int(g.options.size()); i++)
@@ -1285,11 +1513,12 @@ void handleInput(Game& g) {
                 }
             break;
         case Mode::GameOver:
-            if (IsKeyPressed(KEY_R)) newRun(g, g.p.weapon.id);
+            if (IsKeyPressed(KEY_R)) newRun(g);
+            if (IsKeyPressed(KEY_ENTER)) openShop(g);
             if (IsKeyPressed(KEY_ESCAPE)) g.mode = Mode::Title, playMusic("ui/music.mp3", -8);
             break;
         case Mode::Victory:
-            if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE)) g.mode = Mode::Title, playMusic("ui/music.mp3", -8);
+            if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_ESCAPE)) openShop(g);
             break;
     }
 }
@@ -1324,6 +1553,22 @@ int selftest() {
     CHECK(g.enemies.empty() && g.portals[0].state == Portal::PURIFIED && g.bossDefeated && g.endTimes);
     CHECK(g.seeds.size() == 50);
     stopMusic();
+
+    Profile pr;
+    pr.coins = 1000;
+    CHECK(upgradeCost(pr, PERM_MAX_HP) == 100);
+    CHECK(buyUpgrade(pr, PERM_MAX_HP) && buyUpgrade(pr, PERM_MAX_HP));  // 100 + 150
+    CHECK(pr.coins == 750 && pr.levels[PERM_MAX_HP] == 2 && upgradeCost(pr, PERM_MAX_HP) == 225);
+    CHECK(respecRefund(pr) == 250);
+    pr.weapon = POISON_AURA;
+    auto path = std::filesystem::temp_directory_path() / "convallaria_selftest" / "save.txt";
+    CHECK(saveProfile(pr, path));
+    Profile back = loadProfile(path);
+    CHECK(back.coins == 750 && back.weapon == POISON_AURA && back.levels[PERM_MAX_HP] == 2 && back.levels[PERM_SPEED] == 0);
+    std::filesystem::remove_all(path.parent_path());
+    CHECK(loadProfile(path).coins == 0);  // missing file means a fresh profile
+    respec(pr);
+    CHECK(pr.coins == 1000 && pr.levels[PERM_MAX_HP] == 0);
     puts("selftest ok");
     return 0;
 }
@@ -1343,6 +1588,7 @@ int main(int argc, char** argv) {
     InitAudioDevice();
     SetExitKey(KEY_NULL);
     loadAssets();
+    profile = loadProfile(savePath());
     playMusic("ui/music.mp3", -8);
 
     Game g;
@@ -1368,11 +1614,19 @@ int main(int argc, char** argv) {
         Camera2D cam{{GetScreenWidth() / 2.f, GetScreenHeight() / 2.f}, g.p.pos, 0, ZOOM};
         BeginDrawing();
         ClearBackground(g.map.water);
-        drawWorld(g, cam);
-        if (g.mode != Mode::Title) drawHud(g);
-        drawOverlay(g);
+        ui.hot = -1;
+        if (g.mode == Mode::Title) titleScreen(g);
+        else if (g.mode == Mode::Shop) shopScreen(g);
+        else {
+            drawWorld(g, cam);
+            drawHud(g);
+            drawOverlay(g);
+        }
+        if (ui.hot >= 0 && ui.hot != ui.lastHot) A.hover.play(1, -10);
+        ui.lastHot = ui.hot;
         EndDrawing();
     }
+    if (g.mode != Mode::Title && g.mode != Mode::Shop) bankRun(g);
     CloseAudioDevice();
     CloseWindow();
 }

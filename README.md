@@ -16,6 +16,17 @@ Convallaria is a top-down survival action game written in C++ with [raylib](http
 - Find the corrupted portal on each island and summon its guardian. Defeat it to purify the portal and travel to the next floor.
 - Reach the final island and defeat the Rat King.
 
+## Between Runs
+
+Gold you collect is banked when a run ends (death, victory, or quitting the run), and a victory adds 1000 more. Spend it in the shop:
+
+- Buy permanent upgrades: base health, damage, movement speed, HP regen, thorns, dodge, coin multiplier and EXP gain.
+- Choose your starting weapon.
+- Review your base stats.
+- Respec to refund every coin you spent on upgrades.
+
+Progress is saved to `%APPDATA%/Convallaria/save.txt` on Windows (`~/Convallaria/save.txt` elsewhere).
+
 Weapons:
 
 - Wand: fires magic projectiles at the nearest enemy, with splash, pierce, bounce and multishot upgrades.
@@ -28,7 +39,7 @@ Enemy types include slimes, runners, shooters, brutes, swarms, dashers, tanks an
 - `W` `A` `S` `D` or arrow keys: move
 - `E`: interact with portals
 - `1` `2` `3` or mouse: pick an upgrade
-- `Esc`: pause
+- `Esc`: pause (then `Q` to end the run and bank your gold)
 
 ## Building
 
@@ -44,4 +55,4 @@ The executable loads its art and audio from `assets/` in this repository.
 
 ## Not Ported Yet
 
-The original Godot version (see git history before the C++ port) also had a between-run shop with permanent upgrades, items such as Apple, Sprinkler, Beanie and Goldfish, chests and statues, an options menu, JSON mod support, and Android touch controls. These are next on the list.
+The original Godot version (see git history before the C++ port) also had items such as Apple, Sprinkler, Beanie and Goldfish, chests and statues, an options menu, JSON mod support, and Android touch controls. These are next on the list.
