@@ -23,7 +23,7 @@ struct EnemyDef {
 constexpr EnemyDef ENEMIES[ENEMY_TYPE_COUNT] = {
     {"basic", 30, 55.f, 1.0f, rgb(1, 1, 1), 8, 10, 1.0f, false, false, false, nullptr},
     {"ratman", 20, 95.f, 1.0f, rgb(1, 1, 1), 10, 15, 1.2f, false, true, false, nullptr},
-    {"shooter", 20, 60.f, 0.9f, rgb(1, 1, 1), 12, 20, 1.4f, true, false, false, "shroom"},
+    {"shooter", 20, 60.f, 0.9f, rgb(1, 1, 1), 8, 20, 1.4f, true, false, false, "shroom"},
     {"brute", 90, 38.f, 1.5f, rgb(1, 1, 1), 20, 30, 0.6f, false, false, false, "boar"},
     {"runner", 15, 120.f, 0.8f, rgb(1, 1, 1), 6, 15, 1.5f, false, false, false, "beetle"},
     {"swarm", 5, 105.f, 0.5f, rgb(1, 1, 1), 3, 5, 1.8f, false, false, false, "bee"},
@@ -34,12 +34,14 @@ constexpr EnemyDef ENEMIES[ENEMY_TYPE_COUNT] = {
 
 // Enemy scaling. Damage grows gently so contact stays survivable deep into a run,
 // and chase speed is capped below the player's base 165 so you can always outrun a pack.
-constexpr float ENEMY_DMG_PER_FLOOR = 0.25f, ENEMY_DMG_PER_MIN = 0.06f;
+constexpr float ENEMY_DMG_PER_FLOOR = 0.5f, ENEMY_DMG_PER_MIN = 0.06f;
+constexpr float ENEMY_HP_PER_FLOOR = 1.25f;  // player damage snowballs, so later floors need much tougher enemies
 constexpr float ENEMY_SPEED_PER_FLOOR = 8, ENEMY_SPEED_PER_MIN = 1.5f, ENEMY_SPEED_CAP = 145;
+constexpr float ENEMY_SHOT_SPEED = 210;  // slow enough to sidestep
 
 struct SpawnChance { EnemyType type; float base, growth; };
 constexpr SpawnChance MEADOW_SPAWNS[] = {
-    {BASIC, 100, 0}, {RATMAN, 10, 15}, {RUNNER, 0, 25}, {SHOOTER, 0, 20},
+    {BASIC, 100, 0}, {RATMAN, 10, 15}, {RUNNER, 0, 25}, {SHOOTER, 0, 12},
     {SWARM, 0, 15}, {BRUTE, 0, 10}, {DASHER, 0, 8}, {TANK, 0, 3},
 };
 constexpr SpawnChance MARSH_SPAWNS[] = {
@@ -54,7 +56,7 @@ constexpr SpawnChance HIGHLAND_SPAWNS[] = {
 
 struct HordeEvent { int second; EnemyType type; int amount; };
 constexpr HordeEvent HORDES[] = {
-    {60, SWARM, 30}, {120, BRUTE, 15}, {180, DASHER, 40}, {300, TANK, 5}, {450, SWARM, 60},
+    {60, SWARM, 30}, {120, BRUTE, 10}, {180, DASHER, 25}, {300, TANK, 5}, {450, SWARM, 60},
 };
 
 // data/stage_settings.json, data/pickup_settings.json

@@ -572,6 +572,8 @@ void startFloor(Game& g, int floor, Player player, float runTime) {  // player b
     g.map = genMap(*cfg);
     g.p.pos = g.map.spawn;
     for (Vector2 c : g.map.chests) g.chests.push_back({c, chestCost(floor)});
+    // Later floors open with the spawner already part-ramped instead of a quiet first minute.
+    g.spawnWait = std::max(0.5f, 1 - 0.25f * (floor - 1)), g.spawnCount = floor;
     if (floor < MAX_FLOORS) g.portals.push_back({g.map.portal});
     else g.finalBossT = 2.5f;
     g.mode = Mode::Play;
@@ -818,7 +820,7 @@ bool spawnEnemy(Game& g, int type, int extraCap) {
         e.color = rgb(c, 0, c);
         e.pitch = std::max(0.2f, 1.f - over * 0.01f);
     } else {
-        float m = runMinutes(g), floorHp = 1 + (g.floor - 1) * 0.5f;
+        float m = runMinutes(g), floorHp = 1 + (g.floor - 1) * ENEMY_HP_PER_FLOOR;
         e.hp = float(int(d.health * floorHp * (1 + m * 0.3f)));
         e.damage = int(d.damage * (1 + (g.floor - 1) * ENEMY_DMG_PER_FLOOR) * (1 + m * ENEMY_DMG_PER_MIN));
         e.speed = d.speed + m * ENEMY_SPEED_PER_MIN + (g.floor - 1) * ENEMY_SPEED_PER_FLOOR;
@@ -872,7 +874,7 @@ void summonGuardian(Game& g, int portal) {
     int f = g.floor;
     e.kind = GUARDIAN;
     e.portal = portal;
-    e.hp = float(int(int(BOSS_HEALTH * (1 + m * 0.2f)) * (1 + (f - 1) * 1.5f + m * 0.25f)));
+    e.hp = float(int(int(BOSS_HEALTH * (1 + m * 0.2f)) * (1 + (f - 1) * 2.5f + m * 0.25f)));
     e.maxHp = e.hp;
     e.damage = int(BOSS_DAMAGE * (1 + (f - 1) * ENEMY_DMG_PER_FLOOR) * (1 + m * 0.05f));
     e.speed = BOSS_SPEED + (f - 1) * 20;
@@ -1212,7 +1214,7 @@ void updateSpawner(Game& g, float dt) {
             if (!spawnEnemy(g, -1, 0)) break;
     }
     if ((g.difficultyT -= dt) <= 0) {
-        g.difficultyT = 5;
+        g.difficultyT = g.spawnWait > 0.5f ? 10 : 20;
         if (g.spawnWait > 0.5f) g.spawnWait -= 0.05f;
         else g.spawnCount++;
     }
@@ -1329,7 +1331,7 @@ void updateShots(Game& g, float dt) {
     std::erase_if(g.shots, [&](const Shot& s) { return s.life <= 0 || Vector2Distance(s.pos, g.p.pos) > 900; });
 
     for (EnemyShot& s : g.enemyShots) {
-        s.pos = Vector2Add(s.pos, Vector2Scale(s.dir, 250 * dt));
+        s.pos = Vector2Add(s.pos, Vector2Scale(s.dir, ENEMY_SHOT_SPEED * dt));
         s.life -= dt;
         if (Vector2Distance(s.pos, g.p.pos) < PLAYER_RADIUS + 6 * s.scale) {
             hurtPlayer(g, s.damage, nullptr);
@@ -1418,7 +1420,8 @@ void updateEnemies(Game& g, float dt) {
             Vector2 want = Vector2Scale(dir, speed);
             if (dist <= ACTIVE_RADIUS) {
                 if (e.shooter && dist <= 350) {
-                    want = dist < 180 ? Vector2Scale(dir, -speed * 0.6f) : Vector2{};  // hold range, back off if rushed
+                    // Creep in while firing so melee builds can reach them; back off (slower than you) if rushed.
+                    want = Vector2Scale(dir, dist < 140 ? -speed * 0.4f : dist > 200 ? speed * 0.35f : 0);
                     if ((e.shootT -= dt) <= 0) {
                         e.shootT = rndr(3.5f, 6);
                         bossShot(g, e, dir, e.damage, 1, rgb(1, 0.3f, 0.2f));
@@ -2221,8 +2224,16 @@ int selftest() {
     for (int i = 0; i < 20; i++) CHECK(spawnEnemy(dg, RUNNER, 0) && spawnEnemy(dg, RATMAN, 0));
     for (const Enemy& e : dg.enemies) CHECK(e.speed <= ENEMY_SPEED_CAP && ENEMY_SPEED_CAP < Player{}.speed);
 
-    // A chest item pauses on the item popup.
+    // Shooters creep into range instead of holding off forever, so aura and orbit builds can reach them.
     Game sg;
+    sg.map.field.assign(MAP_N * MAP_N, 255);
+    Enemy shooter = makeEnemy(sg, {300, 0});
+    shooter.shooter = true, shooter.speed = 60, shooter.shootT = 99;
+    sg.enemies.push_back(shooter);
+    for (int f = 0; f < 120; f++) sg.grid.build(sg.enemies), updateEnemies(sg, 1 / 60.f);
+    CHECK(sg.enemies[0].pos.x < 280);
+
+    // A chest item pauses on the item popup.
     sg.mode = Mode::Play;
     grantItem(sg, IT_BOOTS);
     CHECK(sg.mode == Mode::ItemGet && sg.gotItem == IT_BOOTS && sg.p.items[IT_BOOTS] == 1);
