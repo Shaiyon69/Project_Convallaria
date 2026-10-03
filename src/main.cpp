@@ -106,7 +106,7 @@ Sound loadClip(const char* path, float from, float to) {
 
 struct Assets {
     Texture2D characters[CHARACTER_COUNT], enemySprites[ENEMY_TYPE_COUNT], bossSprites[BOSS_COUNT], ratKing, thorn, slime, ratman, guardian, portal, pickups, projectile, aura, title, chest, padRing, padKnob;
-    Texture2D water, grass, soil, tree, titleBg, menuButton, weaponSlot, hud, weaponIcons[WEAPON_COUNT], itemIcons[ITEM_COUNT];
+    Texture2D water, grass, soil, tree, titleBg, menuButton, panelFill, weaponSlot, hud, weaponIcons[WEAPON_COUNT], itemIcons[ITEM_COUNT];
     Texture2D slash, pod, bramble;
     Sfx orb, levelup, hurt, wandShot, enemyShot, slimeHit, slimeDeath, ratmanDeath, win, hover, click;
     Sfx swish, whirl, thump, boom, zap, rustle, block, revive, freeze, unlock, croak, caw, dig, splash, roar, thud;
@@ -143,6 +143,10 @@ void loadAssets() {
     A.tree = LoadTexture(asset("world/tree.png"));
     A.titleBg = LoadTexture(asset("ui/title_background.png"));
     A.menuButton = LoadTexture(asset("ui/menu_buttons.png"));
+    // A 32x16 speckle patch from the button's flat top-left, repeated to fill panels without stretching.
+    Image button = LoadImage(asset("ui/menu_buttons.png")), patch = ImageFromImage(button, {5, 5, 32, 16});
+    A.panelFill = LoadTextureFromImage(patch), SetTextureWrap(A.panelFill, TEXTURE_WRAP_REPEAT);
+    UnloadImage(button), UnloadImage(patch);
     A.weaponSlot = LoadTexture(asset("weapons/weaponslot.png"));
     A.hud = LoadTexture(asset("ui/hud.png"));
     const char* weaponIcon[WEAPON_COUNT] = {"wand/wand", "poison/poison", "thorn/thorn", "sword/sword", "axe/axe", "mortar/mortar", "lily/lily", "bramble/bramble"};
@@ -2716,7 +2720,8 @@ void shopScreen(Game& g) {
 
 // Nine-slice of `src` (border b px) drawn at k UI units per pixel. The edges and centre are
 // tiled, not stretched, so every pixel stays the same size; a whole k snaps d to its grid.
-void slice(Texture2D tex, Rectangle src, float b, Rectangle d, float k, Color tint = WHITE) {
+// `fill`, if given, is a repeating texture tiled over the centre instead of the source's own.
+void slice(Texture2D tex, Rectangle src, float b, Rectangle d, float k, Color tint = WHITE, const Texture2D* fill = nullptr) {
     if (k == floorf(k)) d = {roundf(d.x / k) * k, roundf(d.y / k) * k, roundf(d.width / k) * k, roundf(d.height / k) * k};
     float xs[] = {0, b, src.width - b, src.width}, ys[] = {0, b, src.height - b, src.height};
     float dx[] = {d.x, d.x + b * k, d.x + d.width - b * k, d.x + d.width}, dy[] = {d.y, d.y + b * k, d.y + d.height - b * k, d.y + d.height};
@@ -2724,12 +2729,14 @@ void slice(Texture2D tex, Rectangle src, float b, Rectangle d, float k, Color ti
         for (int x = 0; x < 3; x++) {
             // Stretch like Godot's NinePatchRect when the span outgrows the source; tiling shows the art's edge shading as seams.
             float sw = xs[x + 1] - xs[x], sh = ys[y + 1] - ys[y], w = dx[x + 1] - dx[x], h = dy[y + 1] - dy[y];
-            DrawTexturePro(tex, {src.x + xs[x], src.y + ys[y], std::min(sw, w / k), std::min(sh, h / k)}, {dx[x], dy[y], w, h}, {}, 0, tint);
+            if (fill && x == 1 && y == 1) DrawTexturePro(*fill, {0, 0, w / k, h / k}, {dx[x], dy[y], w, h}, {}, 0, tint);
+            else DrawTexturePro(tex, {src.x + xs[x], src.y + ys[y], std::min(sw, w / k), std::min(sh, h / k)}, {dx[x], dy[y], w, h}, {}, 0, tint);
         }
 }
 
-// ui/menu_buttons.png as a nine-slice, so its 5 px frame keeps its weight at any card size.
-void panel(Rectangle d, float k, Color tint) { slice(A.menuButton, {0, 0, 128, 48}, 5, d, k, tint); }
+// ui/menu_buttons.png as a nine-slice, so its 5 px frame keeps its weight at any card size;
+// the centre repeats a speckle patch so taller cards get more pixels, not stretched ones.
+void panel(Rectangle d, float k, Color tint) { slice(A.menuButton, {0, 0, 128, 48}, 5, d, k, tint, &A.panelFill); }
 
 // ui/hud.png pieces, see tools/hud.lua. HUD art is 2 UI units per pixel.
 constexpr Rectangle HUD_BAR = {0, 0, 12, 10}, HUD_FILL = {12, 0, 6, 8}, HUD_SLOT = {18, 0, 16, 16}, HUD_CELL = {34, 0, 8, 8},
