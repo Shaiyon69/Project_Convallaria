@@ -1,12 +1,12 @@
-# Generates the pixel-art sheets for enemies, items, weapons and characters.
+# Generates the pixel-art for items, the thorn orbit, characters, chests and the world.
+# Enemy walk sheets live in tools/creatures.py.
 # Run from the repo root: python tools/sprites.py   (needs Pillow)
 #
 # Sprites are ASCII grids: '.' is empty, every other char is a palette key.
 # Each shape gets a 1px outline in the palette's 'o' colour and a soft shadow,
-# matching the Godot-era art. Walk sheets are 4 frames x 4 rows (down, left,
-# right, up) of 48 px cells; right is the mirrored left view.
-#   '1' / '2'  feet: lifted a pixel on frames 1 / 3 (drawn in colour 'f')
-#   '<' / '>'  wings: shown on even / odd frames (drawn in colour 'w')
+# matching the Godot-era art.
+import math
+
 from PIL import Image
 
 OUT = "assets/"
@@ -84,307 +84,30 @@ def cell(g, p, frame=0):
     return c
 
 
-def walk_sheet(name, views, p):
-    """views: dict with 'down', 'left', 'up' grids."""
-    sheet = Image.new("RGBA", (48 * 4, 48 * 4), (0, 0, 0, 0))
-    rows = [views["down"], views["left"], mirror(views["left"]), views["up"]]
-    for r, g in enumerate(rows):
-        for f in range(4):
-            sheet.alpha_composite(cell(g, p, f), (f * 48, r * 48))
-    sheet.save(OUT + name)
-
-
-def icon(name, g, p, size=16):
+def icon_img(g, p, size=16):
     spr = render(g, p)
     spr = spr.crop(spr.getbbox())
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     img.alpha_composite(spr, ((size - spr.width) // 2, (size - spr.height) // 2))
     outline(img, p["o"])
+    return img
+
+
+def icon(name, g, p, size=16):
+    icon_img(g, p, size).save(OUT + name)
+
+
+def strip(name, grids, p, size=16):
+    """Animation frames side by side, size x size each."""
+    img = Image.new("RGBA", (size * len(grids), size), (0, 0, 0, 0))
+    for i, g in enumerate(grids):
+        img.alpha_composite(icon_img(g, p, size), (i * size, 0))
     img.save(OUT + name)
 
 
-# ---------------------------------------------------------------- enemies
-
-BEETLE = pal(o="1f3a1c", G="5bc23f", g="3a8f35", d="276b2c", h="b9f07a", k="16241a", e="f4fff0", f="2a3d22")
-walk_sheet("enemies/beetle.png", {
-    "down": grid("""
-..k.......k..
-...k.....k...
-....ggggg....
-..gGGhGGGGg..
-.gGhhGGGGGGg.
-.gGGGGgGGGGg.
-gdgGGGgGGGgdg
-gdkekGgGkekdg
-.dddggdggddd.
-..dddddddd...
-.1.2.....1.2.
-"""),
-    "left": grid("""
-.k...........
-..k..........
-...kggggg....
-..gGGhhGGgg..
-.gGGhhGGGGGg.
-gkeGGGGGGGGgg
-gkkdgggGGGGdg
-.ddddddgggdd.
-..ddddddddd..
-..1.2.1.2.1..
-"""),
-    "up": grid("""
-....ggggg....
-..gGGhGGGGg..
-.gGhhGgGGGGg.
-.gGGGGgGGGGg.
-gdGGGGgGGGGdg
-gdGGGGgGGGGdg
-gdgGGGgGGGgdg
-.dddgggggddd.
-..ddddddddd..
-.1.2.....1.2.
-"""),
-}, BEETLE)
-
-BEE = pal(o="3a2414", Y="ffd23a", y="e79a1c", k="2b1d14", h="fff4a8", e="ffffff", w="d8f2ff", f="2b1d14")
-walk_sheet("enemies/bee.png", {
-    "down": grid("""
-.<<.......<<.
-<<<<.k.k.<<<<
-.>>>.....>>>.
-....YYYYY....
-...YhYYYYY...
-..YYYYYYYYY..
-..YekYYYekY..
-..kkkkkkkkk..
-..yYYYYYYYy..
-..kkkkkkkkk..
-...yyyyyyy...
-.....yyy.....
-"""),
-    "left": grid("""
-...<<<<......
-..<<<<<......
-...>>>>>.....
-..k.>>>......
-.k.YYYYYkk...
-..YhYYYkYYk..
-.YekYYkYYkYy.
-.YkYYYkYYkYyk
-..YYYYkYYkyy.
-...yyykyyk...
-"""),
-    "up": grid("""
-.<<.......<<.
-<<<<.k.k.<<<<
-.>>>.....>>>.
-....YYYYY....
-...YhYYYYY...
-..YYYYYYYYY..
-..kkkkkkkkk..
-..yYYYYYYYy..
-..kkkkkkkkk..
-...yyyyyyy...
-.....yky.....
-"""),
-}, BEE)
-
-SHROOM = pal(o="4a2016", C="ffcf3a", c="e08a1e", s="fff6d0", h="fff19a", S="f2e2c0", t="cdb48e", k="2a1a14", m="8a2a2a", f="7a5a3a")
-walk_sheet("enemies/shroom.png", {
-    "down": grid("""
-....cCCCCc....
-..cCChCCsCCc..
-.cCssCCCCCCCc.
-cCCsCCCCCsCCCc
-cCCCCCsCCCCCcc
-ccCCCCCCCCCccc
-.ccccccccccc..
-...StSSSStS...
-...SkSSSkSS...
-...SSSmmSSS...
-...tSSSSSSt...
-....tSSSSt....
-....1....2....
-"""),
-    "left": grid("""
-....cCCCCc....
-..cCChCCCsCc..
-.cCssCCCCCCCc.
-cCCsCCCCsCCCCc
-cCCCCCCCCCCCcc
-ccCCCCCCCCCccc
-.ccccccccccc..
-...SSSStSS....
-..mkSSSSSSt...
-..mmSSSSSSS...
-...SSSSSSSt...
-....tSSSSt....
-....1....2....
-"""),
-    "up": grid("""
-....cCCCCc....
-..cCChCCCCCc..
-.cCCCCCCsCCCc.
-cCCsCCCCCCCCCc
-cCCCCCCCCsCCcc
-ccCCCCCCCCCccc
-.ccccccccccc..
-...SSSSSSSS...
-...SSSSSSSS...
-...tSSSSSSt...
-...tSSSSSSt...
-....tSSSSt....
-....1....2....
-"""),
-}, SHROOM)
-
-BOAR = pal(o="3b1a14", B="b4533c", b="8a3a2c", d="62281f", h="d98a68", s="f0d9c8", k="1d0f0c", n="e8a0a0", f="3b1a14")
-walk_sheet("enemies/boar.png", {
-    "down": grid("""
-..bb......bb..
-.bBBb.dd.bBBb.
-..bBBBBBBBBb..
-.bBhBBBBBBBBb.
-.bBBkBBBBkBBb.
-bBBBBBnnnBBBBb
-bBBBBnkknBBBBb
-bdBsBnnnnBsBdb
-bdBBsBBBBsBBdb
-.bdBBBBBBBBdb.
-..bddddddddb..
-..11.2..1.22..
-"""),
-    "left": grid("""
-.......bb.dd..
-......bBBbddd.
-...bbBBBBBBBdd
-..bBBBhBBBBBBd
-.bBkBBBBBBBBBd
-nnBBBBBBBBBBBd
-nkBBBBBBBBBBBd
-nnsBBBBBBBBBdb
-.sBBBBBBBBBddb
-..bdBBBBBBddb.
-...bbdddddddb.
-...11.2..1.22.
-"""),
-    "up": grid("""
-..bb......bb..
-.bBBb.dd.bBBb.
-..bBBBddBBBb..
-.bBBBBddBBBBb.
-.bBBBBddBBBBb.
-bBBBBBddBBBBBb
-bBBBBBBBBBBBBb
-bdBBBBBBBBBBdb
-bdBBBBBBBBBBdb
-.bdBBBBBBBBdb.
-..bddddddddb..
-..11.2..1.22..
-"""),
-}, BOAR)
-
-GOLEM = pal(o="22262a", R="9aa3a8", r="737c82", d="565e64", h="c8d0d4", M="6ab04c", m="4a8a3a", e="7cf7ff", k="22262a", f="565e64")
-walk_sheet("enemies/golem.png", {
-    "down": grid("""
-....mMMMMm....
-..mMMMmMMMMm..
-.mRMMRRRRMMRm.
-.RRRRRRRRRRRr.
-.RhRRRRRRRRRr.
-.RRekRRRRekRr.
-dRRRRRRRRRRRrd
-dRrRRRrrRRRrRd
-dRrRRRRRRRRrRd
-drRrrrrrrrrRrd
-.rrrrrrrrrrrr.
-..rr.rddr.rr..
-..11.....22...
-"""),
-    "left": grid("""
-.....mMMMMm...
-...mMMMmMMMMm.
-..MMRRRRRMMRR.
-..RRRRRRRRRRRr
-..RhRRRRRRRRRr
-..keRRRRRRRRRr
-..RRRRRRRRRRRd
-..RRrRRRRrRRRd
-..dRRRRRRRRRrd
-...rrrrrrrrrrd
-...rrrrrrrrrr.
-....rr.rd.rr..
-....11...22...
-"""),
-    "up": grid("""
-....mMMMMm....
-..mMMMmMMMMm..
-.mMMMMMMMMMMm.
-.RMMRMMRRMMRr.
-.RRRRRRRRRRRr.
-.RhRRRRRRRRRr.
-dRRRRRRrRRRRrd
-dRrRRRRrRRRrRd
-dRrRRRRRRRRrRd
-drRrrrrrrrrRrd
-.rrrrrrrrrrrr.
-..rr.rddr.rr..
-..11.....22...
-"""),
-}, GOLEM)
-
-HARE = pal(o="133c44", T="5fd6d0", t="38a6a6", d="257a80", h="b8fff6", p="ff9cc0", k="10262a", e="ffffff", n="ff7aa8", f="257a80")
-walk_sheet("enemies/hare.png", {
-    "down": grid("""
-..tT....Tt..
-..tpT..Tpt..
-..tpT..Tpt..
-..tTT..TTt..
-..tTTTTTTt..
-.tTThTTTTTt.
-.tTekTTekTt.
-.tTTTnnTTTt.
-..tTTTTTTt..
-..tThhhhTt..
-..tdThhTdt..
-..dd.dd.dd..
-..1.......2.
-"""),
-    "left": grid("""
-....tTTt....
-...tTppT....
-..tTpTt.....
-..tTTt......
-..tTTTTt....
-.tTTTTTTt...
-nTekTTTTTt..
-tTTTTTTTTTt.
-.tTTTThhTTTt
-..tdTThhTTdt
-...tTTTTTdt.
-...ddd.dddhh
-...1.....2..
-"""),
-    "up": grid("""
-..tT....Tt..
-..tTT..TTt..
-..tTT..TTt..
-..tTT..TTt..
-..tTTTTTTt..
-.tTTTTTTTTt.
-.tTTTTTTTTt.
-.tTTTTTTTTt.
-..tTTTTTTt..
-..tTThhTTt..
-..tdThhTdt..
-..dd.dd.dd..
-..1.......2.
-"""),
-}, HARE)
-
 # ---------------------------------------------------------------- weapons
 
-THORN = pal(o="2a3a1a", G="7ccf4a", g="4a9a34", t="f0f0c0", T="c0d090", r="a03a3a")
+THORN = pal(o="2a3a1a", G="7ccf4a", g="4a9a34", t="f0f0c0", T="c0d090", r="a03a3a", R="e0584a", w="ffffff")
 icon("weapons/thorn/thorn.png", grid("""
 .......tt..
 ......tT...
@@ -397,7 +120,7 @@ icon("weapons/thorn/thorn.png", grid("""
 gGg........
 gg.........
 """), THORN)
-icon("weapons/thorn/orb.png", grid("""
+ORB = grid("""
 ....t....
 ...tg....
 .t.gGg.t.
@@ -407,7 +130,22 @@ tgGGrGGgt
 .t.gGg.t.
 ....gt...
 ....t....
-"""), THORN)
+""")
+
+
+def orb_frame(f):
+    """A glint runs round the thorn tips, one quadrant per frame; the core throbs."""
+    rows = [list(r) for r in ORB]
+    for y, row in enumerate(rows):
+        for x, c in enumerate(row):
+            if c in "tT" and int((math.atan2(y - 4, x - 4) + math.pi) / (math.pi / 2)) % 4 == f:
+                row[x] = "w"
+            elif c == "r" and f in (1, 2):
+                row[x] = "R"
+    return ["".join(r) for r in rows]
+
+
+strip("weapons/thorn/orb.png", [orb_frame(f) for f in range(4)], THORN)
 
 # ---------------------------------------------------------------- items
 
@@ -577,21 +315,312 @@ def recolor(src, dst, mapping, cols=(0, 1, 2, 3)):
     out.save(OUT + dst)
 
 
-# Lily: hair e1b975 ba895b fbe568, bow 9d466e c94d82 e275a4, dress 044669 045886 036ca8 04354e.
-# Shy: hair 6785d1 aebee8 c7ccf1 4e71c8, scarf ca2635 c93c49 c94e51.
+# Shy keeps her Godot sheet; every other character is drawn in tools/characters.lua.
 recolor("player/shy.png", "player/shy_walk.png", {}, cols=(2, 3, 4, 5))
-recolor("player/woman.png", "player/ivy.png", {
-    "e1b975": "6ab04c", "ba895b": "3a8f35", "fbe568": "9ad86a",  # hair
-    "9d466e": "c8743a", "c94d82": "ffb03a", "e275a4": "ffe07a",  # bow becomes a marigold
-    "044669": "6a3418", "045886": "8a4a26", "036ca8": "a86a3a", "04354e": "4a2410",  # dress
-})
-recolor("player/woman.png", "player/rowan.png", {
-    "e1b975": "c8482a", "ba895b": "8a2a1a", "fbe568": "f07a4a",
-    "9d466e": "2a6a8a", "c94d82": "3aa0c8", "e275a4": "8ae0ff",
-    "044669": "2a5a2a", "045886": "3a7a3a", "036ca8": "5aa04a", "04354e": "1a3a1a",
-})
-recolor("player/shy.png", "player/nyx.png", {
-    "6785d1": "4a2e6a", "aebee8": "7a4ea0", "c7ccf1": "a07ac8", "4e71c8": "2e1a48",
-    "ca2635": "3ac890", "c93c49": "5ae0a8", "c94e51": "2a9a70",
-}, cols=(2, 3, 4, 5))
+# ---------------------------------------------------------------- chests
+
+# Frames: closed wood, closed gold (the guardian's free reward), opened.
+CHEST_CLOSED = grid("""
+...wwwwwwwwwwwwww...
+..wWWhWWWWWWWWWWWw..
+.wWWMMWWWWWWWWMMWWw.
+.wWWMMWWWWWWWWMMWWw.
+.wwwMMwwwwwwwwMMwww.
+.mmmmmmmmyYYymmmmmm.
+.dwwMMwwwyYkywMMwwd.
+.dWWMMWWWyyyyWMMWWd.
+.dWWMMWWWWWWWWMMWWd.
+.dwwMMwwwwwwwwMMwwd.
+.dWWMMWWWWWWWWMMWWd.
+.dddmmddddddddmmddd.
+""")
+CHEST_OPEN = grid("""
+...wwwwwwwwwwwwww...
+..wWWMMWWWWWWWMMWw..
+.wWWWMMWWWWWWWMMWWw.
+.wwwwMMwwwwwwwMMwww.
+.mkkkkkkkkkkkkkkkkm.
+.mkkkkkkkkkkkkkkkkm.
+.mmmmmmmmyYYymmmmmm.
+.dwwMMwwwyYkywMMwwd.
+.dWWMMWWWyyyyWMMWWd.
+.dWWMMWWWWWWWWMMWWd.
+.dwwMMwwwwwwwwMMwwd.
+.dWWMMWWWWWWWWMMWWd.
+.dddmmddddddddmmddd.
+""")
+WOOD = pal(o="2a1610", W="b4683a", w="8f4f2c", d="66391f", h="d88a52", M="9aa4b8", m="5c6478", Y="ffd23a", y="c88a1c", k="2a1a14", f="2a1610")
+GOLD = pal(o="3a2a0a", W="ffd23a", w="e0a02a", d="a8661a", h="fff4a8", M="ffffff", m="c8d0e0", Y="7cf7ff", y="2a9ad0", k="1a2a4a", f="3a2a0a")
+chest = Image.new("RGBA", (48 * 3, 48), (0, 0, 0, 0))
+for i, (g, p) in enumerate([(CHEST_CLOSED, WOOD), (CHEST_CLOSED, GOLD), (CHEST_OPEN, WOOD)]):
+    chest.alpha_composite(cell(g, p), (i * 48, 0))
+chest.save(OUT + "drops/chest/chest.png")
+
+
+# ---------------------------------------------------------------- world: portal
+
+
+def lerp(a, b, t):
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(len(a)))
+
+
+# Water is drawn in tools/terrain.lua.
+
+
+# Trees live in tools/trees.lua (Aseprite).
+import random
+BAYER = [[0, 2], [3, 1]]
+def ramp(*cs):
+    return [hexrgb(c) for c in cs]
+
+
+def shade(rmp, light, x, y):
+    light += (BAYER[y % 2][x % 2] - 1.5) * 0.05
+    return rmp[max(0, min(len(rmp) - 1, int(light * len(rmp))))]
+
+
+
+# Portal: a giant lily opened flat on the ground, seen at 3/4, a swirling pool in its heart.
+# Frames 0-2 corrupted (wilted violet petals with thorns, violet vortex, sparks),
+# 3-5 purified (white petals blushing pink, golden stamens, teal pool, pollen motes).
+# The petals sway a pixel over the three frames.
+def portal(frame, pure):
+    img = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
+    px = img.load()
+    swirl = ramp(*(("1e3a4a", "2a9aa8", "6ae0d0", "e8fff4") if pure else ("1a0a24", "4a1a6a", "8a2ab0", "e070ff")))
+    petal = ramp(*(("c06a98", "e8a8c8", "f6dcea", "fff8fc", "ffffff") if pure else ("1e0e2a", "3a1a4e", "5a2a70", "7a3a8e", "a050b0")))
+    cx, cy = 24, 31
+    sway = (0, 1, 0)[frame] if pure else (0, 1, -1)[frame]
+
+    def blob(x0, y0, r, color):
+        for y in range(int(y0 - r) - 1, int(y0 + r) + 2):
+            for x in range(int(x0 - r) - 1, int(x0 + r) + 2):
+                if 0 <= x < 48 and 0 <= y < 48 and (x + 0.5 - x0) ** 2 + (y + 0.5 - y0) ** 2 <= r * r:
+                    px[x, y] = color
+
+    def draw_petal(ang):
+        back = math.sin(ang) < 0
+        reach, ground = (19, 7) if back else (16, 10)  # front petals start at the pool's rim so it shows
+        bx, by = cx + math.cos(ang) * ground, cy + math.sin(ang) * ground * 0.6
+        lift = 9 if back else 1  # back petals stand up, front ones lie open
+        tx = cx + math.cos(ang) * reach + sway * (1 if math.cos(ang) > 0 else -1)
+        ty = cy + math.sin(ang) * reach * 0.55 - lift + (0 if pure else 3)  # wilted tips droop
+        for s in range(18):
+            t = s / 17
+            x = bx + (tx - bx) * t
+            y = by + (ty - by) * t - math.sin(t * math.pi) * (3 if back else 1)
+            w = (3.6 if back else 3.0) * math.sin(math.pi * min(1.0, t * 1.1) ** 0.75) + 0.4
+            light = 0.25 + t * 0.6 - (0.2 if not back else 0) + (0.1 if math.cos(ang) < 0 else 0)
+            blob(x, y, w, shade(petal, light, int(x), int(y)))
+        for s in range(4, 15):  # midrib
+            t = s / 17
+            x, y = bx + (tx - bx) * t, by + (ty - by) * t - math.sin(t * math.pi) * (3 if back else 1)
+            px[int(x), int(y)] = petal[1] if pure else hexrgb("b040c0")
+        if pure:
+            px[int(tx), int(ty)] = hexrgb("f080b0")  # blushing tip
+        else:  # thorn on the tip
+            px[int(tx), int(ty) - 1] = hexrgb("120818")
+            px[int(tx), int(ty) - 2] = hexrgb("120818")
+
+    angles = [k * 2 * math.pi / 8 + math.pi / 8 for k in range(8)]
+    for ang in sorted(angles, key=math.sin):  # back petals first
+        if math.sin(ang) < 0:
+            draw_petal(ang)
+    rx, ry = 10, 5.5
+    for y in range(48):
+        for x in range(48):
+            dx, dy = (x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry
+            d = (dx * dx + dy * dy) ** 0.5
+            if d <= 1:
+                a = math.atan2(dy, dx)
+                band = (a * 2 / math.pi + d * 3 - frame * 0.67) % 2  # spiral arms turning each frame
+                level = 0 if d < 0.25 else 1 + int(band > 1.2) + int(band > 1.75)
+                px[x, y] = swirl[1 if d > 0.85 else level]
+    for k in range(7):  # stamens on stalks round the back rim, or thorns
+        a = math.pi + (k + 0.5) * math.pi / 7
+        sx, sy = int(cx + math.cos(a) * 8), int(cy + math.sin(a) * 4)
+        h = 4 + (k % 2) * 2
+        for y in range(sy - h, sy):
+            px[sx, y] = hexrgb("b8d878") if pure else hexrgb("2a1236")
+        px[sx, sy - h - 1] = hexrgb("ffd23a") if pure else hexrgb("e070ff")
+        if pure:
+            px[sx + 1, sy - h - 1] = hexrgb("f0a020")
+    for ang in sorted(angles, key=math.sin):
+        if math.sin(ang) >= 0:
+            draw_petal(ang)
+    r = random.Random(frame)
+    for i in range(7):  # pollen / sparks drifting up out of the pool
+        mx = cx + r.uniform(-9, 9)
+        my = cy - 3 - ((i * 5 + frame * 4) % 24)
+        px[int(mx), int(my)] = hexrgb("fff2a8") if pure else swirl[2 + (i % 2)]
+        if not pure and i % 3 == 0:
+            px[int(mx) + 1, int(my) + 1] = swirl[1]
+    outline(img, hexrgb("2a1a2a") if pure else hexrgb("0c0612"))
+    return img
+portals = Image.new("RGBA", (48 * 6, 48), (0, 0, 0, 0))
+for i in range(6):
+    portals.alpha_composite(portal(i % 3, i >= 3), (i * 48, 0))
+portals.save(OUT + "world/portal.png")
+
+
+# ---------------------------------------------------------------- pickups
+# drops/pickups.png: 16 px cells, a row per kind (main.cpp PICKUP_ROW), four animation
+# frames: exp seeds small/medium/large, magnet, feather (speed), seed bomb, gold, silver, heart berry.
+def seed_frames(rmp, rx, ry):
+    frames = []
+    for f in range(4):
+        img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+        px = img.load()
+        cx, cy = 8, 9.5
+        for y in range(16):
+            for x in range(16):
+                dx, dy = (x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry
+                if dy < 0:
+                    dx *= 1 + (-dy) * 0.5  # teardrop: narrower at the top
+                if dx * dx + dy * dy <= 1:
+                    px[x, y] = shade(rmp, 0.62 - dx * 0.35 - dy * 0.3 - (dx * dx + dy * dy) * 0.2, x, y)
+        top = int(cy - ry)
+        px[8, top - 1], px[9, top - 2], px[10, top - 2] = hexrgb("4a8a3a"), hexrgb("6ac04a"), hexrgb("a8e06a")  # sprout
+        hx, hy = int(cx - rx * 0.4), int(cy - ry * 0.35)
+        if f < 2:
+            px[hx, hy] = hexrgb("ffffff")
+        if f == 1 and rx > 3:  # a glint on the second frame
+            for ox, oy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                px[hx + ox, hy + oy] = rmp[-1]
+        outline(img, tuple(max(0, v - 30) for v in rmp[0][:3]) + (255,))
+        frames.append(img)
+    return frames
+
+
+def grid_frames(art, p, n=4):
+    return [icon_img(grid(art[f % len(art)]), p) for f in range(n)]
+
+
+MAGNET = ["""
+..rrrrrr..
+.rRRRRRRr.
+rRRrrrrRRr
+rRr....rRr
+rRr....rRr
+rRr....rRr
+wWw....wWw
+wWw....wWw
+""", """
+..rrrrrr..
+.rRRRRRRr.
+rRRrrrrRRr
+rRr....rRr
+rRr....rRr
+rRr....rRr
+WWw....WWw
+wWw....wWw
+"""]
+FEATHER = ["""
+.......wWW
+.....wwWWb
+....wWWbb.
+...wWWbb..
+..wWWbb...
+.wWbbb....
+.Wbb......
+s.........
+""", """
+.......wWW
+.....wWWWb
+....wWWbb.
+...wWbbb..
+..wWWbb...
+.wWbbb....
+.Wbb......
+s.........
+"""]
+BOMB = ["""
+.....y.
+....f..
+...f...
+.kkkkk.
+kKKkkkk
+kKkkkkk
+kkkkkkd
+kkkkkdd
+.kkddd.
+""", """
+....y.Y
+....f..
+...f...
+.kkkkk.
+kKKkkkk
+kKkkkkk
+kkkkkkd
+kkkkkdd
+.kkddd.
+""", """
+.....Y.
+....f..
+...f...
+.kkkkk.
+kKKkkkk
+kKkkkkk
+kkkkkkd
+kkkkkdd
+.kkddd.
+"""]
+HEART = ["""
+...ll..
+..lL...
+.RR.RR.
+RWRRRRR
+RRRRRRR
+RRRRRRd
+.RRRRd.
+..RRd..
+...d...
+""", """
+...ll..
+..lL...
+.RR.RR.
+RRRRRRR
+RWRRRRR
+RRRRRRd
+.RRRRd.
+..RRd..
+...d...
+"""]
+
+
+def coin_frames(rmp):
+    frames = []
+    for w in (7, 5, 1.5, 5):  # spinning: face, turning, edge, turning
+        img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+        px = img.load()
+        for y in range(16):
+            for x in range(16):
+                dx, dy = (x + 0.5 - 8) / (w / 2), (y + 0.5 - 8) / 3.6
+                if dx * dx + dy * dy <= 1:
+                    px[x, y] = shade(rmp, 0.6 - dx * 0.2 - dy * 0.3, x, y)
+                    if w > 4 and 0.45 < dx * dx + dy * dy < 0.75:
+                        px[x, y] = rmp[1]  # rim
+        if w > 4:
+            px[7, 6], px[7, 7] = rmp[-1], rmp[-1]
+        outline(img, tuple(max(0, v - 30) for v in rmp[0][:3]) + (255,))
+        frames.append(img)
+    return frames
+
+
+PICKUPS = [
+    seed_frames(ramp("2a7a3a", "3e9a3e", "6ac04a", "a8e06a", "e0ffc0"), 2.6, 3.2),  # exp, small
+    seed_frames(ramp("1e4a8a", "2a6ac8", "4a9ae8", "8ac8ff", "e0f4ff"), 3.4, 4.0),  # exp, medium
+    seed_frames(ramp("7a2a8a", "b04ac8", "d880f0", "f0b8ff", "fff0ff"), 4.2, 4.8),  # exp, large
+    grid_frames(MAGNET, pal(o="2a0e12", r="a02a2a", R="e0484a", w="a8b0c0", W="ffffff")),
+    grid_frames(FEATHER, pal(o="12283a", w="8ad0ff", W="e0f6ff", b="4a8ad0", s="2a4a6a")),
+    grid_frames(BOMB, pal(o="0e0a10", k="3a3048", K="6a6080", d="241c2c", f="c8a070", y="ffd23a", Y="ff6a2a")),
+    coin_frames(ramp("8a5a10", "c88a1c", "ffd23a", "fff0a0", "ffffff")),  # gold
+    coin_frames(ramp("4a5060", "7a8498", "b8c0d0", "e8ecf4", "ffffff")),  # silver
+    grid_frames(HEART, pal(o="3a0a14", R="e83a4a", W="ffc0c8", d="a01e2e", l="6ac04a", L="3e9a3e")),
+]
+pickups = Image.new("RGBA", (16 * 4, 16 * len(PICKUPS)), (0, 0, 0, 0))
+for row, frames in enumerate(PICKUPS):
+    for col, f in enumerate(frames):
+        pickups.alpha_composite(f, (col * 16, row * 16))
+pickups.save(OUT + "drops/pickups.png")
 print("sprites ok")
