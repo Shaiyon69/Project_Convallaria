@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NativeActivity app: no Java code, the game is lib/<abi>/libmain.so (see tools/apk.sh). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.shaiyon.convallaria" android:versionCode="1" android:versionName="1.0">
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+    <application android:label="Convallaria" android:icon="@mipmap/icon" android:hasCode="false"
+        android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+        <activity android:name="android.app.NativeActivity" android:exported="true"
+            android:screenOrientation="sensorLandscape" android:launchMode="singleTask"
+            android:configChanges="orientation|keyboardHidden|screenSize|screenLayout|uiMode">
+            <meta-data android:name="android.app.lib_name" android:value="main" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

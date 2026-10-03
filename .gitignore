@@ -2,3 +2,4 @@ build/
 CLAUDE.md
 dist/
 build-web/
+build-android/

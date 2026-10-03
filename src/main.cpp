@@ -23,6 +23,10 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
+#ifdef __ANDROID__
+#include <android_native_app_glue.h>
+extern "C" struct android_app* GetAndroidApp();  // raylib's, not in raylib.h
+#endif
 
 namespace {
 
@@ -41,6 +45,9 @@ int rndi(int n) { return std::uniform_int_distribution<int>(0, n - 1)(rng); }
 
 // A shipped build keeps assets/ beside the exe; a dev build falls back to the checkout.
 const char* asset(const char* path) {
+#ifdef __ANDROID__
+    return path;  // raylib reads these from the APK's assets/
+#endif
     static std::string dir = DirectoryExists(TextFormat("%sassets", GetApplicationDirectory())) ? TextFormat("%sassets", GetApplicationDirectory()) : ASSET_DIR;
     return TextFormat("%s/%s", dir.c_str(), path);
 }
@@ -213,6 +220,9 @@ std::vector<std::string> addStats(Profile& pr, const int* run) {
 }
 
 std::filesystem::path savePath() {
+#ifdef __ANDROID__
+    return std::filesystem::path(GetAndroidApp()->activity->internalDataPath) / "save.txt";
+#endif
     const char* base = getenv("APPDATA");
     if (!base) base = getenv("HOME");
     return (base ? std::filesystem::path(base) / "Convallaria" : std::filesystem::path(".")) / "save.txt";

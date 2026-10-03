@@ -9,6 +9,8 @@ endif()
 
 if(EMSCRIPTEN)
   set(PLATFORM Web CACHE STRING "" FORCE)
+elseif(ANDROID)
+  set(PLATFORM Android CACHE STRING "" FORCE)
 endif()
 
 include(FetchContent)
@@ -18,10 +20,20 @@ FetchContent_Declare(raylib
   URL https://github.com/raysan5/raylib/archive/refs/tags/5.5.tar.gz)
 FetchContent_MakeAvailable(raylib)
 
-add_executable(convallaria src/main.cpp)
+if(ANDROID)
+  # Android loads the game as libmain.so from a NativeActivity; tools/apk.sh packs it with assets/.
+  add_library(convallaria SHARED src/main.cpp)
+  set_target_properties(convallaria PROPERTIES OUTPUT_NAME main)
+  target_include_directories(convallaria PRIVATE ${ANDROID_NDK}/sources/android/native_app_glue)
+  target_link_options(convallaria PRIVATE -u ANativeActivity_onCreate)
+else()
+  add_executable(convallaria src/main.cpp)
+endif()
 target_link_libraries(convallaria PRIVATE raylib)
 # Assets come from assets/ beside the exe when present (shipped builds), else from the repo.
-if(EMSCRIPTEN)
+if(ANDROID)
+  target_compile_definitions(convallaria PRIVATE ASSET_DIR="")
+elseif(EMSCRIPTEN)
   # Browser build (also the phone version): assets packed into index.data, saves kept in IndexedDB.
   target_compile_definitions(convallaria PRIVATE ASSET_DIR="/assets")
   set_target_properties(convallaria PROPERTIES OUTPUT_NAME index SUFFIX ".html")
