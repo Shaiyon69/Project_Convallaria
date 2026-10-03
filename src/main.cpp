@@ -35,7 +35,11 @@ float rnd() { return std::uniform_real_distribution<float>(0.f, 1.f)(rng); }
 float rndr(float a, float b) { return a + (b - a) * rnd(); }
 int rndi(int n) { return std::uniform_int_distribution<int>(0, n - 1)(rng); }
 
-const char* asset(const char* path) { return TextFormat("%s/%s", ASSET_DIR, path); }
+// A shipped build keeps assets/ beside the exe; a dev build falls back to the checkout.
+const char* asset(const char* path) {
+    static std::string dir = DirectoryExists(TextFormat("%sassets", GetApplicationDirectory())) ? TextFormat("%sassets", GetApplicationDirectory()) : ASSET_DIR;
+    return TextFormat("%s/%s", dir.c_str(), path);
+}
 float db(float d) { return powf(10.f, d / 20.f); }
 
 int expForLevel(int level) { return int(15 + (level * 10) * (level * 0.4)); }

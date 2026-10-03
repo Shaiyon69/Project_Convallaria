@@ -16,8 +16,8 @@ FetchContent_MakeAvailable(raylib)
 
 add_executable(convallaria src/main.cpp)
 target_link_libraries(convallaria PRIVATE raylib)
-# Assets are read from the repo, so run the exe from anywhere.
+# Assets come from assets/ beside the exe when present (shipped builds), else from the repo.
 target_compile_definitions(convallaria PRIVATE ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets")
 if(MINGW)
-  target_link_options(convallaria PRIVATE -static)
+  target_link_options(convallaria PRIVATE -static -mwindows)  # no console window for players
 endif()
