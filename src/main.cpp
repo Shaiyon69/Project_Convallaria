@@ -20,6 +20,10 @@
 
 #include "data.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 namespace {
 
 constexpr int SCREEN_W = 1280, SCREEN_H = 720;
@@ -94,7 +98,7 @@ Sound loadClip(const char* path, float from, float to) {
 }
 
 struct Assets {
-    Texture2D characters[CHARACTER_COUNT], enemySprites[ENEMY_TYPE_COUNT], bossSprites[BOSS_COUNT], ratKing, thorn, slime, ratman, guardian, portal, pickups, projectile, aura, title, chest;
+    Texture2D characters[CHARACTER_COUNT], enemySprites[ENEMY_TYPE_COUNT], bossSprites[BOSS_COUNT], ratKing, thorn, slime, ratman, guardian, portal, pickups, projectile, aura, title, chest, padRing, padKnob;
     Texture2D water, grass, soil, tree, titleBg, menuButton, weaponSlot, hud, weaponIcons[WEAPON_COUNT], itemIcons[ITEM_COUNT];
     Texture2D slash, pod, bramble;
     Sfx orb, levelup, hurt, wandShot, enemyShot, slimeHit, slimeDeath, ratmanDeath, win, hover, click;
@@ -125,6 +129,7 @@ void loadAssets() {
     A.projectile = LoadTexture(asset("weapons/wand/projectile.png"));
     A.aura = LoadTexture(asset("weapons/poison/poison_radius..png"));
     A.chest = LoadTexture(asset("drops/chest/chest.png"));
+    A.padRing = LoadTexture(asset("player/JoystickSplitted.png")), A.padKnob = LoadTexture(asset("player/SmallHandleFilled.png"));
     A.water = LoadTexture(asset("world/water.png"));
     A.grass = LoadTexture(asset("world/grass.png"));
     A.soil = LoadTexture(asset("world/soil.png"));
@@ -262,6 +267,9 @@ Profile loadProfile(const std::filesystem::path& path) {
 
 void save() {
     if (!saveProfile(profile, savePath())) TraceLog(LOG_WARNING, "Could not write save file %s", savePath().string().c_str());
+#ifdef __EMSCRIPTEN__
+    EM_ASM(FS.syncfs(false, function() {}););  // flush to IndexedDB
+#endif
 }
 
 int upgradeCost(const Profile& pr, int i) {
@@ -1387,12 +1395,23 @@ void openChest(Game& g, int i) {
     grantItem(g, rollItem());
 }
 
+// The E key: open a chest, or summon a guardian at / step through a portal.
+void interact(Game& g) {
+    int c = nearChest(g), i = nearPortal(g);
+    if (c >= 0) openChest(g, c);
+    else if (i >= 0 && g.portals[i].state == Portal::CORRUPTED) summonGuardian(g, i);
+    else if (i >= 0) startFloor(g, g.floor + 1, g.p, g.runTime);
+}
+
+Vector2 touchMove{};  // the on-screen joystick, set by touchControls
+
 void updatePlayer(Game& g, float dt) {
     Player& p = g.p;
     p.time += dt;
     g.runTime += dt;
     Vector2 in = {float(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) - float(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)),
                   float(IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) - float(IsKeyDown(KEY_W) || IsKeyDown(KEY_UP))};
+    in = Vector2Add(in, touchMove);
     if (Vector2Length(in) > 1) in = Vector2Normalize(in);
     p.moving = in.x != 0 || in.y != 0;
     if (p.moving) {
@@ -2418,6 +2437,50 @@ struct Ui {
     Vector2 scroll{}, dir{1, 0}, target{1, 0};
 } ui;
 
+// Touch screens (the web build on phones): a joystick wherever a finger lands on the left
+// half, and a USE button for the E key. Taps on menus already arrive as left clicks.
+// ponytail: raylib's web touch-end drops the last touch slot, not always the lifted finger,
+// so with two fingers down the stick can lag until both lift; track ids ourselves if it bites.
+struct TouchPad { bool on = false; int id = -1; Vector2 base{}, at{}; std::vector<int> held; } pad;
+constexpr float PAD_R = 70;
+Rectangle useRect() { return {ui.w - 210, ui.h - 220, 160, 160}; }
+
+void touchControls(Game& g) {
+    float k = ui.w / GetScreenWidth();
+    std::vector<int> now;
+    bool stick = false;
+    for (int i = 0; i < GetTouchPointCount(); i++) {
+        int id = GetTouchPointId(i);
+        Vector2 at = Vector2Scale(GetTouchPosition(i), k);
+        bool fresh = std::find(pad.held.begin(), pad.held.end(), id) == pad.held.end();
+        now.push_back(id), pad.on = true;
+        if (id == pad.id) pad.at = at, stick = true;
+        else if (fresh && g.mode == Mode::Play) {
+            if (CheckCollisionPointRec(at, useRect())) interact(g);
+            else if (pad.id < 0 && at.x < ui.w / 2 && at.y > 90) pad.id = id, pad.base = pad.at = at, stick = true;
+        }
+    }
+    if (!stick) pad.id = -1;
+    pad.held = now;
+    Vector2 d = Vector2Scale(Vector2Subtract(pad.at, pad.base), 1 / PAD_R);
+    touchMove = pad.id >= 0 && g.mode == Mode::Play && Vector2Length(d) > 0.2f ? Vector2ClampValue(d, 0, 1) : Vector2{};
+}
+
+void drawTouchPad(const Game& g) {
+    if (!pad.on || g.mode != Mode::Play) return;
+    if (pad.id >= 0) {
+        Vector2 knob = Vector2Add(pad.base, Vector2Scale(touchMove, PAD_R));
+        DrawTexturePro(A.padRing, {0, 0, 356, 356}, {pad.base.x - PAD_R, pad.base.y - PAD_R, 2 * PAD_R, 2 * PAD_R}, {}, 0, Fade(WHITE, 0.7f));
+        DrawTexturePro(A.padKnob, {0, 0, 100, 100}, {knob.x - 28, knob.y - 28, 56, 56}, {}, 0, Fade(WHITE, 0.8f));
+    }
+    if (nearChest(g) < 0 && nearPortal(g) < 0) return;
+    Rectangle r = useRect();
+    Vector2 c = {r.x + r.width / 2, r.y + r.height / 2};
+    DrawCircleV(c, r.width / 2 - 8, Fade(BLACK, 0.35f));
+    DrawTexturePro(A.padRing, {0, 0, 356, 356}, r, {}, 0, WHITE);
+    text("USE", c.x, c.y - 18, 28, WHITE, true, 4);
+}
+
 float roundness(Rectangle r, float radius) { return std::min(1.f, 2 * radius / std::min(r.width, r.height)); }
 Color gray(float v, float a) { return {uint8_t(v * 255), uint8_t(v * 255), uint8_t(v * 255), uint8_t(a * 255)}; }
 
@@ -2519,7 +2582,7 @@ void toTitle(Game& g) {
 void openShop(Game& g) {
     g.mode = Mode::Shop;
     ui.hint = "Prepare for your journey.";
-    playMusic("ui/shopping.wav", -8);
+    playMusic("ui/shopping.ogg", -8);
 }
 
 // ui/options.tscn: three volume sliders and BACK.
@@ -2819,6 +2882,7 @@ void drawHud(Game& g) {
 
     if (imageButton(50, {w - 114.8f, 4.2f, 108.3f, 40.6f}, "PAUSE", 14.6f) && (g.mode == Mode::Play || g.mode == Mode::Paused))
         g.mode = g.mode == Mode::Play ? Mode::Paused : Mode::Play;
+    drawTouchPad(g);
 }
 
 constexpr float CARD_W = 264, CARD_H = 320, CARD_GAP = 36, CARD_TOP = 150;  // cards span ui.h / 2 - CARD_TOP down
@@ -2983,6 +3047,7 @@ void drawOverlay(Game& g) {
 }
 
 void handleInput(Game& g) {
+    touchControls(g);
     if (ui.options) return;  // optionsScreen handles its own input
     switch (g.mode) {
         case Mode::Title:
@@ -2991,12 +3056,7 @@ void handleInput(Game& g) {
         case Mode::Shop: break;  // shopScreen handles its own input
         case Mode::Play:
             if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) g.mode = Mode::Paused;
-            if (IsKeyPressed(KEY_E)) {
-                int c = nearChest(g), i = nearPortal(g);
-                if (c >= 0) openChest(g, c);
-                else if (i >= 0 && g.portals[i].state == Portal::CORRUPTED) summonGuardian(g, i);
-                else if (i >= 0) startFloor(g, g.floor + 1, g.p, g.runTime);
-            }
+            if (IsKeyPressed(KEY_E)) interact(g);
             break;
         case Mode::Paused:
             if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) g.mode = Mode::Play;
@@ -3317,6 +3377,12 @@ int main(int argc, char** argv) {
     InitAudioDevice();
     SetExitKey(KEY_NULL);
     loadAssets();
+#ifdef __EMSCRIPTEN__
+    // The browser build keeps its save in IndexedDB; wait for it to load.
+    EM_ASM(FS.mkdirTree('/home/web_user/Convallaria'); FS.mount(IDBFS, {}, '/home/web_user/Convallaria');
+           Module.synced = 0; FS.syncfs(true, function() { Module.synced = 1; }););
+    while (!EM_ASM_INT(return Module.synced;)) emscripten_sleep(10);
+#endif
     profile = loadProfile(savePath());
     applyVolume();
     playMusic("ui/music.mp3", -8);

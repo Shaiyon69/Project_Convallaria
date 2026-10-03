@@ -305,7 +305,7 @@ constexpr int BOSS_COUNT = int(std::size(BOSSES));
 struct FloorBoss { const char* music; Color color, enragedColor, glow; float speedMult, damageMult, specialWait; };
 constexpr FloorBoss FLOOR_BOSSES[] = {
     {"world/level1.mp3", rgb(0.6f, 0.5f, 0.4f), rgb(0.8f, 0.7f, 0.2f), rgb(1, 0.9f, 0.4f), 1.3f, 1.2f, 6.0f},
-    {"world/level2.wav", rgb(0.4f, 0.2f, 0.6f), rgb(0.8f, 0.2f, 0.8f), rgb(1, 0.4f, 1), 1.5f, 1.3f, 4.5f},
+    {"world/level2.ogg", rgb(0.4f, 0.2f, 0.6f), rgb(0.8f, 0.2f, 0.8f), rgb(1, 0.4f, 1), 1.5f, 1.3f, 4.5f},
     {"world/level3.mp3", rgb(0.8f, 0.2f, 0.2f), rgb(1, 0, 0), rgb(1, 0.4f, 0.2f), 1.8f, 1.4f, 3.5f},
 };
 
